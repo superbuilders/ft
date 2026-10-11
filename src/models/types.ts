@@ -27,8 +27,8 @@ export interface ModelEntry {
 export interface Provider {
     /** Credential source, brokered to Pi as `ft key <provider>`. */
     key: KeySource
-    /** Endpoint root including any version path; required for a custom provider. */
-    baseUrl?: string
+    /** Endpoint root including any version path, or the variable holding it; required for a custom provider. */
+    baseUrl?: string | { env: string }
     /** Wire protocol; required for a custom provider. */
     api?: ProviderApi
     /** Models in Pi's format; required for a custom provider, extra models for a built-in. */

@@ -1,0 +1,279 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": ".ft.json",
+    "type": "object",
+    "required": [
+        "providers",
+        "lanes"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "providers": {
+            "type": "object",
+            "patternProperties": {
+                "^[a-z0-9][a-z0-9-]*$": {
+                    "type": "object",
+                    "required": [
+                        "key"
+                    ],
+                    "properties": {
+                        "key": {
+                            "anyOf": [
+                                {
+                                    "type": "object",
+                                    "required": [
+                                        "env"
+                                    ],
+                                    "properties": {
+                                        "env": {
+                                            "type": "string",
+                                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "type": "object",
+                                    "required": [
+                                        "command"
+                                    ],
+                                    "properties": {
+                                        "command": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "minItems": 1
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            ],
+                            "description": "Where ft reads the credential: {\"env\": \"NAME\"} or {\"command\": [\"argv\", ...]} run at the project root. Never the credential itself."
+                        },
+                        "baseUrl": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                {
+                                    "type": "object",
+                                    "required": [
+                                        "env"
+                                    ],
+                                    "properties": {
+                                        "env": {
+                                            "type": "string",
+                                            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            ],
+                            "description": "Endpoint root including any version path (https://host/v1), or {\"env\": \"NAME\"} holding it. Required for a custom provider; overrides a built-in provider's endpoint."
+                        },
+                        "api": {
+                            "enum": [
+                                "openai-completions",
+                                "mistral-conversations",
+                                "openai-responses",
+                                "azure-openai-responses",
+                                "openai-codex-responses",
+                                "anthropic-messages",
+                                "bedrock-converse-stream",
+                                "google-generative-ai",
+                                "google-vertex",
+                                "pi-messages"
+                            ],
+                            "description": "Wire protocol. Required for a custom provider."
+                        },
+                        "name": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "headers": {
+                            "type": "object",
+                            "patternProperties": {
+                                "^.*$": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "authHeader": {
+                            "type": "boolean"
+                        },
+                        "compat": {
+                            "type": "object",
+                            "patternProperties": {
+                                "^.*$": {}
+                            }
+                        },
+                        "models": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": [
+                                    "id"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "adapter": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "ft adapter that translates this model's traffic (ft ships: sonar). Requires the provider's baseUrl."
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "api": {
+                                        "enum": [
+                                            "openai-completions",
+                                            "mistral-conversations",
+                                            "openai-responses",
+                                            "azure-openai-responses",
+                                            "openai-codex-responses",
+                                            "anthropic-messages",
+                                            "bedrock-converse-stream",
+                                            "google-generative-ai",
+                                            "google-vertex",
+                                            "pi-messages"
+                                        ]
+                                    },
+                                    "baseUrl": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "reasoning": {
+                                        "type": "boolean"
+                                    },
+                                    "thinkingLevelMap": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {}
+                                        }
+                                    },
+                                    "input": {
+                                        "type": "array",
+                                        "items": {
+                                            "enum": [
+                                                "text",
+                                                "image"
+                                            ]
+                                        }
+                                    },
+                                    "inputLimits": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {}
+                                        }
+                                    },
+                                    "cost": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {}
+                                        }
+                                    },
+                                    "promptCache": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {}
+                                        }
+                                    },
+                                    "contextWindow": {
+                                        "type": "number"
+                                    },
+                                    "maxTokens": {
+                                        "type": "number"
+                                    },
+                                    "samplingParams": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {}
+                                        }
+                                    },
+                                    "samplingParamsByThinkingLevel": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {}
+                                        }
+                                    },
+                                    "headers": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "compat": {
+                                        "type": "object",
+                                        "patternProperties": {
+                                            "^.*$": {}
+                                        }
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "minItems": 1,
+                            "description": "Models in Pi's models.json format. Required for a custom provider; extra models for a built-in one."
+                        },
+                        "modelOverrides": {
+                            "type": "object",
+                            "patternProperties": {
+                                "^.*$": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        "^.*$": {}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "description": "Providers by id. A Pi built-in id (anthropic, openai, openrouter, groq, ...) needs only key; any other id is a custom endpoint and needs key, baseUrl, api and models."
+        },
+        "lanes": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": {
+                    "type": "object",
+                    "required": [
+                        "model"
+                    ],
+                    "properties": {
+                        "model": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "provider/model: a configured provider id and one of its model ids."
+                        },
+                        "thinking": {
+                            "enum": [
+                                "off",
+                                "minimal",
+                                "low",
+                                "medium",
+                                "high",
+                                "xhigh",
+                                "max"
+                            ],
+                            "description": "Pi thinking level."
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "description": "Named model choices for ft run --lane. code is the default lane."
+        }
+    },
+    "additionalProperties": false
+}

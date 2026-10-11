@@ -4,13 +4,13 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { findConfig, loadConfig, validateConfig } from './config'
+import { findConfig, loadConfig, resolveBaseUrl, validateConfig } from './config'
 
 const directories: string[] = []
 const gateway = {
     key: { env: 'GATEWAY_KEY' },
     baseUrl: 'https://gateway.test/v1',
-    api: 'openai-completions',
+    api: 'openai-completions' as const,
     compat: { supportsDeveloperRole: false },
     models: [
         { id: 'model-a', reasoning: true },
@@ -47,13 +47,33 @@ describe('config', () => {
         expect(loaded.root).toBe(root)
     })
 
-    it('accepts built-in and custom providers, passing unknown Pi fields through', () => {
+    it('accepts built-in and custom providers, Pi fields, $schema and an env base URL', () => {
         expect(validateConfig(valid)).toEqual(valid)
+
+        const envUrl = {
+            ...valid,
+            $schema: './.ft.schema.json',
+            providers: { gateway: { ...gateway, baseUrl: { env: 'GATEWAY_URL' } } },
+            lanes: { code: valid.lanes.code },
+        }
+
+        expect(validateConfig(envUrl)).toEqual(envUrl)
+    })
+
+    it('reads an env base URL at use time and checks it', () => {
+        const provider = { ...gateway, baseUrl: { env: 'TEST_GATEWAY_URL' } }
+
+        expect(() => resolveBaseUrl('gateway', provider)).toThrow('TEST_GATEWAY_URL is empty or unset')
+        vi.stubEnv('TEST_GATEWAY_URL', 'https://user:pass@gateway.test/v1')
+        expect(() => resolveBaseUrl('gateway', provider)).toThrow('without credentials')
+        vi.stubEnv('TEST_GATEWAY_URL', 'https://gateway.test/v1')
+        expect(resolveBaseUrl('gateway', provider)).toBe('https://gateway.test/v1')
+        expect(resolveBaseUrl('groq', valid.providers.groq)).toBeUndefined()
     })
 
     it.each([
         [{ ...valid, version: '0.1.0' }, 'now live in .ft.lock'],
-        [{ ...valid, extra: true }, 'root'],
+        [{ ...valid, extra: true }, 'extra: not a field ft or Pi reads'],
         [{ providers: valid.providers }, 'lanes'],
         [{ ...valid, providers: { gateway: { ...gateway, key: { command: [] } } } }, 'key'],
         [{ ...valid, providers: { gateway: { ...gateway, key: { env: 'not a name' } } } }, 'key'],

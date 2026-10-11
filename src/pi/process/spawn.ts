@@ -43,7 +43,8 @@ export async function runPi(input: {
         '--provider',
         input.selected.provider,
         '--model',
-        input.selected.model,
+        /* Pi strips exactly one leading "<provider>/", so an id that starts with a provider name stays whole. */
+        `${input.selected.provider}/${input.selected.model}`,
         '--append-system-prompt',
         input.contextPath,
     ]

@@ -3,7 +3,7 @@ import { join, resolve as resolvePath } from 'node:path'
 
 import { FROZEN_SETTINGS } from './constants'
 
-import type { Provider } from '../../models/types'
+import type { AgentProvider } from './types'
 
 /**
  * Quote one shell argument for the command reference in auth.json.
@@ -25,17 +25,18 @@ function selfCommand(): string[] {
 }
 
 /**
- * Translate ft's provider config into Pi's models.json entry, dropping the fields only ft reads.
- * @param provider - configured provider
- * @param baseUrl - where Pi should send requests, when ft's local gateway stands in for the provider
- * @returns Pi's provider entry, empty for a built-in provider with no overrides
+ * Translate ft's provider config into Pi's models.json entry. Pi asks ft for the key through the
+ * entry's command key, the one credential source Pi accepts for every provider, OAuth-only ones included.
+ * @param run - the run's provider
+ * @returns Pi's provider entry, without the fields only ft reads
  */
-function piProvider(provider: Provider, baseUrl?: string): Record<string, unknown> {
-    const { key, models, ...fields } = provider
+function piProvider(run: AgentProvider): Record<string, unknown> {
+    const { key, baseUrl, models, ...fields } = run.provider
 
     return {
         ...fields,
-        ...(baseUrl ? { baseUrl } : {}),
+        ...(run.baseUrl ? { baseUrl: run.baseUrl } : {}),
+        apiKey: `!${[...selfCommand(), 'key', run.id].map(quote).join(' ')}`,
         ...(models ? { models: models.map(({ adapter, ...model }) => model) } : {}),
     }
 }
@@ -43,16 +44,13 @@ function piProvider(provider: Provider, baseUrl?: string): Record<string, unknow
 /**
  * Prepare every shared Pi state file before spawning, configuring only the run's provider.
  * @param dir - per-run directory
- * @param run - the run's provider
- * @param run.id - configured provider id, also Pi's provider id
- * @param run.provider - the provider's config
- * @param run.baseUrl - ft's local gateway, when the run's model has an adapter
+ * @param run - the run's provider and the URL Pi should send its requests to
  * @param context - bounded project instructions
  * @returns private agent and temp paths
  */
 export async function prepareAgent(
     dir: string,
-    run: { id: string; provider: Provider; baseUrl?: string },
+    run: AgentProvider,
     context: string,
 ): Promise<{ agent: string; tmp: string; contextPath: string }> {
     const agent = join(dir, 'agent')
@@ -61,19 +59,10 @@ export async function prepareAgent(
     await mkdir(agent, { mode: 0o700 })
     await mkdir(tmp, { mode: 0o700 })
 
-    const auth = {
-        [run.id]: {
-            type: 'api_key',
-            key: `!${[...selfCommand(), 'key', run.id].map(quote).join(' ')}`,
-        },
-    }
-    const entry = piProvider(run.provider, run.baseUrl)
-    const models = { providers: Object.keys(entry).length > 0 ? { [run.id]: entry } : {} }
-
     for (const [name, contents] of Object.entries({
         'settings.json': FROZEN_SETTINGS,
-        'models.json': models,
-        'auth.json': auth,
+        'models.json': { providers: { [run.id]: piProvider(run) } },
+        'auth.json': {},
         'models-store.json': {},
         'trust.json': {},
     })) {

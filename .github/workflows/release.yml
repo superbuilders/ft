@@ -92,12 +92,17 @@ jobs:
                   path: release-assets
                   merge-multiple: true
 
+            - name: Generate config schema
+              run: |
+                  chmod +x release-assets/ft-linux-x64
+                  release-assets/ft-linux-x64 schema > release-assets/schema.json
+
             - name: Prepare release assets
               run: |
                   cp shim/ft release-assets/ft-shim
                   cp install.sh release-assets/install.sh
                   cd release-assets
-                  sha256sum ft-darwin-arm64 ft-darwin-x64 ft-linux-arm64 ft-linux-x64 ft-shim install.sh > SHA256SUMS
+                  sha256sum ft-darwin-arm64 ft-darwin-x64 ft-linux-arm64 ft-linux-x64 ft-shim install.sh schema.json > SHA256SUMS
 
             - name: Create release
               env:

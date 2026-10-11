@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 
 import { PI_VERSION, TOOL_RELEASES } from '../../pi/runtime/constants'
 import { runtimePaths } from '../../pi/runtime/runtime'
-import { loadConfig } from '../../project/config/config'
+import { loadConfig, resolveBaseUrl } from '../../project/config/config'
 import { getKey } from '../../project/key/key'
 import { cacheRoot, platformTarget } from '../../system/host/host'
 
@@ -36,6 +36,14 @@ export async function doctor(runnerVersion: string): Promise<void> {
     }
 
     for (const [id, provider] of Object.entries(config.config.providers)) {
+        try {
+            const url = resolveBaseUrl(id, provider)
+
+            lines.push(`Provider ${id}: ${url ?? "Pi's built-in endpoint"}`)
+        } catch (error) {
+            lines.push(`Provider ${id}: ${(error as Error).message}`)
+        }
+
         try {
             await getKey(provider.key, config.root)
             lines.push(`Provider ${id}: key ready`)

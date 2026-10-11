@@ -1,6 +1,6 @@
 {
     "$schema": "./node_modules/oxfmt/configuration_schema.json",
-    "ignorePatterns": ["docs/plan.md", "tmp", "dist", "coverage"],
+    "ignorePatterns": ["docs/plan.md", ".ft.schema.json", "tmp", "dist", "coverage"],
     "trailingComma": "all",
     "singleQuote": true,
     "printWidth": 100,

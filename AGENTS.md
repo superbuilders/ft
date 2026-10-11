@@ -103,14 +103,20 @@ upward edge.
 
 ## Configuration
 
-A project has two files at its root. `.ft.json` is written by people: `providers`
-(a Pi built-in provider id with a `key`, or a custom endpoint with `baseUrl`,
-`api`, `key` and Pi-format `models`) and `lanes` (`provider/model` plus optional
-thinking; `code` is the default lane). `.ft.lock` holds the pinned runner version
-and checksums; only `ft pin` writes it, and the shim reads it. Provider and model
-types come from `@earendil-works/pi-ai`, pinned to exactly `PI_VERSION`; a test
-fails if the two drift. A run writes only its own provider into Pi's models.json,
-and Pi asks for the key with `ft key <provider>`.
+A project has three files at its root. `.ft.json` is written by people and
+agents: `providers` (a Pi built-in provider id with a `key`, or a custom endpoint
+with `baseUrl`, `api`, `key` and Pi-format `models`) and `lanes`
+(`provider/model` plus optional thinking; `code` is the default lane). A
+`baseUrl` may be `{"env": "NAME"}` so a public repo need not name a private
+endpoint. `.ft.lock` (version and checksums) and `.ft.schema.json` (the config's
+JSON Schema) come from the pinned release; only `ft pin` writes them, and the
+shim reads the lock. `ft schema` prints the same schema.
+
+The schema in `src/project/config/schema.ts` is strict: every field, Pi's
+included, is named, so a typo fails in ft instead of being ignored by Pi. A type
+test ties the model field names to pi-ai's `Model`, and pi-ai is pinned to
+exactly `PI_VERSION`. A run writes only its own provider into Pi's models.json,
+with `!ft key <provider>` as the key; Pi accepts a key there for every provider.
 
 ## Model adapters
 

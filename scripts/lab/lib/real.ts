@@ -79,14 +79,16 @@ process.stdout.write(output);
     context.env.PATH = process.env.PATH
 
     for (const provider of Object.values(config.providers)) {
-        if ('env' in provider.key) {
-            const value = process.env[provider.key.env]
+        for (const source of [provider.key, provider.baseUrl]) {
+            if (source && typeof source === 'object' && 'env' in source) {
+                const value = process.env[source.env]
 
-            if (!value) {
-                throw new PrerequisiteError(`Key environment variable ${provider.key.env} is unset`)
+                if (!value) {
+                    throw new PrerequisiteError(`Environment variable ${source.env} is unset`)
+                }
+
+                context.env[source.env] = value
             }
-
-            context.env[provider.key.env] = value
         }
     }
 

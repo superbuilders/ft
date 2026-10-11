@@ -12,7 +12,7 @@ import { serveGateway } from '../../pi/gateway/gateway'
 import { filterEnvironment } from '../../pi/process/environment'
 import { runPi } from '../../pi/process/spawn'
 import { installRuntime } from '../../pi/runtime/runtime'
-import { loadConfig } from '../../project/config/config'
+import { loadConfig, resolveBaseUrl } from '../../project/config/config'
 import { collectContext } from '../../project/context/context'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { cacheRoot, platformTarget } from '../../system/host/host'
@@ -48,9 +48,13 @@ function chooseModel(options: RunOptions, config: Config): ModelChoice {
     )
     const adapter = selected.entry?.adapter ? adapterNamed(selected.entry.adapter) : undefined
 
+    const provider = config.providers[selected.provider]
+    const baseUrl = resolveBaseUrl(selected.provider, provider)
+
     return {
         selected,
-        provider: config.providers[selected.provider],
+        provider,
+        ...(baseUrl ? { baseUrl } : {}),
         ...(adapter ? { adapter } : {}),
         tools: adapter?.tools === false ? [] : allowed,
     }
@@ -82,7 +86,7 @@ async function execute(
 
     try {
         const config = await loadConfig(process.cwd())
-        const { selected, provider, adapter, tools } = chooseModel(options, config.config)
+        const { selected, provider, baseUrl, adapter, tools } = chooseModel(options, config.config)
 
         status.provider = selected.provider
         status.model = selected.model
@@ -105,18 +109,18 @@ async function execute(
         await mkdir(join(root, 'runs'), { recursive: true, mode: 0o700 })
         dir = await mkdtemp(join(root, 'runs', 'run-'))
 
-        let baseUrl: string | undefined
+        let target = baseUrl
 
-        if (adapter && provider.baseUrl) {
-            const gateway = serveGateway(provider.baseUrl, adapter)
+        if (adapter && baseUrl) {
+            const gateway = serveGateway(baseUrl, adapter)
 
             stopGateway = gateway.stop
-            baseUrl = gateway.url
+            target = gateway.url
         }
 
         const privatePaths = await prepareAgent(
             dir,
-            { id: selected.provider, provider, ...(baseUrl ? { baseUrl } : {}) },
+            { id: selected.provider, provider, ...(target ? { baseUrl: target } : {}) },
             context,
         )
         const socket = join(dir, 'key.sock')
