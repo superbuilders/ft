@@ -8,7 +8,11 @@ import { run } from './run'
 
 import type { RunOptions } from './types'
 
-const program = new Command().name('ft').version(version)
+declare const FT_BUILD_VERSION: string | undefined
+
+const program = new Command()
+    .name('ft')
+    .version(typeof FT_BUILD_VERSION === 'undefined' ? version : FT_BUILD_VERSION)
 
 program
     .command('key')
