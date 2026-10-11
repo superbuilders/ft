@@ -1,0 +1,12 @@
+{
+    "apiKey": {
+        "env": "TFY_API_KEY"
+    },
+    "version": "0.1.0",
+    "sha256": {
+        "darwin-arm64": "f27007e77495269821c7905ff5747dc5121e1bd2326a5f6e087cbd50f90b5c16",
+        "darwin-x64": "4171c476bbab2c22bb99833154283811951831cb6ec139005cef9cb80b6f6821",
+        "linux-arm64": "1a1854a6420f54e2e4d9da50d02f762fef2f51f7381e8877de0f82b5efbb3d61",
+        "linux-x64": "d65a6bfbb200605fcc53402d589284650ab0b6b66c4e4f2043c96bc97a8fbc03"
+    }
+}
