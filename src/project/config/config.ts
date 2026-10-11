@@ -66,7 +66,9 @@ function schemaProblems(error: TLocalizedValidationError): string[] {
 
         case 'additionalProperties': {
             return error.params.additionalProperties.map(field =>
-                FORBIDDEN_PROVIDER_FIELDS.includes(field as (typeof FORBIDDEN_PROVIDER_FIELDS)[number])
+                FORBIDDEN_PROVIDER_FIELDS.includes(
+                    field as (typeof FORBIDDEN_PROVIDER_FIELDS)[number],
+                )
                     ? `${at(field)}: put credentials in key (env or command), never in config`
                     : `${at(field)}: not a field ft or Pi reads`,
             )
@@ -114,7 +116,9 @@ export function resolveBaseUrl(id: string, provider: Provider): string | undefin
     const value = process.env[provider.baseUrl.env]?.trim()
 
     if (!value) {
-        throw new Error(`providers.${id}.baseUrl: environment variable ${provider.baseUrl.env} is empty or unset`)
+        throw new Error(
+            `providers.${id}.baseUrl: environment variable ${provider.baseUrl.env} is empty or unset`,
+        )
     }
 
     if (!cleanUrl(value)) {
@@ -186,7 +190,7 @@ function providerProblems(id: string, provider: Provider): string[] {
  */
 export function validateConfig(value: unknown): Config {
     if (value && typeof value === 'object' && ('version' in value || 'sha256' in value)) {
-        throw new Error('version and sha256 now live in .ft.lock: remove them and run ft pin')
+        throw new Error('version and sha256 now live in .ft/lock.json: remove them and run ft pin')
     }
 
     let problems: string[]

@@ -208,7 +208,8 @@ export async function configure(context: Context, build: Build, gateway?: string
         },
     }
 
-    await writeFile(join(context.project, '.ft.lock'), JSON.stringify(lock, null, 4))
+    await mkdir(join(context.project, '.ft'), { recursive: true })
+    await writeFile(join(context.project, '.ft/lock.json'), JSON.stringify(lock, null, 4))
     await writeFile(join(context.project, '.ft.json'), JSON.stringify(config, null, 4))
     context.env.FAKE_FIXTURES = build.directory
     context.env.FAKE_VERSION = build.version

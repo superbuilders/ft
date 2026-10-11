@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -56,8 +56,9 @@ process.stdout.write(output);
         ]),
     )
 
+    await mkdir(join(context.project, '.ft'), { recursive: true })
     await writeFile(
-        join(context.project, '.ft.lock'),
+        join(context.project, '.ft/lock.json'),
         JSON.stringify(
             {
                 version: context.build.version,
@@ -167,8 +168,9 @@ export async function realRelease(context: Context, options: Options): Promise<v
         ]),
     )
 
+    await mkdir(join(context.project, '.ft'), { recursive: true })
     await writeFile(
-        join(context.project, '.ft.lock'),
+        join(context.project, '.ft/lock.json'),
         JSON.stringify({ version: options.version, sha256: hashes }, null, 4),
     )
     await writeFile(join(context.project, '.ft.json'), '{}')

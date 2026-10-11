@@ -12,7 +12,7 @@ export interface Config {
 }
 
 /**
- * The project's `.ft.lock`: the pinned runner, read by the shim before ft starts.
+ * The project's `.ft/lock.json`: the pinned runner, read by the shim before ft starts.
  */
 export interface Lock {
     /** Exact release version; never a floating tag. */

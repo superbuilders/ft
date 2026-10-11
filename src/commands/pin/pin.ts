@@ -17,7 +17,18 @@ import type { Lock } from '../../project/config/types'
  * @returns the asset's text
  */
 function releaseAsset(version: string, asset: string): Promise<string> {
-    return commandOutput(['gh', 'release', 'download', `v${version}`, '-R', 'superbuilders/ft', '-p', asset, '-O', '-'])
+    return commandOutput([
+        'gh',
+        'release',
+        'download',
+        `v${version}`,
+        '-R',
+        'superbuilders/ft',
+        '-p',
+        asset,
+        '-O',
+        '-',
+    ])
 }
 
 /**

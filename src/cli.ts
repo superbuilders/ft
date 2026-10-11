@@ -26,7 +26,7 @@ program
     .action(async (options: RunOptions) => {
         process.exitCode = await run(options)
     })
-program.command('pin <version>').description('Pin a runner release in .ft.lock').action(pin)
+program.command('pin <version>').description('Pin a runner release in .ft/lock.json').action(pin)
 program.command('schema').description('Print the JSON Schema for .ft.json').action(schema)
 program
     .command('doctor')

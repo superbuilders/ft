@@ -203,7 +203,7 @@ describe('lab contract', () => {
             await configure(context, context.build, 'http://127.0.0.1:1')
             await writeFile(context.build.binary, 'real bytes')
 
-            const lock = JSON.parse(await readFile(join(context.project, '.ft.lock'), 'utf8'))
+            const lock = JSON.parse(await readFile(join(context.project, '.ft/lock.json'), 'utf8'))
             const capture = await start(
                 context,
                 [

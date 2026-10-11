@@ -103,14 +103,14 @@ upward edge.
 
 ## Configuration
 
-A project has three files at its root. `.ft.json` is written by people and
-agents: `providers` (a Pi built-in provider id with a `key`, or a custom endpoint
+A project has `.ft.json` and a `.ft/` folder at its root. `.ft.json` is written
+by people and agents: `providers` (a Pi built-in provider id with a `key`, or a custom endpoint
 with `baseUrl`, `api`, `key` and Pi-format `models`) and `lanes`
 (`provider/model` plus optional thinking; `code` is the default lane). A
 `baseUrl` may be `{"env": "NAME"}` so a public repo need not name a private
-endpoint. `.ft.lock` (version and checksums) and `.ft.schema.json` (the config's
-JSON Schema) come from the pinned release; only `ft pin` writes them, and the
-shim reads the lock. `ft schema` prints the same schema.
+endpoint. `.ft/lock.json` (version and checksums) and `.ft/schema.json` (the
+config's JSON Schema) come from the pinned release; only `ft pin` writes them,
+and the shim reads the lock. `ft schema` prints the same schema.
 
 The schema in `src/project/config/schema.ts` is strict: every field, Pi's
 included, is named, so a typo fails in ft instead of being ignored by Pi. A type

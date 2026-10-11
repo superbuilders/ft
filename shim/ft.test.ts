@@ -100,7 +100,11 @@ function executable(path: string, content: string) {
 
 function configure(hashes: Record<string, string> = { [target]: digest(runner) }) {
     writeFileSync(join(project, '.ft.json'), '{}')
-    writeFileSync(join(project, '.ft.lock'), JSON.stringify({ version, sha256: hashes }, null, 4))
+    mkdirSync(join(project, '.ft'), { recursive: true })
+    writeFileSync(
+        join(project, '.ft/lock.json'),
+        JSON.stringify({ version, sha256: hashes }, null, 4),
+    )
 }
 
 function ghCalls() {
@@ -400,7 +404,7 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor']).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain(`no ${join(project, '.ft.lock')} found`)
+        expect(result.stderr).toContain(`no ${join(project, '.ft/lock.json')} found`)
         expect(ghCalls()).toEqual([])
     })
 
@@ -453,7 +457,7 @@ describe.each(shells)('shim via %s', shell => {
     it('rejects unsafe version paths before cache access', async () => {
         configure()
         writeFileSync(
-            join(project, '.ft.lock'),
+            join(project, '.ft/lock.json'),
             JSON.stringify(
                 { version: '../outside', sha256: { [target]: digest(runner) } },
                 null,

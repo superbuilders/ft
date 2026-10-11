@@ -52,7 +52,7 @@ describe('config', () => {
 
         const envUrl = {
             ...valid,
-            $schema: './.ft.schema.json',
+            $schema: './.ft/schema.json',
             providers: { gateway: { ...gateway, baseUrl: { env: 'GATEWAY_URL' } } },
             lanes: { code: valid.lanes.code },
         }
@@ -63,7 +63,9 @@ describe('config', () => {
     it('reads an env base URL at use time and checks it', () => {
         const provider = { ...gateway, baseUrl: { env: 'TEST_GATEWAY_URL' } }
 
-        expect(() => resolveBaseUrl('gateway', provider)).toThrow('TEST_GATEWAY_URL is empty or unset')
+        expect(() => resolveBaseUrl('gateway', provider)).toThrow(
+            'TEST_GATEWAY_URL is empty or unset',
+        )
         vi.stubEnv('TEST_GATEWAY_URL', 'https://user:pass@gateway.test/v1')
         expect(() => resolveBaseUrl('gateway', provider)).toThrow('without credentials')
         vi.stubEnv('TEST_GATEWAY_URL', 'https://gateway.test/v1')
@@ -72,7 +74,7 @@ describe('config', () => {
     })
 
     it.each([
-        [{ ...valid, version: '0.1.0' }, 'now live in .ft.lock'],
+        [{ ...valid, version: '0.1.0' }, 'now live in .ft/lock.json'],
         [{ ...valid, extra: true }, 'extra: not a field ft or Pi reads'],
         [{ providers: valid.providers }, 'lanes'],
         [{ ...valid, providers: { gateway: { ...gateway, key: { command: [] } } } }, 'key'],

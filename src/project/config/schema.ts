@@ -35,7 +35,7 @@ export const ModelSchema = Type.Object(
             Type.String({
                 minLength: 1,
                 description:
-                    'ft adapter that translates this model\'s traffic (ft ships: sonar). Requires the provider\'s baseUrl.',
+                    "ft adapter that translates this model's traffic (ft ships: sonar). Requires the provider's baseUrl.",
             }),
         ),
         name: Type.Optional(Type.String({ minLength: 1 })),
@@ -67,7 +67,9 @@ const ProviderSchema = Type.Object(
             }),
         ),
         api: Type.Optional(
-            Type.Enum(KNOWN_APIS, { description: 'Wire protocol. Required for a custom provider.' }),
+            Type.Enum(KNOWN_APIS, {
+                description: 'Wire protocol. Required for a custom provider.',
+            }),
         ),
         name: Type.Optional(Type.String({ minLength: 1 })),
         headers: Type.Optional(HeadersSchema),
@@ -101,7 +103,7 @@ export const ConfigSchema = Type.Object(
         $schema: Type.Optional(Type.String()),
         providers: Type.Record(Type.String({ pattern: '^[a-z0-9][a-z0-9-]*$' }), ProviderSchema, {
             description:
-                "Providers by id. A Pi built-in id (anthropic, openai, openrouter, groq, ...) needs only key; any other id is a custom endpoint and needs key, baseUrl, api and models.",
+                'Providers by id. A Pi built-in id (anthropic, openai, openrouter, groq, ...) needs only key; any other id is a custom endpoint and needs key, baseUrl, api and models.',
         }),
         lanes: Type.Record(Type.String({ minLength: 1 }), LaneSchema, {
             description: 'Named model choices for ft run --lane. code is the default lane.',

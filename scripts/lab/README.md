@@ -48,7 +48,7 @@ target, build recipe and (only for switch's B) a discriminator. Changed inputs
 cannot silently select an older runner with the same package version. Darwin
 builds run `codesign --force --sign -` before SHA-256 generation. Cached builds
 must still match their manifest and report their baked version. Scratch
-`.ft.lock` pins that real native hash and uses 64 zeros for other targets. Scratch
+`.ft/lock.json` pins that real native hash and uses 64 zeros for other targets. Scratch
 `.ft.json` points a custom `lab` provider and Pi's built-in `groq` provider at the
 loopback model, so both provider kinds are exercised offline.
 

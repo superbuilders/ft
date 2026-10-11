@@ -53,13 +53,13 @@ it("writes the release's checksums, its checked schema, and a starter config", a
     release(createHash('sha256').update(SCHEMA).digest('hex'))
     await pin('0.2.0')
 
-    const lock = JSON.parse(await readFile(join(root, '.ft.lock'), 'utf8'))
+    const lock = JSON.parse(await readFile(join(root, '.ft/lock.json'), 'utf8'))
 
     expect(lock.version).toBe('0.2.0')
     expect(lock.sha256['darwin-arm64']).toBe('0'.repeat(64))
-    expect(await readFile(join(root, '.ft.schema.json'), 'utf8')).toBe(SCHEMA)
+    expect(await readFile(join(root, '.ft/schema.json'), 'utf8')).toBe(SCHEMA)
     expect(JSON.parse(await readFile(join(root, '.ft.json'), 'utf8'))).toEqual({
-        $schema: './.ft.schema.json',
+        $schema: './.ft/schema.json',
         providers: {},
         lanes: {},
     })
