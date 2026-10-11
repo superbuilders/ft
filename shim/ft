@@ -1,5 +1,5 @@
 #!/bin/sh
-SHIM_VERSION=0.2.0
+SHIM_VERSION=0.1.0
 
 # Releases and .ft/lock.json use the same target names and checksum format.
 set -u

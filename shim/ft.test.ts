@@ -413,7 +413,7 @@ describe.each(shells)('shim via %s', shell => {
 
         const result = await start(shell, ['--shim-version']).result
 
-        expect(result).toEqual({ code: 0, stdout: '0.2.0\n', stderr: '' })
+        expect(result).toEqual({ code: 0, stdout: '0.1.0\n', stderr: '' })
     })
 
     it.each(['FreeBSD', 'Windows'])('rejects unsupported OS %s', async os => {

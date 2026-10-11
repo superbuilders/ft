@@ -119,7 +119,7 @@ arbitrary reused PIDs. No persistent named sandbox registry or broad pkill exist
 
 ```sh
 bun scripts/lab run real-gateway --project /path/to/project
-bun scripts/lab run real-release --version 0.2.0
+bun scripts/lab run real-release --version 0.1.0
 ```
 
 `real-gateway` is Linux-only and makes one code-lane tool round trip and one research question
