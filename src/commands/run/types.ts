@@ -1,4 +1,6 @@
-import type { Outcome } from '../../pi/events/types'
+import type { Verdict } from '../../pi/events/types'
+
+export type Outcome = Verdict | 'configuration_error' | 'timeout' | 'cancelled'
 
 /**
  * Commander inputs validated before spawning the model runtime.

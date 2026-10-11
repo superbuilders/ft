@@ -5,6 +5,24 @@ import { installArchive } from '../../system/install/install'
 import { PI_SHA256, PI_VERSION, TOOL_RELEASES } from './constants'
 
 /**
+ * Where each pinned runtime part installs under the cache root.
+ * @param root - shared cache root
+ * @returns Pi's directory and each search tool's directory
+ */
+export function runtimePaths(root: string): {
+    pi: string
+    tools: Record<keyof typeof TOOL_RELEASES, string>
+} {
+    return {
+        pi: join(root, 'pi', PI_VERSION),
+        tools: {
+            rg: join(root, 'tools', `rg-${TOOL_RELEASES.rg.version}`),
+            fd: join(root, 'tools', `fd-${TOOL_RELEASES.fd.version}`),
+        },
+    }
+}
+
+/**
  * Provision Pi and both pinned search tools.
  * @param root - shared cache root
  * @param signal - run cancellation
@@ -15,11 +33,12 @@ export async function installRuntime(
     signal: AbortSignal,
 ): Promise<{ pi: string; toolDirs: string[] }> {
     const target = platformTarget()
+    const paths = runtimePaths(root)
     const pi = await installArchive(
         root,
         {
             name: `pi-${PI_VERSION}`,
-            finalPath: join(root, 'pi', PI_VERSION),
+            finalPath: paths.pi,
             url: `https://github.com/earendil-works/pi/releases/download/v${PI_VERSION}/pi-${target}.tar.gz`,
             sha256: PI_SHA256[target],
             binary: 'pi',
@@ -32,7 +51,7 @@ export async function installRuntime(
     for (const name of ['rg', 'fd'] as const) {
         const release = TOOL_RELEASES[name]
         const asset = release.targets[target]
-        const finalPath = join(root, 'tools', `${name}-${release.version}`)
+        const finalPath = paths.tools[name]
 
         await installArchive(
             root,

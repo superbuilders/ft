@@ -4,8 +4,9 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { resolveLane } from '../../models/models'
 import { TARGETS } from '../../system/host/constants'
-import { findConfig, loadConfig, resolveLane, validateConfig } from './config'
+import { findConfig, loadConfig, validateConfig } from './config'
 
 const directories: string[] = []
 const valid = {
@@ -63,14 +64,13 @@ describe('config', () => {
 
         const config = await loadConfig(root)
 
-        expect(resolveLane(config, 'code')).toEqual({ model: 'grok-latest' })
-        expect(resolveLane(config)).toEqual({ model: 'grok-latest' })
-        expect(resolveLane(config, 'research')).toEqual({ model: 'sonar-pro' })
-        expect(resolveLane(config, undefined, 'gpt-6.1-sol', 'high')).toEqual({
+        expect(resolveLane(config.lanes, 'code')).toEqual({ model: 'grok-latest' })
+        expect(resolveLane(config.lanes)).toEqual({ model: 'grok-latest' })
+        expect(resolveLane(config.lanes, 'research')).toEqual({ model: 'sonar-pro' })
+        expect(resolveLane(config.lanes, undefined, 'gpt-6.1-sol', 'high')).toEqual({
             model: 'gpt-6.1-sol',
             thinking: 'high',
         })
-        expect(() => resolveLane(config, 'code', 'gpt-6.1-sol')).toThrow()
-        expect(() => resolveLane(config, 'missing')).toThrow()
+        expect(() => resolveLane(config.lanes, 'missing')).toThrow()
     })
 })

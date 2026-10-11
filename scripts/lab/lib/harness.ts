@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-import { exitCode } from '../../../src/pi/events/judge'
+import { exitCode } from '../../../src/commands/run/status'
 import { PI_VERSION } from '../../../src/pi/runtime/constants'
 import { build, digest } from './build'
 import { ANSWER, DUMMY_KEY, LOOPBACK_SCENARIOS } from './constants'
@@ -34,6 +34,9 @@ async function artifact(path: string): Promise<string | null> {
  * @param executable - compiled runner or installed shim
  * @param name - output basename
  * @param extra - additional ft arguments
+ * @param selection - which brief file and lane to run
+ * @param selection.prompt - brief file in the project
+ * @param selection.lane - lane to run it on
  * @returns captured process completion
  */
 function brief(
@@ -41,6 +44,7 @@ function brief(
     executable: string,
     name: string,
     extra: string[] = [],
+    { prompt = 'brief.md', lane = 'code' } = {},
 ): Promise<Capture> {
     return start(
         context,
@@ -48,9 +52,9 @@ function brief(
             executable,
             'run',
             '--brief',
-            'brief.md',
+            prompt,
             '--lane',
-            'code',
+            lane,
             '--out',
             join(context.project, `${name}.out`),
             ...extra,
@@ -571,12 +575,7 @@ async function liveError(out: string): Promise<string | null> {
  * @returns completion of real gateway assertion
  */
 export async function liveToolTurn(context: Context, lane: string): Promise<void> {
-    const capture = await brief(context, context.build.binary, lane, [
-        '--lane',
-        lane,
-        '--deadline',
-        '90',
-    ])
+    const capture = await brief(context, context.build.binary, lane, ['--deadline', '90'], { lane })
     const events = (await artifact(join(context.project, `${lane}.out.events.jsonl`))) ?? ''
 
     check(
@@ -605,23 +604,10 @@ export async function liveResearch(context: Context): Promise<void> {
         'In two sentences, what is the latest stable release of the Bun JavaScript runtime? Cite your sources.',
     )
 
-    const capture = await start(
-        context,
-        [
-            context.build.binary,
-            'run',
-            '--brief',
-            'research.md',
-            '--lane',
-            'research',
-            '--out',
-            out,
-            '--deadline',
-            '90',
-        ],
-        context.project,
-        context.env,
-    ).result
+    const capture = await brief(context, context.build.binary, 'research', ['--deadline', '90'], {
+        prompt: 'research.md',
+        lane: 'research',
+    })
     const answer = (await artifact(out)) ?? ''
 
     check(

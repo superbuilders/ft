@@ -2,7 +2,7 @@ import { DEFAULT_LANE } from '../../models/constants'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { atomicWrite } from '../../system/files/atomic-write'
 
-import type { RunOptions, Status } from './types'
+import type { Outcome, RunOptions, Status } from './types'
 
 /**
  * Make the initial status before config validation so failures also have outputs.
@@ -62,4 +62,22 @@ export async function publish(out: string, text: string, status: Status): Promis
     }
 
     await writeStatus(out, status)
+}
+
+/**
+ * Map normalized outcomes to the public exit-code contract.
+ * @param outcome - terminal outcome
+ * @returns runner exit code
+ */
+export function exitCode(outcome: Outcome): number {
+    return {
+        success: 0,
+        configuration_error: 2,
+        model_error: 1,
+        runtime_error: 1,
+        incomplete: 3,
+        protocol_error: 3,
+        timeout: 124,
+        cancelled: 130,
+    }[outcome]
 }

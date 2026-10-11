@@ -2,12 +2,11 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
-import { DEFAULT_LANE, DEFAULT_LANES } from '../../models/constants'
-import { thinkingLevel, validateLane } from '../../models/models'
+import { DEFAULT_LANES } from '../../models/constants'
+import { validateLane } from '../../models/models'
 import { TARGETS } from '../../system/host/constants'
 import { GATEWAY_URL } from './constants'
 
-import type { Lane } from '../../models/types'
 import type { Config, ResolvedConfig } from './types'
 
 /**
@@ -150,31 +149,4 @@ export async function loadConfig(cwd: string): Promise<ResolvedConfig> {
         baseUrl: (config.gateway?.baseUrl ?? GATEWAY_URL).replace(/\/+$/, ''),
         lanes: { ...DEFAULT_LANES, ...config.lanes },
     }
-}
-
-/**
- * Resolve one lane or one exact model, with an explicit thinking override.
- * @param config - resolved project configuration
- * @param lane - lane name; the default lane when neither lane nor model is given
- * @param model - exact model id
- * @param thinking - optional override
- * @returns the selected model and level
- */
-export function resolveLane(
-    config: ResolvedConfig,
-    lane?: string,
-    model?: string,
-    thinking?: string,
-): Lane {
-    if (lane && model) {
-        throw new Error('Choose at most one of --lane or --model')
-    }
-
-    const selected = model ? validateLane({ model }) : config.lanes[lane ?? DEFAULT_LANE]
-
-    if (!selected) {
-        throw new Error(`Unknown lane: ${lane}`)
-    }
-
-    return { ...selected, ...(thinking === undefined ? {} : { thinking: thinkingLevel(thinking) }) }
 }

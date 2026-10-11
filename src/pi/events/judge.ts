@@ -1,6 +1,6 @@
 import { StringDecoder } from 'node:string_decoder'
 
-import type { JudgeState, Outcome } from './types'
+import type { JudgeState, Verdict } from './types'
 
 /**
  * Initialize a protocol judge without accepting streamed deltas as an answer.
@@ -140,13 +140,13 @@ export function eventParser(state: JudgeState): { push: (chunk: Buffer) => void;
  * @param state - parsed events
  * @param code - Pi process exit code
  * @param signal - terminating signal
- * @returns terminal outcome
+ * @returns Pi's verdict
  */
 export function judgeOutcome(
     state: JudgeState,
     code: number | null,
     signal: string | null,
-): Outcome {
+): Verdict {
     if (state.protocolError) {
         return 'protocol_error'
     }
@@ -168,22 +168,4 @@ export function judgeOutcome(
     }
 
     return 'success'
-}
-
-/**
- * Map normalized outcomes to the public exit-code contract.
- * @param outcome - terminal outcome
- * @returns runner exit code
- */
-export function exitCode(outcome: Outcome): number {
-    return {
-        success: 0,
-        configuration_error: 2,
-        model_error: 1,
-        runtime_error: 1,
-        incomplete: 3,
-        protocol_error: 3,
-        timeout: 124,
-        cancelled: 130,
-    }[outcome]
 }

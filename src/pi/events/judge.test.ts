@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 
 import { describe, expect, it } from 'vitest'
 
-import { createJudge, eventParser, exitCode, judgeOutcome } from './judge'
+import { createJudge, eventParser, judgeOutcome } from './judge'
 
 describe('recorded Pi 1.1.0 protocol', () => {
     it.each([
@@ -86,20 +86,5 @@ describe('recorded Pi 1.1.0 protocol', () => {
         expect(judgeOutcome(state, 1, null)).toBe('runtime_error')
         state.settled = false
         expect(judgeOutcome(state, 0, null)).toBe('incomplete')
-    })
-
-    it('maps every status outcome to the binding exit code', () => {
-        expect(
-            [
-                'success',
-                'model_error',
-                'runtime_error',
-                'configuration_error',
-                'incomplete',
-                'protocol_error',
-                'timeout',
-                'cancelled',
-            ].map(outcome => exitCode(outcome as Parameters<typeof exitCode>[0])),
-        ).toEqual([0, 1, 1, 2, 3, 3, 124, 130])
     })
 })

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { adapterFor } from './adapters'
 import { serveGateway } from './gateway'
 
 const servers: { stop: () => Promise<void> }[] = []
@@ -39,7 +40,7 @@ function upstream(): { url: string; seen: { path: string; auth: string | null; b
  */
 async function chat(model: string) {
     const origin = upstream()
-    const gateway = serveGateway(origin.url)
+    const gateway = serveGateway(origin.url, adapterFor(model))
 
     servers.push(gateway)
 

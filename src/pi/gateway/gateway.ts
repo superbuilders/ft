@@ -1,6 +1,4 @@
-import { adapterFor } from './adapters'
-
-import type { ChatRequest } from './adapters/types'
+import type { Adapter, ChatRequest } from './adapters/types'
 
 /** Request headers the local hop must not copy, since an adapter may change the body. */
 const REQUEST_HOP_HEADERS = ['host', 'content-length']
@@ -37,19 +35,25 @@ function relay(response: Response, signal: AbortSignal): Response {
 }
 
 /**
- * Serve a loopback gateway that forwards Pi's requests and applies each model's adapter.
+ * Serve a loopback gateway for one run that forwards Pi's requests through the run model's adapter.
  * @param upstream - configured gateway root, without /v1
+ * @param adapter - the run model's adapter, if it has one
  * @returns the local root Pi should use instead, and a stop function
  */
-export function serveGateway(upstream: string): { url: string; stop: () => Promise<void> } {
+export function serveGateway(
+    upstream: string,
+    adapter?: Adapter,
+): { url: string; stop: () => Promise<void> } {
     const stopping = new AbortController()
     const server = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
+
         /*
          * A model can think silently for longer than Bun's 10-second default; the run deadline bounds it instead.
          */
         idleTimeout: 0,
+
         async fetch(request) {
             const url = new URL(request.url)
             const headers = new Headers(request.headers)
@@ -58,34 +62,25 @@ export function serveGateway(upstream: string): { url: string; stop: () => Promi
                 headers.delete(name)
             }
 
+            const chat = url.pathname.endsWith('/chat/completions')
             let body: string | null = request.method === 'POST' ? await request.text() : null
-            let adapter
 
-            if (body && url.pathname.endsWith('/chat/completions')) {
-                const chat = JSON.parse(body) as ChatRequest
-
-                adapter = adapterFor(chat.model)
-
-                if (adapter?.request) {
-                    body = JSON.stringify(adapter.request(chat))
-                }
+            if (body && chat && adapter?.request) {
+                body = JSON.stringify(adapter.request(JSON.parse(body) as ChatRequest))
             }
 
-            const response = relay(
-                await fetch(`${upstream}${url.pathname}${url.search}`, {
-                    method: request.method,
-                    headers,
-                    body,
-                    signal: AbortSignal.any([request.signal, stopping.signal]),
-                }),
-                stopping.signal,
-            )
+            let response = await fetch(`${upstream}${url.pathname}${url.search}`, {
+                method: request.method,
+                headers,
+                body,
+                signal: AbortSignal.any([request.signal, stopping.signal]),
+            })
 
-            if (!response.ok || !adapter?.response) {
-                return response
+            if (chat && response.ok && adapter?.response) {
+                response = await adapter.response(response)
             }
 
-            return adapter.response(response)
+            return relay(response, stopping.signal)
         },
         error() {
             return new Response('ft could not reach the gateway', { status: 502 })

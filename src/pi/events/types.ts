@@ -1,12 +1,7 @@
-export type Outcome =
-    | 'success'
-    | 'configuration_error'
-    | 'model_error'
-    | 'incomplete'
-    | 'protocol_error'
-    | 'timeout'
-    | 'cancelled'
-    | 'runtime_error'
+/**
+ * What Pi's events and exit can decide; the run adds configuration, deadline and cancellation outcomes.
+ */
+export type Verdict = 'success' | 'model_error' | 'incomplete' | 'protocol_error' | 'runtime_error'
 
 /**
  * Mutable protocol evidence; only authoritative messages supply answer text.

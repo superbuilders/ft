@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
 
 import { PI_VERSION, TOOL_RELEASES } from '../../pi/runtime/constants'
+import { runtimePaths } from '../../pi/runtime/runtime'
 import { loadConfig } from '../../project/config/config'
 import { getKey } from '../../project/key/key'
 import { cacheRoot, platformTarget } from '../../system/host/host'
@@ -15,17 +16,17 @@ export async function doctor(runnerVersion: string): Promise<void> {
     platformTarget()
 
     const config = await loadConfig(process.cwd())
-    const root = cacheRoot()
+    const paths = runtimePaths(cacheRoot())
     const lines = [
         `Config: ${config.path}`,
         `Project root: ${dirname(config.path)}`,
         `Runner: ${runnerVersion}`,
-        `Pi: ${PI_VERSION} (${existsSync(join(root, 'pi', PI_VERSION)) ? 'installed' : 'not installed'})`,
+        `Pi: ${PI_VERSION} (${existsSync(paths.pi) ? 'installed' : 'not installed'})`,
     ]
 
-    for (const [name, release] of Object.entries(TOOL_RELEASES)) {
+    for (const name of ['rg', 'fd'] as const) {
         lines.push(
-            `${name}: ${release.version} (${existsSync(join(root, 'tools', `${name}-${release.version}`)) ? 'installed' : 'not installed'})`,
+            `${name}: ${TOOL_RELEASES[name].version} (${existsSync(paths.tools[name]) ? 'installed' : 'not installed'})`,
         )
     }
 

@@ -3,22 +3,23 @@ import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { finished } from 'node:stream/promises'
 
+import { resolveLane } from '../../models/models'
 import { prepareAgent } from '../../pi/agent/agent'
 import { serveKey } from '../../pi/agent/key-broker'
-import { createJudge, exitCode, judgeOutcome } from '../../pi/events/judge'
+import { createJudge, judgeOutcome } from '../../pi/events/judge'
+import { adapterFor } from '../../pi/gateway/adapters'
 import { serveGateway } from '../../pi/gateway/gateway'
 import { filterEnvironment } from '../../pi/process/environment'
 import { runPi } from '../../pi/process/spawn'
 import { installRuntime } from '../../pi/runtime/runtime'
-import { loadConfig, resolveLane } from '../../project/config/config'
+import { loadConfig } from '../../project/config/config'
 import { collectContext } from '../../project/context/context'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { cacheRoot, platformTarget } from '../../system/host/host'
 import { CANCEL_SIGNALS } from './constants'
-import { initialStatus, publish, writeStatus } from './status'
+import { exitCode, initialStatus, publish, writeStatus } from './status'
 
-import type { Outcome } from '../../pi/events/types'
-import type { RunOptions, Status } from './types'
+import type { Outcome, RunOptions, Status } from './types'
 
 /**
  * Validate one brief and execute its selected transport with private state cleanup.
@@ -51,8 +52,12 @@ async function execute(
             throw new Error('--profile must be read or write')
         }
 
+        if (options.lane && options.model) {
+            throw new Error('Choose at most one of --lane or --model')
+        }
+
         const config = await loadConfig(process.cwd())
-        const selected = resolveLane(config, options.lane, options.model, options.thinking)
+        const selected = resolveLane(config.lanes, options.lane, options.model, options.thinking)
 
         status.model = selected.model
         status.thinking = selected.thinking ?? null
@@ -74,7 +79,7 @@ async function execute(
         await mkdir(join(root, 'runs'), { recursive: true, mode: 0o700 })
         dir = await mkdtemp(join(root, 'runs', 'run-'))
 
-        const gateway = serveGateway(config.baseUrl)
+        const gateway = serveGateway(config.baseUrl, adapterFor(selected.model))
 
         stopGateway = gateway.stop
 
