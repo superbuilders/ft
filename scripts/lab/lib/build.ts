@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import { version as packageVersion } from '../../../package.json'
 import { platformTarget } from '../../../src/install'
@@ -104,4 +104,26 @@ export async function build(cache: string, salt = ''): Promise<Build> {
     }
 
     return { version, digest: sha256, directory, binary, target }
+}
+
+/**
+ * Use an existing release-shaped folder, such as the release workflow's freshly signed
+ * binary, so the lab tests the exact bytes that will ship.
+ * @param directory - folder holding ft-<target>, ft-shim, install.sh and SHA256SUMS
+ * @returns build metadata read from the binary itself
+ */
+export async function prebuilt(directory: string): Promise<Build> {
+    const target = platformTarget()
+    const absolute = resolve(directory)
+    const binary = join(absolute, `ft-${target}`)
+    const sha256 = await digest(binary)
+    const sums = await readFile(join(absolute, 'SHA256SUMS'), 'utf8')
+
+    if (!sums.includes(`${sha256}  ft-${target}\n`)) {
+        throw new Error(`SHA256SUMS in ${absolute} does not list ft-${target} with its actual hash`)
+    }
+
+    const reported = await command([binary, '--version'])
+
+    return { version: reported.stdout.trim(), digest: sha256, directory: absolute, binary, target }
 }

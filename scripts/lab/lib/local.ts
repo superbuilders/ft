@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { build } from './build'
+import { build, prebuilt } from './build'
 import { LAB_ROOT, LOOPBACK_SCENARIOS, SCENARIOS } from './constants'
 import { killExtract } from './faults'
 import {
@@ -124,7 +124,9 @@ export async function local(
             results.push(
                 await runOne(scenario, options, argv, buildCache, async result => {
                     await pinned
-                    compiled ??= phase(result, 'build', () => build(buildCache))
+                    compiled ??= phase(result, 'build', () =>
+                        options.artifacts ? prebuilt(options.artifacts) : build(buildCache),
+                    )
 
                     return compiled
                 }),

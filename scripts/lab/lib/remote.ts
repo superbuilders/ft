@@ -62,6 +62,12 @@ export async function remote(
     const results: Result[] = []
 
     try {
+        if (options.artifacts) {
+            throw new PrerequisiteError(
+                '--artifacts tests binaries already on this machine; run it on the host that built them',
+            )
+        }
+
         if (scenarios.some(scenario => scenario.startsWith('real-'))) {
             throw new PrerequisiteError(
                 'Real scenarios are local-only; lab never forwards credentials or runs gh on air',

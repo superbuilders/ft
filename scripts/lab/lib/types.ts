@@ -14,6 +14,8 @@ export interface Options {
     cold?: boolean
     /** Previously acquired archive directory, verified against baked hashes. */
     archives?: string
+    /** A release-shaped folder of prebuilt binaries to test instead of compiling, such as CI's release build. */
+    artifacts?: string
     /** Explicit real project used only by the paid scenario. */
     project?: string
     /** Exact baked or published release version. */

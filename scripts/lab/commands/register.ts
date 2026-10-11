@@ -71,7 +71,7 @@ function scratchOptions(command: Command, hosts: string[]): Command {
         )
         .option(
             '--archives <dir>',
-            'directory of previously acquired pinned Pi/rg/fd archives; never download implicitly',
+            'directory of pinned Pi/rg/fd archives; missing ones are downloaded once and verified',
         )
 }
 
@@ -97,6 +97,10 @@ export function register(program: Command): void {
         ['local', 'air', 'both'],
     )
         .option('--all', 'run every non-real scenario; never includes real checks')
+        .option(
+            '--artifacts <dir>',
+            'test this release-shaped folder (ft-<target>, ft-shim, install.sh, SHA256SUMS) instead of compiling; local host only',
+        )
         .option(
             '--project <dir>',
             'real-gateway ONLY: Linux project .ft.json with actual apiKey reference; two paid tool round trips, 90s per lane',
