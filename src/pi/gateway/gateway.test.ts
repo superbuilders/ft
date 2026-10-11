@@ -90,4 +90,35 @@ describe('local gateway', () => {
 
         expect(response.status).toBe(502)
     })
+
+    it('stops while an upstream stream is still open after the reader has left', async () => {
+        const origin = Bun.serve({
+            hostname: '127.0.0.1',
+            port: 0,
+            fetch: () =>
+                new Response(
+                    new ReadableStream({
+                        start(controller) {
+                            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
+                        },
+                    }),
+                    { headers: { 'content-type': 'text/event-stream' } },
+                ),
+        })
+
+        servers.push({ stop: () => origin.stop(true) })
+
+        const gateway = serveGateway(`http://127.0.0.1:${origin.port}`)
+        const client = `const response = await fetch(${JSON.stringify(`${gateway.url}/v1/chat/completions`)}, { method: 'POST', body: '{}' }); await response.body.getReader().read(); process.exit(0)`
+
+        /* A reader in another process that exits, as Pi does, is what left Bun's stop pending. */
+        expect(await Bun.spawn([process.execPath, '-e', client]).exited).toBe(0)
+
+        const stopped = await Promise.race([
+            gateway.stop().then(() => true),
+            Bun.sleep(2000).then(() => false),
+        ])
+
+        expect(stopped).toBe(true)
+    })
 })

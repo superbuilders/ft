@@ -10,17 +10,26 @@ const RESPONSE_HOP_HEADERS = ['content-encoding', 'content-length']
 
 /**
  * Copy a gateway response without the headers that no longer describe its body.
+ * The body goes through a pipe the stop signal can cut: when Pi stops reading at [DONE] while the
+ * upstream stream stays open, Bun's server stop never returns for a body handed over directly.
  * @param response - the gateway's response, already decompressed by fetch
+ * @param signal - cut the body when the gateway stops
  * @returns the same status and stream with accurate headers
  */
-function relay(response: Response): Response {
+function relay(response: Response, signal: AbortSignal): Response {
     const headers = new Headers(response.headers)
 
     for (const name of RESPONSE_HOP_HEADERS) {
         headers.delete(name)
     }
 
-    return new Response(response.body, {
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
+
+    response.body?.pipeTo(writable, { signal }).catch(() => {
+        /* A cut or failed upstream ends the relayed body; Pi judges the truncated stream. */
+    })
+
+    return new Response(response.body ? readable : null, {
         status: response.status,
         statusText: response.statusText,
         headers,
@@ -33,6 +42,7 @@ function relay(response: Response): Response {
  * @returns the local root Pi should use instead, and a stop function
  */
 export function serveGateway(upstream: string): { url: string; stop: () => Promise<void> } {
+    const stopping = new AbortController()
     const server = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
@@ -62,8 +72,9 @@ export function serveGateway(upstream: string): { url: string; stop: () => Promi
                     method: request.method,
                     headers,
                     body,
-                    signal: request.signal,
+                    signal: AbortSignal.any([request.signal, stopping.signal]),
                 }),
+                stopping.signal,
             )
 
             if (!response.ok || !adapter?.response) {
@@ -77,5 +88,12 @@ export function serveGateway(upstream: string): { url: string; stop: () => Promi
         },
     })
 
-    return { url: `http://127.0.0.1:${server.port}`, stop: () => server.stop(true) }
+    return {
+        url: `http://127.0.0.1:${server.port}`,
+        stop: () => {
+            stopping.abort()
+
+            return server.stop(true)
+        },
+    }
 }
