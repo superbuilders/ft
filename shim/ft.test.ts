@@ -31,11 +31,20 @@ printf 'arg=<%s>\\n' "$@"
 `
 
 /*
- * Inline vendor double for gh's release view/download and auth status commands.
+ * Inline vendor double for gh's release view/download and auth status/token commands.
  * Release workflow asset names and the real gh CLI argument format are its backstop.
  */
 const fakeGh = `#!/bin/sh
 printf '%s\\n' "$*" >> "$FAKE_CALLS"
+if [ "$1 $2" = 'auth token' ]; then
+    printf '%s\\n' 'fake-token-must-not-leak'
+    echo 'fake-auth-token-stderr-must-not-leak' >&2
+    exit "\${FAKE_AUTH_TOKEN_EXIT:-1}"
+fi
+if [ "\${FAKE_GH_FAIL:-}" = keychain ]; then
+    echo 'HTTP 401: The token is invalid' >&2
+    exit 1
+fi
 if [ "\${FAKE_GH_FAIL:-}" = auth ]; then
     echo 'To get started with GitHub CLI, please run: gh auth login' >&2
     exit 4
@@ -210,6 +219,9 @@ esac
         ...process.env,
         PATH: join(root, 'bin'),
         HOME: join(root, 'home'),
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
+        FT_GH_FALLBACK_DIRS: join(root, 'no-gh'),
         TMPDIR: root,
         XDG_CACHE_HOME: cache,
         FT_INSTALL_DIR: join(root, 'install with spaces'),
@@ -245,6 +257,56 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(second.code).toBe(0)
         expect(second.stdout).toContain('arg=<doctor>')
+        expect(ghCalls()).toHaveLength(1)
+        expectClean()
+    })
+
+    it('bootstraps with the first executable fallback gh when gh is not on PATH', async () => {
+        rmSync(join(root, 'bin', 'gh'))
+
+        const nonExecutable = join(root, 'non-executable')
+        const fallback = join(root, 'fallback with spaces')
+        const laterFallback = join(root, 'later fallback')
+
+        for (const directory of [nonExecutable, fallback, laterFallback]) {
+            mkdirSync(directory)
+        }
+
+        writeFileSync(join(nonExecutable, 'gh'), fakeGh, { mode: 0o644 })
+        executable(join(fallback, 'gh'), fakeGh)
+        executable(join(laterFallback, 'gh'), '#!/bin/sh\nexit 9\n')
+
+        const result = await start(shell, ['pin', version], {
+            FT_GH_FALLBACK_DIRS: [
+                join(root, 'missing'),
+                nonExecutable,
+                fallback,
+                laterFallback,
+            ].join(':'),
+        }).result
+
+        expect(result.code, result.stderr).toBe(0)
+        expect(result.stdout).toContain('arg=<pin>')
+        expect(ghCalls()).toEqual([
+            'release view -R superbuilders/ft --json tagName',
+            expect.stringContaining('-p SHA256SUMS -D '),
+            expect.stringContaining(`-p ft-${target} -D `),
+        ])
+        expect(existsSync(finalPath())).toBe(true)
+        expectClean()
+    })
+
+    it('prefers gh on PATH over fallback directories', async () => {
+        configure()
+
+        const fallback = join(root, 'fallback')
+
+        mkdirSync(fallback)
+        executable(join(fallback, 'gh'), '#!/bin/sh\nexit 9\n')
+
+        const result = await start(shell, ['run'], { FT_GH_FALLBACK_DIRS: fallback }).result
+
+        expect(result.code, result.stderr).toBe(0)
         expect(ghCalls()).toHaveLength(1)
         expectClean()
     })
@@ -422,6 +484,42 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stderr).toContain(
             failure === 'auth' ? 'gh is not authenticated' : 'download or lookup failed',
         )
+        expectClean()
+    })
+
+    it.each([
+        { os: 'Darwin', overrides: {}, locked: true },
+        { os: 'Linux', overrides: {}, locked: false },
+        { os: 'Darwin', overrides: { GH_TOKEN: 'fake-env-token' }, locked: false },
+        { os: 'Darwin', overrides: { GITHUB_TOKEN: 'fake-env-token' }, locked: false },
+        { os: 'Darwin', overrides: { GH_TOKEN: '' }, locked: false },
+        { os: 'Darwin', overrides: { GITHUB_TOKEN: '' }, locked: false },
+        { os: 'Darwin', overrides: { FAKE_AUTH_TOKEN_EXIT: '0' }, locked: false },
+    ])('diagnoses unauthenticated gh without exposing tokens: %j', async scenario => {
+        const mapped = scenario.os === 'Darwin' ? 'darwin-x64' : target
+        const fallback = join(root, 'fallback with spaces')
+
+        configure({ [mapped]: digest(runner) })
+        rmSync(join(root, 'bin', 'gh'))
+        mkdirSync(fallback)
+        executable(join(fallback, 'gh'), fakeGh)
+
+        const result = await start(shell, ['run'], {
+            FAKE_OS: scenario.os,
+            FAKE_GH_FAIL: 'keychain',
+            FT_GH_FALLBACK_DIRS: fallback,
+            ...scenario.overrides,
+        }).result
+
+        expect(result.code).toBe(2)
+        expect(result.stdout).toBe('')
+        expect(result.stderr).toBe(
+            scenario.locked
+                ? 'ft: gh cannot read its token (on macOS this usually means the login keychain is locked in this session, such as over SSH); set GH_TOKEN or run security unlock-keychain\n'
+                : 'ft: gh is not authenticated; run gh auth login\n',
+        )
+        expect(ghCalls()).toEqual([expect.stringContaining(`-p ft-${mapped} -D `), 'auth token'])
+        expect(existsSync(finalPath())).toBe(false)
         expectClean()
     })
 

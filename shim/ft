@@ -16,6 +16,7 @@ if [ "${1:-}" = --shim-version ]; then
 fi
 
 stage=
+gh_bin=
 active_pid=
 lock=
 locked=no
@@ -96,11 +97,26 @@ new_stage() {
     stage=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
 }
 require_gh() {
-    command -v gh >/dev/null 2>&1 || fail 2 'gh is required; install GitHub CLI and run gh auth login'
+    [ -n "$gh_bin" ] && return 0
+    gh_bin=$(command -v gh 2>/dev/null) && return 0
+    # FT_GH_FALLBACK_DIRS is a test-only, colon-separated override of the search directories.
+    gh_dirs=${FT_GH_FALLBACK_DIRS-/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin}
+    while [ -n "$gh_dirs" ]; do
+        gh_dir=${gh_dirs%%:*}
+        case $gh_dirs in
+            *:*) gh_dirs=${gh_dirs#*:} ;;
+            *) gh_dirs= ;;
+        esac
+        if [ -n "$gh_dir" ] && [ -f "$gh_dir/gh" ] && [ -x "$gh_dir/gh" ]; then
+            gh_bin=$gh_dir/gh
+            return 0
+        fi
+    done
+    fail 2 'gh is required; install GitHub CLI and run gh auth login'
 }
 gh_call() {
     # wait is interruptible by traps, unlike a foreground external command.
-    gh "$@" 2>"$stage/gh.stderr" &
+    "$gh_bin" "$@" 2>"$stage/gh.stderr" &
     active_pid=$!
     if wait "$active_pid"; then
         active_pid=
@@ -109,7 +125,11 @@ gh_call() {
         gh_status=$?
         active_pid=
     fi
-    if [ "$gh_status" -eq 4 ] || grep -Eiq 'not logged|not authenticated|authentication|gh auth login|HTTP 401|bad credentials|GH_TOKEN' "$stage/gh.stderr"; then
+    if [ "$gh_status" -eq 4 ] || grep -Eiq 'not logged|not authenticated|unauthenticated|authentication|gh auth login|HTTP 401|bad credentials|GH_TOKEN|invalid token|token.*invalid' "$stage/gh.stderr"; then
+        if ! "$gh_bin" auth token >/dev/null 2>&1 && [ "$os" = darwin ] &&
+            [ "${GH_TOKEN+x}" != x ] && [ "${GITHUB_TOKEN+x}" != x ]; then
+            fail 2 'gh cannot read its token (on macOS this usually means the login keychain is locked in this session, such as over SSH); set GH_TOKEN or run security unlock-keychain'
+        fi
         fail 2 'gh is not authenticated; run gh auth login'
     fi
     fail 1 'GitHub release download or lookup failed'
