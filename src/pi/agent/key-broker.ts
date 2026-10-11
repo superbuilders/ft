@@ -1,26 +1,19 @@
-import { getKey } from '../../project/key/key'
-
-import type { KeySource } from '../../models/types'
-
 /**
  * Serve the run provider's credential over a private run-local socket, keeping caller credentials
- * out of Pi's environment. The client speaks first, naming the provider, and the server answers only
- * then: Bun's client reports a connect as refused when the server writes and hangs up before the
- * client has finished opening its end.
+ * out of Pi's environment. The run resolves the key before Pi starts, so a missing key is a
+ * configuration error with its real reason, not a failure deep inside Pi. The client speaks first,
+ * naming the provider, and the server answers only then: Bun's client reports a connect as refused
+ * when the server writes and hangs up before the client has finished opening its end.
  * @param path - socket inside the mode-0700 run directory
- * @param key - the run's provider and its key source
+ * @param key - the run's provider and its resolved credential
  * @param key.provider - the only provider id this broker answers for
- * @param key.source - where the credential comes from
- * @param key.root - project root, the key command's working directory
- * @param signal - run cancellation
+ * @param key.value - the credential
  * @returns asynchronous server cleanup
  */
 export function serveKey(
     path: string,
-    key: { provider: string; source: KeySource; root: string },
-    signal: AbortSignal,
+    key: { provider: string; value: string },
 ): () => Promise<void> {
-    let value: Promise<string> | undefined
     const server = Bun.listen({
         unix: path,
         socket: {
@@ -32,14 +25,7 @@ export function serveKey(
                     return
                 }
 
-                value ??= getKey(key.source, key.root, signal)
-                void value.then(
-                    resolved => socket.end(JSON.stringify({ key: resolved })),
-                    () =>
-                        socket.end(
-                            JSON.stringify({ error: 'Key resolution failed; see ft stderr' }),
-                        ),
-                )
+                socket.end(JSON.stringify({ key: key.value }))
             },
             error(socket) {
                 socket.terminate()

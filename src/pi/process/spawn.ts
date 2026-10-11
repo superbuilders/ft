@@ -23,6 +23,7 @@ export async function runPi(input: {
     tmp: string
     contextPath: string
     state: JudgeState
+    progress?: () => void
     signal: AbortSignal
     events: (chunk: Buffer) => void
     stderr: (chunk: Buffer) => void
@@ -65,7 +66,7 @@ export async function runPi(input: {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: piEnvironment(input.env, input.agent, input.tmp, input.toolDirs),
     })
-    const parser = eventParser(input.state)
+    const parser = eventParser(input.state, input.progress)
     let killTimer: ReturnType<typeof setTimeout> | undefined
 
     /**

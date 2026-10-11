@@ -1,3 +1,5 @@
+import type { Progress } from '../../project/runs/types'
+
 /**
  * What Pi's events and exit can decide; the run adds configuration, deadline and cancellation outcomes.
  */
@@ -19,6 +21,8 @@ export interface JudgeState {
     stopReason: string | null
     /** All text blocks of the last authoritative assistant, in order. */
     text: string
+    /** The last assistant text that said anything; a failed run keeps it as a partial answer. */
+    lastText: string
     /** Last assistant errorMessage, if present. */
     modelError: string | null
     /** First framing or event-shape failure, if any. */
@@ -29,4 +33,8 @@ export interface JudgeState {
     compactionCount: number
     /** Number of failed tool_execution_end records. */
     toolErrorCount: number
+    /** What a person watching the run wants to know: tokens, tools, files, current step. */
+    progress: Progress
+    /** Paths of edit and write calls still running, by tool call id. */
+    pending: Map<string, string>
 }

@@ -19,6 +19,7 @@ bun run check                       # Hooks/CI only: typecheck, lint, format che
 bun run check --pre-push             # Also type-aware lint and knip
 bun run knip                        # Compact unused-code report; config hints fail
 bun src/cli.ts --version             # Package version
+bun src/cli.ts guide                 # The agent manual a consuming repo's skill points at
 bun run release <patch|minor|major|x.y.z>   # Bump, tag, push; release.yml builds and publishes
 ```
 
@@ -117,6 +118,25 @@ included, is named, so a typo fails in ft instead of being ignored by Pi. A type
 test ties the model field names to pi-ai's `Model`, and pi-ai is pinned to
 exactly `PI_VERSION`. A run writes only its own provider into Pi's models.json,
 with `!ft key <provider>` as the key; Pi accepts a key there for every provider.
+
+## Runs
+
+A run is an object with an id (`<name>-<4 hex>`) and a folder under
+`.ft/runs/<id>/` in the caller's project: `brief.md`, `request.json`,
+`status.json` (rewritten atomically while Pi works), `events.jsonl`,
+`stderr.log`, then `answer.md` or `partial.md`. The folder ignores itself in
+git. `ft run` executes in the foreground; `ft start` spawns the hidden
+`ft exec <dir>` detached and returns, so the run survives a harness killing or
+backgrounding its shell. `wait`, `runs`, `show` and `stop` only read the
+folder (a running status whose process is gone reads as `lost`; nothing
+rewrites it). Mistakes caught before a run exists print to stderr and leave no
+folder.
+
+Callers read stdout, and some harnesses keep only its tail, so every report
+ends with a line restating the verdict. The agent-facing manual is
+`ft guide` (`src/commands/guide/`); change it with the behavior it describes.
+`skill/ft/SKILL.md` is the reference skill for consuming repositories: it
+points at `ft guide` rather than restating flags.
 
 ## Model adapters
 

@@ -94,6 +94,12 @@ const LaneSchema = Type.Object(
             description: 'provider/model: a configured provider id and one of its model ids.',
         }),
         thinking: Type.Optional(Type.Enum(THINKING_LEVELS, { description: 'Pi thinking level.' })),
+        description: Type.Optional(
+            Type.String({
+                minLength: 1,
+                description: 'When to use this lane, in a sentence; ft guide shows it to agents.',
+            }),
+        ),
     },
     { additionalProperties: false },
 )

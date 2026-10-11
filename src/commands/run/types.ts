@@ -1,69 +1,31 @@
 import type { Provider, Selection } from '../../models/types'
-import type { Verdict } from '../../pi/events/types'
 import type { Adapter } from '../../pi/gateway/adapters/types'
-
-export type Outcome = Verdict | 'configuration_error' | 'timeout' | 'cancelled'
+import type { Outcome } from '../../project/runs/types'
 
 /**
- * Commander inputs validated before spawning the model runtime.
+ * Commander inputs, validated before a run is created.
  */
 export interface RunOptions {
-    /** Brief file path relative to invocation cwd. */
+    /** Brief file path relative to invocation cwd, or `-` to read it from stdin. */
     brief: string
-    /** Answer destination relative to invocation cwd. */
-    out: string
-    /** Requested lane name; null for explicit model selection. */
+    /** Readable part of the run id; defaults to the brief file's name. */
+    name?: string
+    /** Optional path that receives the answer on success and is removed when the run fails. */
+    out?: string
+    /** Requested lane name. */
     lane?: string
     /** `provider/model` reference, chosen instead of a lane. */
     model?: string
-    /** Explicit tool working directory, absolute in status. */
+    /** Directory the run's tools work in. */
     cwd?: string
     /** Tool allowlist profile, read by default. */
     profile?: string
-    /** Requested Pi thinking level, absent when not explicitly selected. */
+    /** Requested Pi thinking level. */
     thinking?: string
-    /** Optional wall-clock seconds supplied by the caller. */
+    /** Optional wall-clock deadline in seconds. */
     deadline?: string
-}
-
-/**
- * Schema-versioned terminal result persisted independently of the answer.
- */
-export interface Status {
-    /** Wire schema discriminator, currently fixed to 1. */
-    schemaVersion: 1
-    /** Runner verdict, independent of Pi process exit code. */
-    outcome: Outcome
-    /** Pinned Pi release associated with this runner. */
-    piVersion: string
-    /** Lane the run used; null for explicit model selection. */
-    lane: string | null
-    /** Configured provider id; null until the model is resolved. */
-    provider: string | null
-    /** The provider's model id; null until the model is resolved. */
-    model: string | null
-    /** Requested Pi thinking level, absent when not explicitly selected. */
-    thinking: string | null
-    /** Explicit tool working directory, absolute in status. */
-    cwd: string
-    /** Actual Pi exit code; null before Pi starts. */
-    piExitCode: number | null
-    /** Actual Pi termination signal, if any. */
-    signal: string | null
-    /** Whether the agent finished automatic recovery work. */
-    settled: boolean
-    /** Last authoritative assistant stop reason, if observed. */
-    stopReason: string | null
-    /** Number of scheduled assistant and summarization retries. */
-    retryCount: number
-    /** Number of compaction_start records observed. */
-    compactionCount: number
-    /** Number of failed tool_execution_end records. */
-    toolErrorCount: number
-    /** Elapsed wall-clock milliseconds including startup and shutdown. */
-    durationMs: number
-    /** Failure diagnostic, null on successful runs. */
-    error: string | null
+    /** Print the status as JSON instead of the report. */
+    json?: boolean
 }
 
 /**
@@ -80,4 +42,19 @@ export interface ModelChoice {
     adapter?: Adapter
     /** Pi tools the run allows: the profile's, or none for a tool-free model. */
     tools: readonly string[]
+}
+
+/**
+ * What Pi's process and events decided, before the run applies its own interruptions and saves
+ * the answer.
+ */
+export interface Judged {
+    /** Pi's exit code; null when a signal ended it. */
+    piExitCode: number | null
+    /** The signal that ended Pi, if one did. */
+    signal: string | null
+    /** The verdict from Pi's events and exit. */
+    outcome: Outcome
+    /** The protocol or model error behind a failed verdict. */
+    error: string | null
 }

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
-import { join, resolve as resolvePath } from 'node:path'
+import { join } from 'node:path'
 
+import { selfCommand } from '../../system/process/self'
 import { FROZEN_SETTINGS } from './constants'
 
 import type { AgentProvider } from './types'
@@ -12,16 +13,6 @@ import type { AgentProvider } from './types'
  */
 function quote(value: string): string {
     return `'${value.replaceAll("'", String.raw`'\''`)}'`
-}
-
-/**
- * Describe this runner in compiled and source execution modes.
- * @returns absolute command argv without credentials
- */
-function selfCommand(): string[] {
-    return process.argv[1]?.endsWith('.ts')
-        ? [process.execPath, resolvePath(process.argv[1])]
-        : [process.execPath]
 }
 
 /**

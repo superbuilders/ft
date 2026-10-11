@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -6,10 +7,8 @@ import { expect, it, vi } from 'vitest'
 
 import { run } from './run'
 
-import type { Status } from './types'
-
-it('writes configuration-error status and sidecars without overwriting an existing answer', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'ft-status-'))
+it('refuses a run it cannot start before creating anything, and clears a stale --out', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ft-run-'))
     const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
 
     vi.stubEnv('FT_CONFIG', join(root, 'missing.ft.json'))
@@ -17,22 +16,37 @@ it('writes configuration-error status and sidecars without overwriting an existi
     try {
         const out = join(root, 'answer.txt')
 
-        await writeFile(out, 'prior successful answer')
+        await writeFile(out, 'an answer from an earlier run')
         expect(await run({ brief: join(root, 'brief.md'), out })).toBe(2)
-
-        const status = JSON.parse(await readFile(`${out}.status.json`, 'utf8')) as Status
-
-        expect(status.schemaVersion).toBe(1)
-        expect(status.outcome).toBe('configuration_error')
-        expect(status.piExitCode).toBeNull()
-        expect(status.model).toBeNull()
-        expect(status.durationMs).toBeGreaterThanOrEqual(0)
-        expect(await readFile(out, 'utf8')).toBe('prior successful answer')
-        expect(await readFile(`${out}.events.jsonl`, 'utf8')).toBe('')
-        expect(await readFile(`${out}.stderr.log`, 'utf8')).toContain('ENOENT')
+        expect(stderr).toHaveBeenCalledWith(
+            expect.stringContaining('could not start the run (configuration_error)'),
+        )
+        expect(existsSync(out)).toBe(false)
+        expect(existsSync(join(root, '.ft'))).toBe(false)
     } finally {
         stderr.mockRestore()
         vi.unstubAllEnvs()
         await rm(root, { recursive: true, force: true })
+    }
+})
+
+it('prints the refusal as JSON when asked', async () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockReturnValue(true)
+
+    vi.stubEnv('FT_CONFIG', join(tmpdir(), 'ft-missing', '.ft.json'))
+
+    try {
+        expect(await run({ brief: 'brief.md', json: true })).toBe(2)
+
+        const printed = JSON.parse(String(stdout.mock.calls[0]?.[0])) as {
+            outcome: string
+            error: string
+        }
+
+        expect(printed.outcome).toBe('configuration_error')
+        expect(printed.error).toContain('ENOENT')
+    } finally {
+        stdout.mockRestore()
+        vi.unstubAllEnvs()
     }
 })

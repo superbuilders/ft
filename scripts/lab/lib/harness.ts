@@ -2,15 +2,16 @@ import { existsSync } from 'node:fs'
 import { readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-import { exitCode } from '../../../src/commands/run/status'
 import { PI_VERSION } from '../../../src/pi/runtime/constants'
+import { RUN_FILES } from '../../../src/project/runs/constants'
+import { exitCode } from '../../../src/project/runs/render'
 import { build, digest } from './build'
 import { ANSWER, DUMMY_KEY, LOOPBACK_SCENARIOS } from './constants'
 import { archives, calls, configure } from './fixtures'
 import { modelServer } from './model'
 import { check, checkpoint, command, signalGroup, start } from './processes'
 
-import type { Status } from '../../../src/commands/run/types'
+import type { Status } from '../../../src/project/runs/types'
 import type { Capture, Context } from './types'
 
 /**
@@ -26,6 +27,29 @@ async function artifact(path: string): Promise<string | null> {
 
         throw error
     })
+}
+
+/**
+ * Read the status ft printed with --json.
+ * @param capture - ft process result
+ * @returns the status, or null when stdout held none
+ */
+function recorded(capture: Capture): Status | null {
+    try {
+        return JSON.parse(capture.stdout) as Status
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Read one file from a run's folder.
+ * @param status - the run's status
+ * @param file - file name inside the folder
+ * @returns contents, or null when the run or the file is missing
+ */
+async function runFile(status: Status | null, file: string): Promise<string | null> {
+    return status?.dir ? artifact(join(status.dir, file)) : null
 }
 
 /**
@@ -57,6 +81,7 @@ function brief(
             lane,
             '--out',
             join(context.project, `${name}.out`),
+            '--json',
             ...extra,
         ],
         context.project,
@@ -73,8 +98,8 @@ function brief(
  */
 async function toolTurn(context: Context, name: string, capture: Capture): Promise<void> {
     const out = join(context.project, `${name}.out`)
-    const events = await artifact(`${out}.events.jsonl`)
-    const status = JSON.parse((await artifact(`${out}.status.json`)) ?? 'null') as Status | null
+    const status = recorded(capture)
+    const events = await runFile(status, RUN_FILES.events)
 
     check(
         context.result,
@@ -129,6 +154,7 @@ export async function loopback(
                 lane,
                 '--out',
                 out,
+                '--json',
                 ...(name === 'timeout' ? ['--deadline', '1'] : []),
             ],
             context.project,
@@ -141,16 +167,32 @@ export async function loopback(
         }
 
         const capture = await child.result
-        const raw = await artifact(`${out}.status.json`)
-        const status = JSON.parse(raw ?? 'null') as Status | null
+        const status = recorded(capture)
         const expected = LOOPBACK_SCENARIOS[name]
-        const events = (await artifact(`${out}.events.jsonl`)) ?? ''
+        const events = (await runFile(status, RUN_FILES.events)) ?? ''
+
+        const stored = JSON.parse(
+            (await runFile(status, RUN_FILES.status)) ?? 'null',
+        ) as Status | null
 
         check(context.result, 'outcome', expected, status?.outcome ?? null)
         check(context.result, 'exit-code', exitCode(expected), capture.code)
-        check(context.result, 'pi-version', PI_VERSION, status?.piVersion ?? null)
+
+        if (expected !== 'configuration_error') {
+            check(context.result, 'pi-version', PI_VERSION, status?.piVersion ?? null)
+        }
+
         check(context.result, 'answer-publication', expected === 'success', existsSync(out))
-        check(context.result, 'quiet-stdout', '', capture.stdout)
+
+        if (expected !== 'configuration_error') {
+            check(
+                context.result,
+                'live-status-matches',
+                status?.outcome ?? null,
+                stored?.outcome ?? null,
+            )
+        }
+
         check(context.result, 'key-redaction', false, capture.stderr.includes(DUMMY_KEY))
 
         if (name === 'success' || name === 'builtin-provider') {
@@ -353,14 +395,12 @@ export async function parallel(context: Context): Promise<void> {
 
                 const capture = await start(
                     context,
-                    ['sh', resolve('shim/ft'), 'run', '--brief', input, '--out', out],
+                    ['sh', resolve('shim/ft'), 'run', '--brief', input, '--out', out, '--json'],
                     context.project,
                     context.env,
                 ).result
-                const status = JSON.parse(
-                    (await artifact(`${out}.status.json`)) ?? 'null',
-                ) as Status | null
-                const events = (await artifact(`${out}.events.jsonl`)) ?? ''
+                const status = recorded(capture)
+                const events = (await runFile(status, RUN_FILES.events)) ?? ''
 
                 return {
                     code: capture.code,
@@ -489,6 +529,7 @@ export async function cancelGroup(context: Context): Promise<void> {
                     'code',
                     '--out',
                     out,
+                    '--json',
                 ],
                 context.project,
                 context.env,
@@ -497,11 +538,8 @@ export async function cancelGroup(context: Context): Promise<void> {
             await checkpoint(() => existsSync(ready))
             owned = await descendants(context, child.pid)
             signalGroup(child.pid, signal)
-            await child.result
 
-            const status = JSON.parse(
-                (await artifact(`${out}.status.json`)) ?? 'null',
-            ) as Status | null
+            const status = recorded(await child.result)
 
             check(context.result, `${signal}-cancelled`, 'cancelled', status?.outcome ?? null)
             await checkpoint(async () => {
@@ -581,13 +619,11 @@ export async function killDownload(context: Context): Promise<void> {
 }
 
 /**
- * Read why a live run failed from its status file, which never holds the key.
- * @param out - the run's answer path
+ * Say why a live run failed, from its status, which never holds the key.
+ * @param status - the run's status
  * @returns the runner's error, or null when the run succeeded
  */
-async function liveError(out: string): Promise<string | null> {
-    const status = JSON.parse((await artifact(`${out}.status.json`)) ?? 'null') as Status | null
-
+function liveError(status: Status | null): string | null {
     if (status?.outcome === 'success') {
         return null
     }
@@ -603,7 +639,8 @@ async function liveError(out: string): Promise<string | null> {
  */
 export async function liveToolTurn(context: Context, lane: string): Promise<void> {
     const capture = await brief(context, context.build.binary, lane, ['--deadline', '90'], { lane })
-    const events = (await artifact(join(context.project, `${lane}.out.events.jsonl`))) ?? ''
+    const status = recorded(capture)
+    const events = (await runFile(status, RUN_FILES.events)) ?? ''
 
     check(
         context.result,
@@ -612,7 +649,7 @@ export async function liveToolTurn(context: Context, lane: string): Promise<void
         {
             code: capture.code,
             tool: events.includes('tool_execution_end') && !events.includes('"isError":true'),
-            error: await liveError(join(context.project, `${lane}.out`)),
+            error: liveError(status),
         },
     )
     await rm(join(context.project, 'key-count'), { force: true })
@@ -645,7 +682,7 @@ export async function liveResearch(context: Context): Promise<void> {
             code: capture.code,
             answer: answer.trim().length > 0,
             sources: answer.includes('## Citations'),
-            error: await liveError(out),
+            error: liveError(recorded(capture)),
         },
     )
 }

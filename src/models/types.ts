@@ -45,6 +45,8 @@ export interface Lane {
     model: string
     /** Requested Pi thinking level, absent when not explicitly selected. */
     thinking?: Thinking
+    /** When to use this lane, shown to agents by `ft guide`. */
+    description?: string
 }
 
 /**

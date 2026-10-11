@@ -23,11 +23,7 @@ it("resolves a key command at the project root and brokers only the run provider
         await mkdir(join(root, 'run'), { mode: 0o700 })
 
         const socket = join(root, 'run', 'key.sock')
-        const close = serveKey(
-            socket,
-            { provider: 'gateway', source, root },
-            new AbortController().signal,
-        )
+        const close = serveKey(socket, { provider: 'gateway', value: await getKey(source, root) })
 
         try {
             expect(await brokerKey(socket, 'gateway')).toBe('unit-test-dummy')

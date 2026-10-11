@@ -1,12 +1,17 @@
 import { StringDecoder } from 'node:string_decoder'
 
+import { emptyProgress } from '../../project/runs/store'
+import { track } from './progress'
+
+import type { Progress } from '../../project/runs/types'
 import type { JudgeState, Verdict } from './types'
 
 /**
  * Initialize a protocol judge without accepting streamed deltas as an answer.
+ * @param progress - the record to keep current, such as the run's live status
  * @returns new judge state
  */
-export function createJudge(): JudgeState {
+export function createJudge(progress: Progress = emptyProgress()): JudgeState {
     return {
         header: false,
         started: false,
@@ -14,11 +19,14 @@ export function createJudge(): JudgeState {
         aborted: false,
         stopReason: null,
         text: '',
+        lastText: '',
         modelError: null,
         protocolError: null,
         retryCount: 0,
         compactionCount: 0,
         toolErrorCount: 0,
+        progress,
+        pending: new Map(),
     }
 }
 
@@ -26,9 +34,9 @@ export function createJudge(): JudgeState {
  * Consume an authoritative JSON event.
  * @param state - mutable run judge
  * @param line - one LF-delimited record
- * @returns nothing; failures are recorded in state
+ * @returns whether the run's visible progress changed; failures are recorded in state
  */
-function record(state: JudgeState, line: string): void {
+function record(state: JudgeState, line: string): boolean {
     try {
         const event = JSON.parse(line) as Record<string, unknown>
 
@@ -95,21 +103,30 @@ function record(state: JudgeState, line: string): void {
                         return block.type === 'text' ? block.text : ''
                     })
                     .join('')
+                state.lastText = state.text.trim() ? state.text : state.lastText
                 state.modelError =
                     typeof message.errorMessage === 'string' ? message.errorMessage : null
             }
         }
+
+        return track(state, event)
     } catch (error) {
         state.protocolError ??= error instanceof Error ? error.message : 'Malformed protocol'
+
+        return false
     }
 }
 
 /**
  * Build a UTF-8-safe streaming JSONL consumer; LF alone delimits records.
  * @param state - judge to update
+ * @param changed - called once per chunk whose events changed the run's visible progress
  * @returns chunk and EOF consumers
  */
-export function eventParser(state: JudgeState): { push: (chunk: Buffer) => void; end: () => void } {
+export function eventParser(
+    state: JudgeState,
+    changed: () => void = () => {},
+): { push: (chunk: Buffer) => void; end: () => void } {
     const decoder = new StringDecoder('utf8')
     let pending = ''
 
@@ -118,11 +135,16 @@ export function eventParser(state: JudgeState): { push: (chunk: Buffer) => void;
             pending += decoder.write(chunk)
 
             let lf = pending.indexOf('\n')
+            let progressed = false
 
             while (lf >= 0) {
-                record(state, pending.slice(0, lf).replace(/\r$/, ''))
+                progressed = record(state, pending.slice(0, lf).replace(/\r$/, '')) || progressed
                 pending = pending.slice(lf + 1)
                 lf = pending.indexOf('\n')
+            }
+
+            if (progressed) {
+                changed()
             }
         },
         end() {

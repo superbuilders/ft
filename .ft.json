@@ -181,10 +181,12 @@
     "lanes": {
         "code": {
             "model": "truefoundry/gpt-6.1-sol",
-            "thinking": "high"
+            "thinking": "high",
+            "description": "Reviews, investigations and scoped changes."
         },
         "research": {
-            "model": "truefoundry/sonar-pro"
+            "model": "truefoundry/sonar-pro",
+            "description": "Live web research with sources. Runs without tools."
         }
     }
 }

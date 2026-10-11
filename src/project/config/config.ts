@@ -43,6 +43,21 @@ export function findConfig(cwd: string, handoff?: string): string | undefined {
 }
 
 /**
+ * The project root for commands that read runs: the directory holding .ft.json, without
+ * validating it, so a broken config does not hide the runs it already made.
+ * @returns absolute project root
+ */
+export function projectRoot(): string {
+    const found = findConfig(process.cwd(), process.env.FT_CONFIG)
+
+    if (!found) {
+        throw new Error(`No ${CONFIG_FILE} found here or above; runs live beside it`)
+    }
+
+    return dirname(found)
+}
+
+/**
  * Describe one schema error as a line a person can act on, at the dotted path they read in the file.
  * @param error - one schema error
  * @returns problem lines; an unknown-field error yields one per field
