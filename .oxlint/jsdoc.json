@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 {
     "plugins": ["jsdoc"],
     "jsPlugins": [

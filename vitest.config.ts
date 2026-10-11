@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade.
-
 import { defineConfig } from 'vitest/config'
 
 import { fullGatesAllowed, testRefusal, unscopedTestRun } from './scripts/lib/run-context.ts'

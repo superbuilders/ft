@@ -1,4 +1,3 @@
-# Keep in sync with playcademy-arcade.
 """Render gitleaks PR-gate findings as a markdown run summary, and own the verdict.
 
 Reads gitleaks' JSON report (argv[1]), writes a markdown summary to stdout

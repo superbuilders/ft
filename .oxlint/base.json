@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 {
     "$schema": "../node_modules/oxlint/configuration_schema.json",
     "extends": ["./spacing.json", "./jsdoc.json", "./overrides.json", "./boundaries/all.json"],

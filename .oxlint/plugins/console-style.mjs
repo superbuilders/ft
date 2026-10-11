@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 /**
  * Local oxlint plugin (loaded via `jsPlugins`) enforcing the console spacing
  * convention: vertical spacing around output is expressed as standalone

@@ -1,7 +1,6 @@
 # AGENTS.md
 
-Instructions for coding agents working in this repository. Keep the applicable
-engineering conventions in sync with playcademy-arcade.
+Instructions for coding agents working in this repository.
 
 ## What ft is
 
@@ -117,20 +116,8 @@ kind-files, and JSDoc on exported functions.
   skips it.
 - When a catch shadows an in-scope `error`, name the parameter `error_`.
 
-## Tooling sync contract
+## Secrets and formatting exceptions
 
-Keep in sync with playcademy-arcade at
-`/home/hbauer/work/clones/playcademy-arcade-linear`, adapting only for this
-single package. Ported comment-capable configs/modules carry a sync note.
-The synced JSON files without comments are `package.json`, `.oxlintrc.json`,
-`.oxfmtrc.json`, `tsconfig.json`, `knip.json` and `.secretlintrc.json`.
-`.tsconfig/base.json` is copied verbatim, so its sync note lives here too.
-The comment-free workflow files `.github/workflows/ci.yml` and
-`.github/workflows/secret-scan.yml` also follow that sync contract; retain
-ARCADE's action and scanner versions/style when updating them.
-
-Keep dependency version specs and `packageManager` aligned. Formatting uses
-the same options and import-group ordering without workspace/alias groups.
-`docs/plan.md` is intentionally excluded from formatting to preserve the
-handoff unchanged. Secret scanning rejects any staged `.env*` except
-`.example` templates; never print secret values.
+- The commit hook rejects any staged `.env*` file except `.example` templates.
+  Never print secret values.
+- `docs/plan.md` is excluded from formatting so the handoff stays unchanged.

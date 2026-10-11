@@ -1,4 +1,3 @@
-# Keep in sync with playcademy-arcade.
 # Rules for the PR gate (secret-scan.yml) and local audits. Extends the
 # 222 default rules with the two classes they verifiably miss here, plus
 # scoped allowlists:

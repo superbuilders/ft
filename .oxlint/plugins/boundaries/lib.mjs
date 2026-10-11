@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade.
-
 import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 

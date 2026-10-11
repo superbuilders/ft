@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade's checks and pre-push-log contracts.
-
 /** The pre-push hook distinguishes reported check failures from runner crashes. */
 export const CHECKS_FAILED_EXIT_CODE = 3
 

@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade's workspace check/task contracts.
-
 /**
  * Mode flags provided by commander.
  */

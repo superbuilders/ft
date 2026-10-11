@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 /**
  * Every `tests/` tree shares one depth rule (root `AGENTS.md`,
  * "Test-support layout"): the `tests/` root holds the base Node project's

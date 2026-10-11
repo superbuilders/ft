@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 /**
  * A `constants.ts` kind-file holds pure values — literals and as-const
  * derivations; type-only imports are the one sanctioned edge. Two failure

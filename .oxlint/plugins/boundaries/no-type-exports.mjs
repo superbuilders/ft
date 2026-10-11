@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 /**
  * Kind-files that never export types: `constants.ts` (values only),
  * `store.svelte.ts` (the factory; its public interface lives in `types.ts`),

@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade's run-context guard contract.
-
 import { expect, test } from 'vitest'
 
 import { fullGatesAllowed, unscopedTestRun } from './run-context'

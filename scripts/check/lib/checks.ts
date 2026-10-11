@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade's workspace checks and pre-push-log contracts.
-
 import { spawn } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'

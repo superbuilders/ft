@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade's workspace check command.
-
 import { Command } from 'commander'
 
 import { runCheck } from './commands/check'

@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade (scripts/workspace/lib/run-context.ts).
-
 import { existsSync } from 'node:fs'
 
 import { SUBCOMMANDS, VALUE_OPTIONS } from './vitest-options.ts'

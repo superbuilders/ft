@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade's workspace check command.
-
 import { checkRefusal, fullGatesAllowed } from '../../lib/run-context'
 import { runChecks } from '../lib/checks'
 

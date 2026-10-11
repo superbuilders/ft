@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade.
-
 import { basename } from 'node:path'
 
 /**

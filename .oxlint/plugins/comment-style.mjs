@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 /**
  * Local oxlint plugin (loaded via `jsPlugins`) enforcing the comment
  * convention for properties (FT-81). Two contexts, two shapes:

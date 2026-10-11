@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 /**
  * The third jaw of the fakes pincer (the doubles glossary, `AGENTS.md`).
  * `tests-tree-layout` shapes the tree, `fakes-declare-contract` makes

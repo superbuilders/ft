@@ -1,4 +1,3 @@
-// Keep in sync with playcademy-arcade.
 /**
  * Every file in a tests-tree `fakes/` directory declares who owns the
  * contract it substitutes, in its leading module docblock (root

@@ -1,5 +1,3 @@
-// Keep in sync with playcademy-arcade.
-
 /**
  * Vitest options that consume the next token, so their values are never read
  * as test paths, even when the value exists on disk (`--root ../..`).

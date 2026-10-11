@@ -1,7 +1,5 @@
 #!/usr/bin/env sh
 
-# Keep in sync with playcademy-arcade.
-
 # We're in a hook
 export FT_HOOK=pre-push
 
