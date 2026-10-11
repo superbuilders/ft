@@ -1,16 +1,19 @@
 import { runCommand } from '../../system/process/subprocess'
 
-import type { ResolvedConfig } from '../config/types'
+import type { KeySource } from '../../models/types'
 
 /**
- * Resolve the key without ever writing it to diagnostic output.
- * @param config - key source and project root
+ * Resolve a credential without ever writing it to diagnostic output.
+ * @param source - the provider's key source
+ * @param root - project root, the key command's working directory
  * @param signal - cancellation for a running command
  * @returns trimmed credential held only in memory
  */
-export async function getKey(config: ResolvedConfig, signal?: AbortSignal): Promise<string> {
-    const source = config.config.apiKey
-
+export async function getKey(
+    source: KeySource,
+    root: string,
+    signal?: AbortSignal,
+): Promise<string> {
     if ('env' in source) {
         const key = process.env[source.env]?.trim()
 
@@ -21,7 +24,7 @@ export async function getKey(config: ResolvedConfig, signal?: AbortSignal): Prom
         return key
     }
 
-    const result = await runCommand(source.command, config.root, signal)
+    const result = await runCommand(source.command, root, signal)
 
     if (result.exitCode !== 0) {
         throw new Error(`Key command failed (exit ${result.exitCode})`)

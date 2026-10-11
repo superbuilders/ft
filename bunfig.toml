@@ -5,3 +5,8 @@ linker = "isolated"
 # the Dependabot cooldown: the window in which malicious releases typically
 # get caught and yanked. Override per-command with --minimum-release-age 0.
 minimumReleaseAge = 604800
+
+# Pi 1.1.0's typed packages (released 2026-10-07) are the same release as the Pi
+# binary ft already pins by checksum, so the cooldown adds nothing for them.
+# package.json pins pi-ai exactly; remove this after 2026-10-14.
+minimumReleaseAgeExcludes = ["@earendil-works/pi-ai", "@earendil-works/pi-telemetry"]

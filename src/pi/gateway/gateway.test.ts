@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { adapterFor } from './adapters'
+import { sonar } from './adapters/sonar'
 import { serveGateway } from './gateway'
 
 const servers: { stop: () => Promise<void> }[] = []
@@ -34,17 +34,17 @@ function upstream(): { url: string; seen: { path: string; auth: string | null; b
 }
 
 /**
- * Send one chat request for a model through a fresh gateway.
- * @param model - catalog model id
+ * Send one chat request through a fresh Sonar gateway whose upstream root has a version path.
+ * @param model - the provider's model id
  * @returns the reply and what the upstream received
  */
 async function chat(model: string) {
     const origin = upstream()
-    const gateway = serveGateway(origin.url, adapterFor(model))
+    const gateway = serveGateway(`${origin.url}/v1`, sonar)
 
     servers.push(gateway)
 
-    const response = await fetch(`${gateway.url}/v1/chat/completions`, {
+    const response = await fetch(`${gateway.url}/chat/completions`, {
         method: 'POST',
         headers: { authorization: 'Bearer test', 'content-type': 'application/json' },
         body: JSON.stringify({ model, stream: true, tools: [{ type: 'function' }] }),
@@ -58,35 +58,28 @@ afterEach(async () => {
 })
 
 describe('local gateway', () => {
-    it('forwards a model without an adapter unchanged', async () => {
-        const { response, seen } = await chat('gpt-6.1-sol')
+    it("applies the model's adapter to the request and the response", async () => {
+        const { response, seen } = await chat('sonar-pro')
 
         expect(seen).toEqual([
             {
                 path: '/v1/chat/completions',
                 auth: 'Bearer test',
-                body: { model: 'gpt-6.1-sol', stream: true, tools: [{ type: 'function' }] },
+                body: { model: 'sonar-pro', stream: true },
             },
         ])
-        expect(response.headers.get('content-type')).toContain('application/json')
-    })
-
-    it("applies the model's adapter to the request and the response", async () => {
-        const { response, seen } = await chat('sonar-pro')
-
-        expect(seen[0]?.body).toEqual({ model: 'sonar-pro', stream: true })
         expect(response.headers.get('content-type')).toBe('text/event-stream')
         expect(await response.text()).toContain('## Citations')
     })
 
     it('answers 502 when the gateway is unreachable', async () => {
-        const gateway = serveGateway('http://127.0.0.1:9')
+        const gateway = serveGateway('http://127.0.0.1:9', sonar)
 
         servers.push(gateway)
 
-        const response = await fetch(`${gateway.url}/v1/chat/completions`, {
+        const response = await fetch(`${gateway.url}/chat/completions`, {
             method: 'POST',
-            body: JSON.stringify({ model: 'gpt-6.1-sol' }),
+            body: JSON.stringify({ model: 'sonar-pro' }),
         })
 
         expect(response.status).toBe(502)
@@ -109,8 +102,8 @@ describe('local gateway', () => {
 
         servers.push({ stop: () => origin.stop(true) })
 
-        const gateway = serveGateway(`http://127.0.0.1:${origin.port}`)
-        const client = `const response = await fetch(${JSON.stringify(`${gateway.url}/v1/chat/completions`)}, { method: 'POST', body: '{}' }); await response.body.getReader().read(); process.exit(0)`
+        const gateway = serveGateway(`http://127.0.0.1:${origin.port}`, { tools: true })
+        const client = `const response = await fetch(${JSON.stringify(`${gateway.url}/chat/completions`)}, { method: 'POST', body: '{}' }); await response.body.getReader().read(); process.exit(0)`
 
         /* A reader in another process that exits, as Pi does, is what left Bun's stop pending. */
         expect(await Bun.spawn([process.execPath, '-e', client]).exited).toBe(0)

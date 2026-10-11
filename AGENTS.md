@@ -94,22 +94,33 @@ enforce layout, contract declaration and residency.
 
 `src/` is layered, and each layer imports only from the layers below it:
 `cli.ts`, then `commands/` (one folder per command), `pi/` (driving Pi),
-`project/` (reading the caller's project), `models/` (the catalog and
-lanes), and `system/` (helpers with no ft knowledge). Sibling folders do not
+`project/` (reading the caller's project), `models/` (providers, Pi's
+built-in catalog and lanes), and `system/` (helpers with no ft knowledge). Sibling folders do not
 import each other unless `.oxlint/boundaries/layers.json` names the edge. The
 `boundaries/layer-imports` rule enforces that map; a new folder needs an
 entry before its files lint. Move code down a layer rather than adding an
 upward edge.
 
+## Configuration
+
+A project has two files at its root. `.ft.json` is written by people: `providers`
+(a Pi built-in provider id with a `key`, or a custom endpoint with `baseUrl`,
+`api`, `key` and Pi-format `models`) and `lanes` (`provider/model` plus optional
+thinking; `code` is the default lane). `.ft.lock` holds the pinned runner version
+and checksums; only `ft pin` writes it, and the shim reads it. Provider and model
+types come from `@earendil-works/pi-ai`, pinned to exactly `PI_VERSION`; a test
+fails if the two drift. A run writes only its own provider into Pi's models.json,
+and Pi asks for the key with `ft key <provider>`.
+
 ## Model adapters
 
-Pi reaches the gateway through a loopback relay in `src/pi/gateway/`. When a
-catalog model's gateway traffic is something Pi 1.1.0 cannot read, add an
-adapter file in `src/pi/gateway/adapters/` that names its models and
-rewrites their requests or responses, and register it in that folder's
-`index.ts`. Never add a separate code path in `commands/run/` for one model.
-A model that cannot call tools goes in `TOOL_FREE_MODELS` (`src/models/constants.ts`);
-its runs start Pi with no tools and skip installing rg and fd.
+When a model's traffic is something Pi 1.1.0 cannot read, add an adapter file in
+`src/pi/gateway/adapters/` that rewrites its requests or responses and declares
+whether the model can call tools, and register it by name in that folder's
+`index.ts`. A model entry opts in with `"adapter": "<name>"`; its runs then go
+through ft's loopback relay in `src/pi/gateway/`, and a tool-free adapter starts
+Pi with no tools and skips installing rg and fd. Never add a separate code path
+in `commands/run/` for one model.
 
 ## Scripts
 

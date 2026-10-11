@@ -203,7 +203,7 @@ describe('lab contract', () => {
             await configure(context, context.build, 'http://127.0.0.1:1')
             await writeFile(context.build.binary, 'real bytes')
 
-            const config = JSON.parse(await readFile(join(context.project, '.ft.json'), 'utf8'))
+            const lock = JSON.parse(await readFile(join(context.project, '.ft.lock'), 'utf8'))
             const capture = await start(
                 context,
                 [
@@ -222,9 +222,9 @@ describe('lab contract', () => {
                 context.env,
             ).result
 
-            expect(config.sha256['linux-x64']).toBe(context.build.digest)
-            expect(config.sha256['darwin-arm64']).toBe('0'.repeat(64))
-            expect(Object.keys(config.sha256)).toHaveLength(4)
+            expect(lock.sha256['linux-x64']).toBe(context.build.digest)
+            expect(lock.sha256['darwin-arm64']).toBe('0'.repeat(64))
+            expect(Object.keys(lock.sha256)).toHaveLength(4)
             expect(capture.code).toBe(0)
             expect(await readFile(join(directory, 'download', 'ft-linux-x64'), 'utf8')).toBe(
                 'real bytes',

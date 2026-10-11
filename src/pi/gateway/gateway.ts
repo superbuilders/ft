@@ -36,14 +36,15 @@ function relay(response: Response, signal: AbortSignal): Response {
 
 /**
  * Serve a loopback gateway for one run that forwards Pi's requests through the run model's adapter.
- * @param upstream - configured gateway root, without /v1
- * @param adapter - the run model's adapter, if it has one
- * @returns the local root Pi should use instead, and a stop function
+ * @param upstream - the provider's base URL, including any version path
+ * @param adapter - the run model's adapter
+ * @returns the local base URL Pi should use instead, and a stop function
  */
 export function serveGateway(
     upstream: string,
-    adapter?: Adapter,
+    adapter: Adapter,
 ): { url: string; stop: () => Promise<void> } {
+    const root = upstream.replace(/\/+$/, '')
     const stopping = new AbortController()
     const server = Bun.serve({
         hostname: '127.0.0.1',
@@ -65,25 +66,25 @@ export function serveGateway(
             const chat = url.pathname.endsWith('/chat/completions')
             let body: string | null = request.method === 'POST' ? await request.text() : null
 
-            if (body && chat && adapter?.request) {
+            if (body && chat && adapter.request) {
                 body = JSON.stringify(adapter.request(JSON.parse(body) as ChatRequest))
             }
 
-            let response = await fetch(`${upstream}${url.pathname}${url.search}`, {
+            let response = await fetch(`${root}${url.pathname}${url.search}`, {
                 method: request.method,
                 headers,
                 body,
                 signal: AbortSignal.any([request.signal, stopping.signal]),
             })
 
-            if (chat && response.ok && adapter?.response) {
+            if (chat && response.ok && adapter.response) {
                 response = await adapter.response(response)
             }
 
             return relay(response, stopping.signal)
         },
         error() {
-            return new Response('ft could not reach the gateway', { status: 502 })
+            return new Response('ft could not reach the provider', { status: 502 })
         },
     })
 

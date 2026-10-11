@@ -99,7 +99,8 @@ function executable(path: string, content: string) {
 }
 
 function configure(hashes: Record<string, string> = { [target]: digest(runner) }) {
-    writeFileSync(join(project, '.ft.json'), JSON.stringify({ version, sha256: hashes }, null, 4))
+    writeFileSync(join(project, '.ft.json'), '{}')
+    writeFileSync(join(project, '.ft.lock'), JSON.stringify({ version, sha256: hashes }, null, 4))
 }
 
 function ghCalls() {
@@ -387,7 +388,19 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor']).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain('run ft pin <version> in the project root')
+        expect(result.stderr).toContain(
+            'no .ft.json found; run ft pin <version> in the project root',
+        )
+        expect(ghCalls()).toEqual([])
+    })
+
+    it('requires pin when the config has no lock beside it', async () => {
+        writeFileSync(join(project, '.ft.json'), '{}')
+
+        const result = await start(shell, ['doctor']).result
+
+        expect(result.code).toBe(2)
+        expect(result.stderr).toContain(`no ${join(project, '.ft.lock')} found`)
         expect(ghCalls()).toEqual([])
     })
 
@@ -396,7 +409,7 @@ describe.each(shells)('shim via %s', shell => {
 
         const result = await start(shell, ['--shim-version']).result
 
-        expect(result).toEqual({ code: 0, stdout: '0.1.0\n', stderr: '' })
+        expect(result).toEqual({ code: 0, stdout: '0.2.0\n', stderr: '' })
     })
 
     it.each(['FreeBSD', 'Windows'])('rejects unsupported OS %s', async os => {
@@ -440,7 +453,7 @@ describe.each(shells)('shim via %s', shell => {
     it('rejects unsafe version paths before cache access', async () => {
         configure()
         writeFileSync(
-            join(project, '.ft.json'),
+            join(project, '.ft.lock'),
             JSON.stringify(
                 { version: '../outside', sha256: { [target]: digest(runner) } },
                 null,

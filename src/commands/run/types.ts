@@ -1,4 +1,6 @@
+import type { Provider, Selection } from '../../models/types'
 import type { Verdict } from '../../pi/events/types'
+import type { Adapter } from '../../pi/gateway/adapters/types'
 
 export type Outcome = Verdict | 'configuration_error' | 'timeout' | 'cancelled'
 
@@ -12,7 +14,7 @@ export interface RunOptions {
     out: string
     /** Requested lane name; null for explicit model selection. */
     lane?: string
-    /** Exact built-in catalog id; fuzzy selection is forbidden. */
+    /** `provider/model` reference, chosen instead of a lane. */
     model?: string
     /** Explicit tool working directory, absolute in status. */
     cwd?: string
@@ -36,9 +38,9 @@ export interface Status {
     piVersion: string
     /** Lane the run used; null for explicit model selection. */
     lane: string | null
-    /** Custom provider id, fixed to truefoundry. */
-    provider: string
-    /** Exact built-in catalog id; fuzzy selection is forbidden. */
+    /** Configured provider id; null until the model is resolved. */
+    provider: string | null
+    /** The provider's model id; null until the model is resolved. */
     model: string | null
     /** Requested Pi thinking level, absent when not explicitly selected. */
     thinking: string | null
@@ -62,4 +64,18 @@ export interface Status {
     durationMs: number
     /** Failure diagnostic, null on successful runs. */
     error: string | null
+}
+
+/**
+ * The run's resolved model and what follows from it.
+ */
+export interface ModelChoice {
+    /** Provider, model and thinking level. */
+    selected: Selection
+    /** The selected provider's config. */
+    provider: Provider
+    /** The model entry's adapter; absent when Pi reads the provider directly. */
+    adapter?: Adapter
+    /** Pi tools the run allows: the profile's, or none for a tool-free model. */
+    tools: readonly string[]
 }

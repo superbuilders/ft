@@ -34,20 +34,32 @@ export async function realGateway(context: Context, options: Options): Promise<v
     const config = validateConfig(JSON.parse(await readFile(path, 'utf8')))
     const key = join(context.project, 'real-key.ts')
 
+    /* Command keys run in the real project through the built runner; env keys pass through by name. */
     await writeFile(
         key,
         `const env = { ...process.env, FT_CONFIG: ${JSON.stringify(path)} }; delete env.FT_KEY_SOCKET;
-const child = Bun.spawn(${JSON.stringify([context.build.binary, 'key'])}, { cwd: ${JSON.stringify(project)}, env, stdin: 'ignore', stdout: 'pipe', stderr: 'ignore' });
+const child = Bun.spawn([${JSON.stringify(context.build.binary)}, 'key', process.argv[2]], { cwd: ${JSON.stringify(project)}, env, stdin: 'ignore', stdout: 'pipe', stderr: 'ignore' });
 const output = await new Response(child.stdout).text();
 if (await child.exited !== 0) process.exit(1);
 process.stdout.write(output);
 `,
     )
+
+    const providers = Object.fromEntries(
+        Object.entries(config.providers).map(([id, provider]) => [
+            id,
+            {
+                ...provider,
+                key:
+                    'env' in provider.key ? provider.key : { command: [process.execPath, key, id] },
+            },
+        ]),
+    )
+
     await writeFile(
-        join(context.project, '.ft.json'),
+        join(context.project, '.ft.lock'),
         JSON.stringify(
             {
-                ...config,
                 version: context.build.version,
                 sha256: Object.fromEntries(
                     TARGETS.map(target => [
@@ -55,23 +67,27 @@ process.stdout.write(output);
                         target === context.build.target ? context.build.digest : '0'.repeat(64),
                     ]),
                 ),
-                apiKey:
-                    'env' in config.apiKey ? config.apiKey : { command: [process.execPath, key] },
             },
             null,
             4,
         ),
     )
+    await writeFile(
+        join(context.project, '.ft.json'),
+        JSON.stringify({ ...config, providers }, null, 4),
+    )
     context.env.PATH = process.env.PATH
 
-    if ('env' in config.apiKey) {
-        const value = process.env[config.apiKey.env]
+    for (const provider of Object.values(config.providers)) {
+        if ('env' in provider.key) {
+            const value = process.env[provider.key.env]
 
-        if (!value) {
-            throw new PrerequisiteError('Configured real apiKey environment variable is unset')
+            if (!value) {
+                throw new PrerequisiteError(`Key environment variable ${provider.key.env} is unset`)
+            }
+
+            context.env[provider.key.env] = value
         }
-
-        context.env[config.apiKey.env] = value
     }
 
     delete context.env.BUN_OPTIONS
@@ -150,13 +166,10 @@ export async function realRelease(context: Context, options: Options): Promise<v
     )
 
     await writeFile(
-        join(context.project, '.ft.json'),
-        JSON.stringify(
-            { version: options.version, sha256: hashes, apiKey: { env: 'UNUSED_LAB_KEY' } },
-            null,
-            4,
-        ),
+        join(context.project, '.ft.lock'),
+        JSON.stringify({ version: options.version, sha256: hashes }, null, 4),
     )
+    await writeFile(join(context.project, '.ft.json'), '{}')
 
     const capture = await start(
         context,

@@ -17,7 +17,7 @@ it('removes every PI override and provider or configured credential', () => {
         GH_TOKEN: 'dummy',
         COPILOT_GITHUB_TOKEN: 'dummy',
     }
-    const filtered = filterEnvironment(caller, 'CUSTOM_KEY')
+    const filtered = filterEnvironment(caller, ['CUSTOM_KEY'])
 
     expect(filtered).toEqual({ PATH: '/bin', HOME: '/home/example' })
 

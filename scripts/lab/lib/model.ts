@@ -81,7 +81,13 @@ export function modelServer(
             }
 
             const toolDone = body.messages.some(message => message.role === 'tool')
-            const tools = ['success', 'distribution', 'parallel', 'cancel-group'].includes(scenario)
+            const tools = [
+                'success',
+                'builtin-provider',
+                'distribution',
+                'parallel',
+                'cancel-group',
+            ].includes(scenario)
             const delta =
                 tools && !toolDone
                     ? {

@@ -2,19 +2,19 @@
  * The OpenAI chat-completions request body Pi sends, read only as far as adapters need.
  */
 export interface ChatRequest {
-    /** Exact catalog model id; selects the adapter. */
+    /** The provider's model id. */
     model: string
     /** Every other request field, forwarded unchanged unless an adapter rewrites it. */
     [field: string]: unknown
 }
 
 /**
- * Makes one model's gateway traffic look like the streamed OpenAI protocol Pi 1.1.0
- * reads. ft's local gateway applies it to every request for one of its models.
+ * Makes one model's traffic look like the streamed OpenAI protocol Pi 1.1.0 reads. A model entry
+ * names it with `adapter`, and ft's local gateway then applies it to every request for that model.
  */
 export interface Adapter {
-    /** Catalog model ids this adapter serves; a model has at most one adapter. */
-    models: readonly string[]
+    /** Whether the model can call tools; a tool-free model's runs start Pi with none. */
+    tools: boolean
     /** Rewrite the request body before it reaches the gateway. */
     request?: (body: ChatRequest) => ChatRequest
     /** Rewrite a successful gateway response before Pi reads it. */

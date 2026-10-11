@@ -3,7 +3,7 @@ import { eventParser } from '../events/judge'
 import { KILL_GRACE_MS } from './constants'
 import { piEnvironment } from './environment'
 
-import type { Lane } from '../../models/types'
+import type { Selection } from '../../models/types'
 import type { JudgeState } from '../events/types'
 
 /**
@@ -15,7 +15,7 @@ export async function runPi(input: {
     pi: string
     cwd: string
     brief: string
-    selected: Lane
+    selected: Selection
     tools: readonly string[]
     env: NodeJS.ProcessEnv
     toolDirs: string[]
@@ -41,7 +41,7 @@ export async function runPi(input: {
         '--no-themes',
         '--no-context-files',
         '--provider',
-        'truefoundry',
+        input.selected.provider,
         '--model',
         input.selected.model,
         '--append-system-prompt',

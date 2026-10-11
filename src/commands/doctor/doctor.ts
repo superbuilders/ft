@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs'
-import { dirname } from 'node:path'
 
 import { PI_VERSION, TOOL_RELEASES } from '../../pi/runtime/constants'
 import { runtimePaths } from '../../pi/runtime/runtime'
@@ -8,7 +7,7 @@ import { getKey } from '../../project/key/key'
 import { cacheRoot, platformTarget } from '../../system/host/host'
 
 /**
- * Print installation and credential health without exposing the credential.
+ * Print installation and credential health without exposing any credential.
  * @param runnerVersion - this runner's version
  * @returns completion of diagnostic output
  */
@@ -19,7 +18,7 @@ export async function doctor(runnerVersion: string): Promise<void> {
     const paths = runtimePaths(cacheRoot())
     const lines = [
         `Config: ${config.path}`,
-        `Project root: ${dirname(config.path)}`,
+        `Project root: ${config.root}`,
         `Runner: ${runnerVersion}`,
         `Pi: ${PI_VERSION} (${existsSync(paths.pi) ? 'installed' : 'not installed'})`,
     ]
@@ -30,17 +29,19 @@ export async function doctor(runnerVersion: string): Promise<void> {
         )
     }
 
-    for (const [name, lane] of Object.entries(config.lanes)) {
+    for (const [name, lane] of Object.entries(config.config.lanes)) {
         lines.push(
             `Lane ${name}: ${lane.model}${lane.thinking ? ` thinking=${lane.thinking}` : ''}`,
         )
     }
 
-    try {
-        await getKey(config)
-        lines.push('Key: ready')
-    } catch {
-        lines.push('Key: failed (see stderr)')
+    for (const [id, provider] of Object.entries(config.config.providers)) {
+        try {
+            await getKey(provider.key, config.root)
+            lines.push(`Provider ${id}: key ready`)
+        } catch {
+            lines.push(`Provider ${id}: key failed (run ft key ${id} to see why)`)
+        }
     }
 
     process.stdout.write(`${lines.join('\n')}\n`)

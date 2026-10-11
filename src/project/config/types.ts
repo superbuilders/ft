@@ -1,26 +1,28 @@
-import type { Lane } from '../../models/types'
+import type { Lane, Provider } from '../../models/types'
 import type { Target } from '../../system/host/types'
 
-export type ApiKey = { command: string[] } | { env: string }
-
 /**
- * Binding on-disk project schema consumed by both shim and runner.
+ * The project's `.ft.json`: which providers ft may reach and which model each lane uses.
  */
 export interface Config {
-    /** Exact release version; never a floating tag. */
-    version: string
-    /** Trusted archive digest, or all four runner target digests in project config. */
-    sha256: Record<Target, string>
-    /** Credential reference only; never an inline key. */
-    apiKey: ApiKey
-    /** Optional gateway URL override. */
-    gateway?: { baseUrl: string }
-    /** Named exact-model selections, merged over built-in lanes. */
-    lanes?: Record<string, Lane>
+    /** Providers by id: a Pi built-in id, or a custom endpoint. */
+    providers: Record<string, Provider>
+    /** Named model choices; `code` is the default lane. */
+    lanes: Record<string, Lane>
 }
 
 /**
- * Validated project configuration with runner defaults applied.
+ * The project's `.ft.lock`: the pinned runner, read by the shim before ft starts.
+ */
+export interface Lock {
+    /** Exact release version; never a floating tag. */
+    version: string
+    /** Lowercase release-archive digests for every runner target. */
+    sha256: Record<Target, string>
+}
+
+/**
+ * A validated config and where it was found.
  */
 export interface ResolvedConfig {
     /** Absolute discovered .ft.json path. */
@@ -29,8 +31,4 @@ export interface ResolvedConfig {
     root: string
     /** Validated on-disk configuration. */
     config: Config
-    /** HTTP(S) gateway root without credentials or query parameters. */
-    baseUrl: string
-    /** Named exact-model selections, merged over built-in lanes. */
-    lanes: Record<string, Lane>
 }

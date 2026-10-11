@@ -2,14 +2,20 @@ import { sonar } from './sonar'
 
 import type { Adapter } from './types'
 
-/** Every adapter ft ships; a catalog model with no entry here talks to the gateway unchanged. */
-const ADAPTERS: readonly Adapter[] = [sonar]
+/** Every adapter ft ships, by the name a model entry's `adapter` field uses. */
+const ADAPTERS: Readonly<Record<string, Adapter>> = { sonar }
 
 /**
- * Find the adapter for one catalog model.
- * @param model - exact catalog model id
- * @returns the model's adapter, or undefined when it needs none
+ * Find the adapter a model entry names.
+ * @param name - the model entry's adapter name
+ * @returns the adapter
  */
-export function adapterFor(model: string): Adapter | undefined {
-    return ADAPTERS.find(adapter => adapter.models.includes(model))
+export function adapterNamed(name: string): Adapter {
+    const adapter = ADAPTERS[name]
+
+    if (!adapter) {
+        throw new Error(`Unknown adapter ${name}; ft ships ${Object.keys(ADAPTERS).join(', ')}`)
+    }
+
+    return adapter
 }

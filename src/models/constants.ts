@@ -1,176 +1,28 @@
-export const MODEL_CATALOG = [
-    {
-        id: 'claude-fable-5',
-        name: 'Fable 5',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 200_000,
-        maxTokens: 32_768,
-    },
-    {
-        id: 'claude-fable-5-1',
-        name: 'Fable 5.1',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 200_000,
-        maxTokens: 32_768,
-    },
-    {
-        id: 'claude-sonnet-5',
-        name: 'Sonnet 5',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 200_000,
-        maxTokens: 32_768,
-    },
-    {
-        id: 'gpt-5.6-luna',
-        name: 'Luna',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 272_000,
-        maxTokens: 32_768,
-    },
-    {
-        id: 'gpt-5.6-sol',
-        name: 'Sol',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 272_000,
-        maxTokens: 32_768,
-    },
-    {
-        id: 'gpt-5.6-terra',
-        name: 'Terra',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 272_000,
-        maxTokens: 32_768,
-    },
-    {
-        id: 'grok-latest',
-        name: 'Grok 4.6 (latest)',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 2_000_000,
-        maxTokens: 32_768,
-        thinkingLevelMap: {
-            low: 'low',
-            medium: 'medium',
-            high: 'high',
-            xhigh: 'xhigh',
-            max: 'xhigh',
-        },
-    },
-    {
-        id: 'grok-build-0.1',
-        name: 'Grok Build',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 256_000,
-        maxTokens: 32_768,
-        thinkingLevelMap: {
-            low: 'low',
-            medium: 'medium',
-            high: 'high',
-            xhigh: 'xhigh',
-            max: 'xhigh',
-        },
-    },
-    {
-        id: 'glm-5p2',
-        name: 'GLM 5.2',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 200_000,
-        maxTokens: 32_768,
-        thinkingLevelMap: {
-            minimal: null,
-            low: null,
-            medium: null,
-            high: 'high',
-            xhigh: 'max',
-            max: 'max',
-        },
-        compat: {
-            thinkingFormat: 'zai',
-        },
-    },
-    {
-        id: 'kimi-k3',
-        name: 'Kimi K3',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 256_000,
-        maxTokens: 32_768,
-    },
-    {
-        id: 'deepseek-v4-flash-0731',
-        name: 'DeepSeek V4 Flash',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 1_000_000,
-        maxTokens: 32_768,
-        thinkingLevelMap: {
-            minimal: null,
-            low: 'low',
-            medium: 'high',
-            high: 'high',
-            xhigh: 'high',
-            max: 'max',
-        },
-        compat: {
-            thinkingFormat: 'deepseek',
-            requiresReasoningContentOnAssistantMessages: true,
-        },
-    },
-    {
-        id: 'deepseek-v4-pro-0813',
-        name: 'DeepSeek V4 Pro',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 1_000_000,
-        maxTokens: 32_768,
-        thinkingLevelMap: {
-            minimal: null,
-            low: 'low',
-            medium: 'high',
-            high: 'high',
-            xhigh: 'high',
-            max: 'max',
-        },
-        compat: {
-            thinkingFormat: 'deepseek',
-            requiresReasoningContentOnAssistantMessages: true,
-        },
-    },
-    {
-        id: 'sonar-pro',
-        name: 'Sonar Pro',
-        reasoning: false,
-        input: ['text'],
-        contextWindow: 200_000,
-        maxTokens: 8192,
-    },
-    {
-        id: 'gpt-6.1-sol',
-        name: 'Sol',
-        reasoning: true,
-        input: ['text'],
-        contextWindow: 1_050_000,
-        maxTokens: 32_768,
-    },
-] as const
+import type { KnownApi, ModelThinkingLevel } from '@earendil-works/pi-ai'
 
-/** Catalog models that cannot call tools: Sonar searches the web itself. */
-export const TOOL_FREE_MODELS: readonly string[] = ['sonar-pro']
+export const THINKING_LEVELS = [
+    'off',
+    'minimal',
+    'low',
+    'medium',
+    'high',
+    'xhigh',
+    'max',
+] as const satisfies readonly ModelThinkingLevel[]
 
-export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
-
-export const DEFAULT_LANES = {
-    code: { model: 'gpt-6.1-sol', thinking: 'high' },
-    research: { model: 'sonar-pro' },
-} as const
+/** Wire protocols a custom provider can speak; Pi's extensions add others, and ft disables extensions. */
+export const KNOWN_APIS = [
+    'openai-completions',
+    'mistral-conversations',
+    'openai-responses',
+    'azure-openai-responses',
+    'openai-codex-responses',
+    'anthropic-messages',
+    'bedrock-converse-stream',
+    'google-generative-ai',
+    'google-vertex',
+    'pi-messages',
+] as const satisfies readonly KnownApi[]
 
 /** The lane a run uses when the caller names neither a lane nor a model. */
 export const DEFAULT_LANE = 'code'

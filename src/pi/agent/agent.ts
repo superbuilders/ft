@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve as resolvePath } from 'node:path'
 
-import { MODEL_CATALOG } from '../../models/constants'
 import { FROZEN_SETTINGS } from './constants'
+
+import type { Provider } from '../../models/types'
 
 /**
  * Quote one shell argument for the command reference in auth.json.
@@ -24,15 +25,34 @@ function selfCommand(): string[] {
 }
 
 /**
- * Prepare every shared Pi state file before spawning.
+ * Translate ft's provider config into Pi's models.json entry, dropping the fields only ft reads.
+ * @param provider - configured provider
+ * @param baseUrl - where Pi should send requests, when ft's local gateway stands in for the provider
+ * @returns Pi's provider entry, empty for a built-in provider with no overrides
+ */
+function piProvider(provider: Provider, baseUrl?: string): Record<string, unknown> {
+    const { key, models, ...fields } = provider
+
+    return {
+        ...fields,
+        ...(baseUrl ? { baseUrl } : {}),
+        ...(models ? { models: models.map(({ adapter, ...model }) => model) } : {}),
+    }
+}
+
+/**
+ * Prepare every shared Pi state file before spawning, configuring only the run's provider.
  * @param dir - per-run directory
- * @param baseUrl - configured gateway URL
+ * @param run - the run's provider
+ * @param run.id - configured provider id, also Pi's provider id
+ * @param run.provider - the provider's config
+ * @param run.baseUrl - ft's local gateway, when the run's model has an adapter
  * @param context - bounded project instructions
  * @returns private agent and temp paths
  */
 export async function prepareAgent(
     dir: string,
-    baseUrl: string,
+    run: { id: string; provider: Provider; baseUrl?: string },
     context: string,
 ): Promise<{ agent: string; tmp: string; contextPath: string }> {
     const agent = join(dir, 'agent')
@@ -42,18 +62,13 @@ export async function prepareAgent(
     await mkdir(tmp, { mode: 0o700 })
 
     const auth = {
-        truefoundry: { type: 'api_key', key: `!${[...selfCommand(), 'key'].map(quote).join(' ')}` },
-    }
-    const models = {
-        providers: {
-            truefoundry: {
-                baseUrl: `${baseUrl}/v1`,
-                api: 'openai-completions',
-                compat: { supportsDeveloperRole: false },
-                models: MODEL_CATALOG,
-            },
+        [run.id]: {
+            type: 'api_key',
+            key: `!${[...selfCommand(), 'key', run.id].map(quote).join(' ')}`,
         },
     }
+    const entry = piProvider(run.provider, run.baseUrl)
+    const models = { providers: Object.keys(entry).length > 0 ? { [run.id]: entry } : {} }
 
     for (const [name, contents] of Object.entries({
         'settings.json': FROZEN_SETTINGS,

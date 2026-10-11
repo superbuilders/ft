@@ -119,7 +119,7 @@ export function replay(completion: Completion): string {
  * JSON completion, which Pi reads as an empty stream. Drop the tools and replay the JSON.
  */
 export const sonar: Adapter = {
-    models: ['sonar-pro'],
+    tools: false,
     request({ tools: _tools, tool_choice: _choice, ...body }: ChatRequest): ChatRequest {
         return body
     },

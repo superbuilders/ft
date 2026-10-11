@@ -3,11 +3,11 @@ import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { finished } from 'node:stream/promises'
 
-import { resolveLane, supportsTools } from '../../models/models'
+import { resolveLane } from '../../models/models'
 import { prepareAgent } from '../../pi/agent/agent'
 import { serveKey } from '../../pi/agent/key-broker'
 import { createJudge, judgeOutcome } from '../../pi/events/judge'
-import { adapterFor } from '../../pi/gateway/adapters'
+import { adapterNamed } from '../../pi/gateway/adapters'
 import { serveGateway } from '../../pi/gateway/gateway'
 import { filterEnvironment } from '../../pi/process/environment'
 import { runPi } from '../../pi/process/spawn'
@@ -19,7 +19,42 @@ import { cacheRoot, platformTarget } from '../../system/host/host'
 import { CANCEL_SIGNALS, PROFILE_TOOLS } from './constants'
 import { exitCode, initialStatus, publish, writeStatus } from './status'
 
-import type { Outcome, RunOptions, Status } from './types'
+import type { Config } from '../../project/config/types'
+import type { ModelChoice, Outcome, RunOptions, Status } from './types'
+
+/**
+ * Resolve the run's model, its provider and adapter, and the tools Pi may use.
+ * @param options - caller options
+ * @param config - the project's validated config
+ * @returns everything the run needs to know about its model
+ */
+function chooseModel(options: RunOptions, config: Config): ModelChoice {
+    const allowed = PROFILE_TOOLS[options.profile ?? 'read']
+
+    if (!allowed) {
+        throw new Error('--profile must be read or write')
+    }
+
+    if (options.lane && options.model) {
+        throw new Error('Choose at most one of --lane or --model')
+    }
+
+    const selected = resolveLane(
+        config.providers,
+        config.lanes,
+        options.lane,
+        options.model,
+        options.thinking,
+    )
+    const adapter = selected.entry?.adapter ? adapterNamed(selected.entry.adapter) : undefined
+
+    return {
+        selected,
+        provider: config.providers[selected.provider],
+        ...(adapter ? { adapter } : {}),
+        tools: adapter?.tools === false ? [] : allowed,
+    }
+}
 
 /**
  * Validate one brief and execute its selected transport with private state cleanup.
@@ -46,23 +81,12 @@ async function execute(
     let text = ''
 
     try {
-        const profile = options.profile ?? 'read'
-
-        if (!PROFILE_TOOLS[profile]) {
-            throw new Error('--profile must be read or write')
-        }
-
-        if (options.lane && options.model) {
-            throw new Error('Choose at most one of --lane or --model')
-        }
-
         const config = await loadConfig(process.cwd())
-        const selected = resolveLane(config.lanes, options.lane, options.model, options.thinking)
+        const { selected, provider, adapter, tools } = chooseModel(options, config.config)
 
+        status.provider = selected.provider
         status.model = selected.model
         status.thinking = selected.thinking ?? null
-
-        const tools = supportsTools(selected.model) ? PROFILE_TOOLS[profile] : []
 
         const brief = await readFile(resolve(options.brief), 'utf8')
 
@@ -81,19 +105,34 @@ async function execute(
         await mkdir(join(root, 'runs'), { recursive: true, mode: 0o700 })
         dir = await mkdtemp(join(root, 'runs', 'run-'))
 
-        const gateway = serveGateway(config.baseUrl, adapterFor(selected.model))
+        let baseUrl: string | undefined
 
-        stopGateway = gateway.stop
+        if (adapter && provider.baseUrl) {
+            const gateway = serveGateway(provider.baseUrl, adapter)
 
-        const privatePaths = await prepareAgent(dir, gateway.url, context)
+            stopGateway = gateway.stop
+            baseUrl = gateway.url
+        }
+
+        const privatePaths = await prepareAgent(
+            dir,
+            { id: selected.provider, provider, ...(baseUrl ? { baseUrl } : {}) },
+            context,
+        )
         const socket = join(dir, 'key.sock')
 
-        closeKey = serveKey(socket, config, controller.signal)
+        closeKey = serveKey(
+            socket,
+            { provider: selected.provider, source: provider.key, root: config.root },
+            controller.signal,
+        )
 
         const state = createJudge()
         const env = filterEnvironment(
             process.env,
-            'env' in config.config.apiKey ? config.config.apiKey.env : undefined,
+            Object.values(config.config.providers).flatMap(({ key }) =>
+                'env' in key ? [key.env] : [],
+            ),
         )
 
         env.FT_CONFIG = config.path
@@ -249,7 +288,7 @@ export async function run(options: RunOptions): Promise<number> {
 
     await publish(out, text, status)
     process.stderr.write(
-        `${status.outcome} ${status.model ?? 'unknown'} ${status.durationMs}ms ${out}\n`,
+        `${status.outcome} ${status.provider ?? 'unknown'}/${status.model ?? 'unknown'} ${status.durationMs}ms ${out}\n`,
     )
 
     return exitCode(status.outcome)

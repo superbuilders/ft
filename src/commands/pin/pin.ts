@@ -1,13 +1,17 @@
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 import { findConfig } from '../../project/config/config'
+import { CONFIG_FILE, LOCK_FILE } from '../../project/config/constants'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { TARGETS } from '../../system/host/constants'
 import { commandOutput } from '../../system/process/subprocess'
 
+import type { Lock } from '../../project/config/types'
+
 /**
- * Fetch a private release manifest through authenticated gh and preserve project overrides.
+ * Fetch a private release manifest through authenticated gh and write it to the project's lock.
+ * A project with no config also gets an empty one to fill in.
  * @param version - exact runner release version
  * @returns completion of pin publication
  */
@@ -28,7 +32,7 @@ export async function pin(version: string): Promise<void> {
         '-O',
         '-',
     ])
-    const sha256: Record<string, string> = {}
+    const sha256 = {} as Lock['sha256']
 
     for (const target of TARGETS) {
         const matches = sums
@@ -44,17 +48,19 @@ export async function pin(version: string): Promise<void> {
     }
 
     const found = findConfig(process.cwd(), process.env.FT_CONFIG)
-    const path = found ?? resolve('.ft.json')
-    const config = found
-        ? (JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>)
-        : { apiKey: { env: 'FILL_IN_YOUR_API_KEY_ENV_VAR' } }
+    const root = found ? dirname(found) : process.cwd()
+    const lock: Lock = { version, sha256 }
 
-    if (!config || typeof config !== 'object' || Array.isArray(config)) {
-        throw new Error('.ft.json must be an object')
+    await atomicWrite(join(root, LOCK_FILE), `${JSON.stringify(lock, null, 4)}\n`)
+
+    if (!existsSync(join(root, CONFIG_FILE))) {
+        await atomicWrite(
+            join(root, CONFIG_FILE),
+            `${JSON.stringify({ providers: {}, lanes: {} }, null, 4)}\n`,
+        )
     }
 
-    await atomicWrite(path, `${JSON.stringify({ ...config, version, sha256 }, null, 4)}\n`)
     process.stderr.write(
-        `Pinned ft ${version} in ${path}${found ? '' : '; fill in apiKey before running ft'}\n`,
+        `Pinned ft ${version} in ${join(root, LOCK_FILE)}${found ? '' : `; add a provider and a code lane to ${CONFIG_FILE}`}\n`,
     )
 }

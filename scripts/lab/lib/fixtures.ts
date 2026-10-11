@@ -162,31 +162,54 @@ export async function warmRuntime(context: Context, port: number): Promise<void>
 }
 
 /**
- * Pin a scratch project to real native bytes and satisfy all four config entries.
+ * Pin a scratch project to real native bytes and point its providers at the loopback model.
+ * The custom `lab` provider stands in for a gateway; `groq` is a Pi built-in whose baseUrl the
+ * config overrides, so both provider kinds reach the same fixture with the same dummy key.
  * @param context - project and environment
  * @param build - selected build
  * @param gateway - loopback endpoint, omitted for non-model commands
  * @returns completion of configuration write
  */
 export async function configure(context: Context, build: Build, gateway?: string): Promise<void> {
-    await writeFile(
-        join(context.project, '.ft.json'),
-        JSON.stringify(
-            {
-                version: build.version,
-                sha256: Object.fromEntries(
-                    TARGETS.map(target => [
-                        target,
-                        target === build.target ? build.digest : '0'.repeat(64),
-                    ]),
-                ),
-                apiKey: { command: [process.execPath, 'key.ts'] },
-                ...(gateway ? { gateway: { baseUrl: gateway } } : {}),
-            },
-            null,
-            4,
+    const baseUrl = `${gateway ?? 'http://127.0.0.1:9'}/v1`
+    const key = { command: [process.execPath, 'key.ts'] }
+    const lock = {
+        version: build.version,
+        sha256: Object.fromEntries(
+            TARGETS.map(target => [
+                target,
+                target === build.target ? build.digest : '0'.repeat(64),
+            ]),
         ),
-    )
+    }
+    const config = {
+        providers: {
+            lab: {
+                key,
+                baseUrl,
+                api: 'openai-completions',
+                compat: { supportsDeveloperRole: false },
+                models: [
+                    {
+                        id: 'gpt-6.1-sol',
+                        reasoning: true,
+                        contextWindow: 272_000,
+                        maxTokens: 32_768,
+                    },
+                    { id: 'sonar-pro', adapter: 'sonar', contextWindow: 200_000, maxTokens: 8192 },
+                ],
+            },
+            groq: { key, baseUrl },
+        },
+        lanes: {
+            code: { model: 'lab/gpt-6.1-sol', thinking: 'high' },
+            research: { model: 'lab/sonar-pro' },
+            builtin: { model: 'groq/llama-3.1-8b-instant' },
+        },
+    }
+
+    await writeFile(join(context.project, '.ft.lock'), JSON.stringify(lock, null, 4))
+    await writeFile(join(context.project, '.ft.json'), JSON.stringify(config, null, 4))
     context.env.FAKE_FIXTURES = build.directory
     context.env.FAKE_VERSION = build.version
 }

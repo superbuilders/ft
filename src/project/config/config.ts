@@ -2,11 +2,14 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
-import { DEFAULT_LANES } from '../../models/constants'
-import { validateLane } from '../../models/models'
-import { TARGETS } from '../../system/host/constants'
-import { GATEWAY_URL } from './constants'
+import { isBuiltinProvider } from '../../models/catalog'
+import { findModel } from '../../models/models'
+import { CONFIG_FILE, FORBIDDEN_PROVIDER_FIELDS } from './constants'
+import { configValidator } from './schema'
 
+import type { TLocalizedValidationError } from 'typebox/error'
+
+import type { Provider } from '../../models/types'
 import type { Config, ResolvedConfig } from './types'
 
 /**
@@ -23,7 +26,7 @@ export function findConfig(cwd: string, handoff?: string): string | undefined {
     let dir = resolve(cwd)
 
     while (true) {
-        const path = join(dir, '.ft.json')
+        const path = join(dir, CONFIG_FILE)
 
         if (existsSync(path)) {
             return path
@@ -40,113 +43,136 @@ export function findConfig(cwd: string, handoff?: string): string | undefined {
 }
 
 /**
- * Require a JSON object.
- * @param value - untrusted JSON value
- * @returns a property map
+ * Turn a schema error's JSON pointer into the dotted path a person reads in the file.
+ * @param error - one schema error
+ * @returns dotted path, or `root`
  */
-function object(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error('Expected a JSON object')
+function errorPath(error: TLocalizedValidationError): string {
+    const path = error.instancePath.replace(/^\//, '').replaceAll('/', '.')
+    const missing = error.keyword === 'required' ? error.params.requiredProperties[0] : undefined
+
+    if (missing) {
+        return path ? `${path}.${missing}` : missing
     }
 
-    return value as Record<string, unknown>
+    return path || 'root'
 }
 
 /**
- * Validate the binding config schema without discarding unknown keys when pinning.
- * @param value - parsed config
- * @returns validated config
+ * Check what the schema cannot: custom providers are complete, URLs are clean, refs resolve.
+ * @param id - provider id
+ * @param provider - schema-valid provider
+ * @returns problems, empty when the provider is valid
  */
-export function validateConfig(value: unknown): Config {
-    const config = object(value)
+function providerProblems(id: string, provider: Provider): string[] {
+    const problems = FORBIDDEN_PROVIDER_FIELDS.filter(field => field in provider).map(
+        field =>
+            `providers.${id}.${field}: put credentials in key (env or command), never in config`,
+    )
 
-    if (
-        typeof config.version !== 'string' ||
-        !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(config.version)
-    ) {
-        throw new Error('version must be a release version')
-    }
-
-    const hashes = object(config.sha256)
-
-    for (const target of TARGETS) {
-        if (typeof hashes[target] !== 'string' || !/^[a-fA-F0-9]{64}$/.test(hashes[target])) {
-            throw new Error(`sha256.${target} must be 64 hex digits`)
+    if (!isBuiltinProvider(id)) {
+        for (const field of ['baseUrl', 'api', 'models'] as const) {
+            if (provider[field] === undefined) {
+                problems.push(
+                    `providers.${id}.${field}: required, because ${id} is not one of Pi's built-in providers`,
+                )
+            }
         }
     }
 
-    const key = object(config.apiKey)
-
-    if ('command' in key === 'env' in key) {
-        throw new Error('apiKey requires exactly one of command or env')
-    }
-
-    if (
-        'command' in key &&
-        (!Array.isArray(key.command) ||
-            key.command.length === 0 ||
-            !key.command.every(arg => typeof arg === 'string' && arg.length > 0))
-    ) {
-        throw new Error('apiKey.command must be a nonempty argv array')
-    }
-
-    if (
-        'env' in key &&
-        (typeof key.env !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key.env))
-    ) {
-        throw new Error('apiKey.env must be an environment variable name')
-    }
-
-    if (config.gateway !== undefined) {
-        const gateway = object(config.gateway)
-
-        if (typeof gateway.baseUrl !== 'string') {
-            throw new Error('gateway.baseUrl must be a URL')
-        }
-
-        const url = new URL(gateway.baseUrl)
+    if (provider.baseUrl !== undefined) {
+        const url = URL.parse(provider.baseUrl)
 
         if (
+            !url ||
             !['http:', 'https:'].includes(url.protocol) ||
             url.username ||
             url.password ||
             url.search ||
             url.hash
         ) {
-            throw new Error(
-                'gateway.baseUrl must be an HTTP(S) URL without credentials, query or fragment',
+            problems.push(
+                `providers.${id}.baseUrl: must be an HTTP(S) URL without credentials, query or fragment`,
             )
         }
     }
 
-    if (config.lanes !== undefined) {
-        for (const lane of Object.values(object(config.lanes))) {
-            validateLane(object(lane))
+    const ids = (provider.models ?? []).map(model => model.id)
+
+    for (const duplicate of new Set(ids.filter((model, index) => ids.indexOf(model) !== index))) {
+        problems.push(`providers.${id}.models: lists ${duplicate} more than once`)
+    }
+
+    for (const model of provider.models ?? []) {
+        if (model.adapter !== undefined && provider.baseUrl === undefined) {
+            problems.push(
+                `providers.${id}.baseUrl: required, because model ${model.id} uses an adapter`,
+            )
         }
     }
 
-    return config as unknown as Config
+    return problems
 }
 
 /**
- * Resolve and validate a project's configuration.
+ * Validate a parsed `.ft.json`.
+ * @param value - parsed JSON
+ * @returns the config, or throws listing every problem
+ */
+export function validateConfig(value: unknown): Config {
+    if (value && typeof value === 'object' && ('version' in value || 'sha256' in value)) {
+        throw new Error('version and sha256 now live in .ft.lock: remove them and run ft pin')
+    }
+
+    let problems: string[]
+
+    if (configValidator.Check(value)) {
+        const config = value as Config
+
+        problems = Object.entries(config.providers).flatMap(([id, provider]) =>
+            providerProblems(id, provider),
+        )
+
+        for (const [name, lane] of Object.entries(config.lanes)) {
+            try {
+                findModel(config.providers, lane.model)
+            } catch (error) {
+                problems.push(`lanes.${name}.model: ${(error as Error).message}`)
+            }
+        }
+    } else {
+        problems = configValidator
+            .Errors(value)
+            .map(
+                error =>
+                    `${errorPath(error)}: ${error.keyword === 'enum' ? `must be one of ${error.params.allowedValues.join(', ')}` : error.message}`,
+            )
+    }
+
+    if (problems.length > 0) {
+        throw new Error(
+            `Invalid ${CONFIG_FILE}:\n${problems.map(problem => `  - ${problem}`).join('\n')}`,
+        )
+    }
+
+    return value as Config
+}
+
+/**
+ * Find, read and validate the project's configuration.
  * @param cwd - invocation directory
- * @returns config and built-in defaults merged with overrides
+ * @returns the config and its location
  */
 export async function loadConfig(cwd: string): Promise<ResolvedConfig> {
     const path = findConfig(cwd, process.env.FT_CONFIG)
 
     if (!path) {
-        throw new Error('No .ft.json found; run ft pin <version> in the project root')
+        throw new Error(`No ${CONFIG_FILE} found; run ft pin <version> in the project root`)
     }
-
-    const config = validateConfig(JSON.parse(await readFile(path, 'utf8')))
 
     return {
         path,
         root: dirname(path),
-        config,
-        baseUrl: (config.gateway?.baseUrl ?? GATEWAY_URL).replace(/\/+$/, ''),
-        lanes: { ...DEFAULT_LANES, ...config.lanes },
+        config: validateConfig(JSON.parse(await readFile(path, 'utf8'))),
     }
 }

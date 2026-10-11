@@ -3,15 +3,18 @@ import { delimiter } from 'node:path'
 /**
  * Remove ambient Pi controls and provider credentials before exposing the environment to tools.
  * @param caller - original environment
- * @param keyEnv - configured credential variable, if any
+ * @param keyEnvs - every configured provider's credential variable
  * @returns sanitized copy
  */
-export function filterEnvironment(caller: NodeJS.ProcessEnv, keyEnv?: string): NodeJS.ProcessEnv {
+export function filterEnvironment(
+    caller: NodeJS.ProcessEnv,
+    keyEnvs: readonly string[],
+): NodeJS.ProcessEnv {
     return Object.fromEntries(
         Object.entries(caller).filter(
             ([name]) =>
                 !name.startsWith('PI_') &&
-                name !== keyEnv &&
+                !keyEnvs.includes(name) &&
                 !/(?:API_KEY|AUTH_TOKEN|OAUTH_TOKEN|ACCESS_TOKEN|SECRET|SECRET_ACCESS_KEY|SESSION_TOKEN|BEARER_TOKEN|GITHUB_TOKEN)$/.test(
                     name,
                 ) &&

@@ -1,6 +1,7 @@
-import { DEFAULT_LANE, MODEL_CATALOG, THINKING_LEVELS, TOOL_FREE_MODELS } from './constants'
+import { isBuiltinModel, isBuiltinProvider } from './catalog'
+import { DEFAULT_LANE, THINKING_LEVELS } from './constants'
 
-import type { Lane, Thinking } from './types'
+import type { Lane, Provider, Selection, Thinking } from './types'
 
 /**
  * Validate a thinking level before Pi can silently clamp an invalid value.
@@ -16,53 +17,64 @@ function thinkingLevel(value: string): Thinking {
 }
 
 /**
- * Validate a lane's exact catalog identity.
- * @param lane - lane JSON object
- * @returns validated model and optional thinking
+ * Find a `provider/model` reference among the configured providers.
+ * @param providers - configured providers by id
+ * @param ref - provider id and model id, joined by the first slash
+ * @returns the provider, model and configured entry
  */
-export function validateLane(lane: Record<string, unknown>): Lane {
-    if (typeof lane.model !== 'string' || !MODEL_CATALOG.some(model => model.id === lane.model)) {
-        throw new Error('Lane requires an exact catalog model id')
+export function findModel(providers: Record<string, Provider>, ref: string): Selection {
+    const slash = ref.indexOf('/')
+    const provider = ref.slice(0, slash)
+    const model = ref.slice(slash + 1)
+
+    if (slash <= 0 || !model) {
+        throw new Error(`Model ${ref} must be written provider/model`)
     }
 
-    if (lane.thinking !== undefined && typeof lane.thinking !== 'string') {
-        throw new Error('Lane thinking must be a string')
+    const config = providers[provider]
+
+    if (!config) {
+        throw new Error(
+            `Model ${ref} names provider ${provider}, which .ft.json does not configure`,
+        )
     }
 
-    return {
-        model: lane.model,
-        ...(lane.thinking === undefined ? {} : { thinking: thinkingLevel(lane.thinking) }),
+    const entry = config.models?.find(candidate => candidate.id === model)
+
+    if (!entry && !(isBuiltinProvider(provider) && isBuiltinModel(provider, model))) {
+        throw new Error(`Provider ${provider} has no model ${model}`)
     }
+
+    return { provider, model, ...(entry ? { entry } : {}) }
 }
 
 /**
  * Resolve one lane or one exact model, with an explicit thinking override.
- * @param lanes - the project's lanes over the defaults
+ * @param providers - configured providers by id
+ * @param lanes - configured lanes by name
  * @param lane - lane name; the default lane when neither lane nor model is given
- * @param model - exact model id, chosen instead of a lane
+ * @param model - `provider/model` reference, chosen instead of a lane
  * @param thinking - optional override
  * @returns the selected model and level
  */
 export function resolveLane(
+    providers: Record<string, Provider>,
     lanes: Record<string, Lane>,
     lane?: string,
     model?: string,
     thinking?: string,
-): Lane {
-    const selected = model ? validateLane({ model }) : lanes[lane ?? DEFAULT_LANE]
+): Selection {
+    const name = lane ?? DEFAULT_LANE
+    const chosen = model ? { model } : lanes[name]
 
-    if (!selected) {
-        throw new Error(`Unknown lane: ${lane}`)
+    if (!chosen) {
+        throw new Error(`.ft.json has no lane named ${name}`)
     }
 
-    return { ...selected, ...(thinking === undefined ? {} : { thinking: thinkingLevel(thinking) }) }
-}
+    const level = thinking ?? chosen.thinking
 
-/**
- * Whether a catalog model can call tools.
- * @param model - exact catalog model id
- * @returns false for a tool-free model
- */
-export function supportsTools(model: string): boolean {
-    return !TOOL_FREE_MODELS.includes(model)
+    return {
+        ...findModel(providers, chosen.model),
+        ...(level === undefined ? {} : { thinking: thinkingLevel(level) }),
+    }
 }

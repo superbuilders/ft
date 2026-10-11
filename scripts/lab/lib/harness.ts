@@ -111,9 +111,13 @@ export async function loopback(
                 ? [context.build.binary]
                 : [process.execPath, resolve('src/cli.ts')]
         const lane =
-            ({ research: 'research', 'configuration-error': 'missing' } as Record<string, string>)[
-                name
-            ] ?? 'code'
+            (
+                {
+                    research: 'research',
+                    'builtin-provider': 'builtin',
+                    'configuration-error': 'missing',
+                } as Record<string, string>
+            )[name] ?? 'code'
         const child = start(
             context,
             [
@@ -149,7 +153,7 @@ export async function loopback(
         check(context.result, 'quiet-stdout', '', capture.stdout)
         check(context.result, 'key-redaction', false, capture.stderr.includes(DUMMY_KEY))
 
-        if (name === 'success') {
+        if (name === 'success' || name === 'builtin-provider') {
             check(
                 context.result,
                 'tool-turn',
@@ -160,7 +164,18 @@ export async function loopback(
                     errors: status?.toolErrorCount ?? null,
                 },
             )
+        }
 
+        if (name === 'builtin-provider') {
+            check(
+                context.result,
+                'builtin-model',
+                'llama-3.1-8b-instant',
+                fixture.requests[0]?.model,
+            )
+        }
+
+        if (name === 'success') {
             const keyCount = await artifact(join(context.project, 'key-count'))
 
             check(context.result, 'key-cached', '1', keyCount?.trim() ?? null)

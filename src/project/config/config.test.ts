@@ -4,15 +4,25 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { resolveLane } from '../../models/models'
-import { TARGETS } from '../../system/host/constants'
 import { findConfig, loadConfig, validateConfig } from './config'
 
 const directories: string[] = []
+const gateway = {
+    key: { env: 'GATEWAY_KEY' },
+    baseUrl: 'https://gateway.test/v1',
+    api: 'openai-completions',
+    compat: { supportsDeveloperRole: false },
+    models: [
+        { id: 'model-a', reasoning: true },
+        { id: 'search', adapter: 'sonar' },
+    ],
+}
 const valid = {
-    version: '0.1.0',
-    sha256: Object.fromEntries(TARGETS.map(target => [target, 'a'.repeat(64)])),
-    apiKey: { env: 'TEST_KEY' },
+    providers: { gateway, groq: { key: { command: ['pass', 'groq'] } } },
+    lanes: {
+        code: { model: 'gateway/model-a', thinking: 'high' },
+        fast: { model: 'groq/llama-3.1-8b-instant' },
+    },
 }
 
 afterEach(async () => {
@@ -23,54 +33,64 @@ afterEach(async () => {
 describe('config', () => {
     it('discovers nearest config and honors FT_CONFIG', async () => {
         const root = await mkdtemp(join(tmpdir(), 'ft-config-'))
+        const nested = join(root, 'child', 'grandchild')
 
         directories.push(root)
-
-        const nested = join(root, 'child', 'leaf')
-
         await mkdir(nested, { recursive: true })
         await writeFile(join(root, '.ft.json'), JSON.stringify(valid))
         await writeFile(join(root, 'child', '.ft.json'), JSON.stringify(valid))
         expect(findConfig(nested)).toBe(join(root, 'child', '.ft.json'))
         vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
 
-        const config = await loadConfig(nested)
+        const loaded = await loadConfig(nested)
 
-        expect(config.root).toBe(root)
+        expect(loaded.root).toBe(root)
+    })
+
+    it('accepts built-in and custom providers, passing unknown Pi fields through', () => {
+        expect(validateConfig(valid)).toEqual(valid)
     })
 
     it.each([
-        { ...valid, version: '../bad' },
-        { ...valid, sha256: {} },
-        { ...valid, apiKey: { command: [] } },
-        { ...valid, apiKey: { command: ['echo'], env: 'TEST_KEY' } },
-        { ...valid, apiKey: { env: 'not a name' } },
-        { ...valid, gateway: { baseUrl: 'https://key@example.test' } },
-        { ...valid, lanes: { code: { model: 'fuzzy' } } },
-        { ...valid, lanes: { code: { model: 'gpt-6.1-sol', thinking: 'invalid' } } },
-    ])('rejects invalid schema %#', value => {
-        expect(() => validateConfig(value)).toThrow()
-    })
-
-    it('resolves defaults and full lane overrides, never fuzzy models', async () => {
-        const root = await mkdtemp(join(tmpdir(), 'ft-lanes-'))
-
-        directories.push(root)
-        await writeFile(
-            join(root, '.ft.json'),
-            JSON.stringify({ ...valid, lanes: { code: { model: 'grok-latest' } } }),
-        )
-        vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
-
-        const config = await loadConfig(root)
-
-        expect(resolveLane(config.lanes, 'code')).toEqual({ model: 'grok-latest' })
-        expect(resolveLane(config.lanes)).toEqual({ model: 'grok-latest' })
-        expect(resolveLane(config.lanes, 'research')).toEqual({ model: 'sonar-pro' })
-        expect(resolveLane(config.lanes, undefined, 'gpt-6.1-sol', 'high')).toEqual({
-            model: 'gpt-6.1-sol',
-            thinking: 'high',
-        })
-        expect(() => resolveLane(config.lanes, 'missing')).toThrow()
+        [{ ...valid, version: '0.1.0' }, 'now live in .ft.lock'],
+        [{ ...valid, extra: true }, 'root'],
+        [{ providers: valid.providers }, 'lanes'],
+        [{ ...valid, providers: { gateway: { ...gateway, key: { command: [] } } } }, 'key'],
+        [{ ...valid, providers: { gateway: { ...gateway, key: { env: 'not a name' } } } }, 'key'],
+        [{ ...valid, providers: { gateway: { ...gateway, apiKey: 'sk-raw' } } }, 'gateway.apiKey'],
+        [
+            { ...valid, providers: { gateway: { ...gateway, api: 'carrier-pigeon' } } },
+            'gateway.api',
+        ],
+        [
+            { ...valid, providers: { gateway: { ...gateway, baseUrl: 'https://u:p@x.test' } } },
+            'baseUrl',
+        ],
+        [{ ...valid, providers: { gateway: { key: gateway.key } } }, 'gateway.baseUrl: required'],
+        [
+            {
+                ...valid,
+                providers: {
+                    ...valid.providers,
+                    groq: { ...valid.providers.groq, models: [{ id: 'x', adapter: 'sonar' }] },
+                },
+            },
+            'groq.baseUrl: required, because model x uses an adapter',
+        ],
+        [
+            {
+                ...valid,
+                providers: { gateway: { ...gateway, models: [{ id: 'a' }, { id: 'a' }] } },
+            },
+            'more than once',
+        ],
+        [{ ...valid, lanes: { code: { model: 'model-a' } } }, 'provider/model'],
+        [{ ...valid, lanes: { code: { model: 'gateway/missing' } } }, 'has no model missing'],
+        [
+            { ...valid, lanes: { code: { model: 'gateway/model-a', thinking: 'huge' } } },
+            'lanes.code.thinking',
+        ],
+    ])('rejects invalid config %#', (config, message) => {
+        expect(() => validateConfig(config)).toThrow(message)
     })
 })

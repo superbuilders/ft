@@ -48,7 +48,9 @@ target, build recipe and (only for switch's B) a discriminator. Changed inputs
 cannot silently select an older runner with the same package version. Darwin
 builds run `codesign --force --sign -` before SHA-256 generation. Cached builds
 must still match their manifest and report their baked version. Scratch
-`.ft.json` pins that real native hash and uses 64 zeros for other targets.
+`.ft.lock` pins that real native hash and uses 64 zeros for other targets. Scratch
+`.ft.json` points a custom `lab` provider and Pi's built-in `groq` provider at the
+loopback model, so both provider kinds are exercised offline.
 
 ## Offline runtime fixtures
 
@@ -117,13 +119,13 @@ arbitrary reused PIDs. No persistent named sandbox registry or broad pkill exist
 
 ```sh
 bun scripts/lab run real-gateway --project /path/to/project
-bun scripts/lab run real-release --version 0.1.0
+bun scripts/lab run real-release --version 0.2.0
 ```
 
 `real-gateway` is Linux-only and makes one code-lane tool round trip and one research question
 through the compiled runner (90-second per-lane deadlines). It uses the supplied
-project's real `.ft.json` key reference at that project's root, never resolving
-or printing the key in the lab. Tools work in scratch. This is paid/live behavior.
+project's real `.ft.json` providers and lanes, and their key references at that
+project's root, never resolving or printing a key in the lab. Tools work in scratch. This is paid/live behavior.
 
 `real-release` uses the caller's real gh configuration or explicitly supplied
 credential environment, actual install.sh and an exact published version into

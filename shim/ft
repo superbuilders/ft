@@ -1,7 +1,7 @@
 #!/bin/sh
-SHIM_VERSION=0.1.0
+SHIM_VERSION=0.2.0
 
-# Releases and .ft.json use the same target names and checksum format.
+# Releases and .ft.lock use the same target names and checksum format.
 set -u
 umask 077
 
@@ -58,15 +58,17 @@ while :; do
 done
 
 bootstrap=no
-if [ -n "$config" ]; then
-    version=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$config")
-    expected=$(sed -n '/^[[:space:]]*"sha256"[[:space:]]*:/,/^[[:space:]]*}/p' "$config" |
+pinned=${config%/*}/.ft.lock
+if [ -n "$config" ] && [ -f "$pinned" ]; then
+    version=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$pinned")
+    expected=$(sed -n '/^[[:space:]]*"sha256"[[:space:]]*:/,/^[[:space:]]*}/p' "$pinned" |
         sed -n "s/^[[:space:]]*\"$target\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p")
-    [ -n "$expected" ] || fail 2 "missing hash for target $target in $config"
+    [ -n "$expected" ] || fail 2 "missing hash for target $target in $pinned"
     FT_CONFIG=$config
     export FT_CONFIG
 else
-    [ "${1:-}" = pin ] || fail 2 'no .ft.json found; run ft pin <version> in the project root'
+    [ -n "$config" ] || pinned=
+    [ "${1:-}" = pin ] || fail 2 "no ${pinned:-.ft.json} found; run ft pin <version> in the project root"
     bootstrap=yes
     unset FT_CONFIG
 fi

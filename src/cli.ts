@@ -10,14 +10,14 @@ import type { RunOptions } from './commands/run/types'
 
 const program = new Command().name('ft').version(RUNNER_VERSION)
 
-program.command('key').description('Resolve the project API key').action(key)
+program.command('key <provider>').description("Print a configured provider's key").action(key)
 program
     .command('run')
     .description('Run one brief on one pinned model')
     .requiredOption('--brief <path>', 'brief file')
     .requiredOption('--out <path>', 'answer destination')
     .option('--lane <name>', 'configured lane (default: code)')
-    .option('--model <id>', 'exact catalog model')
+    .option('--model <ref>', 'provider/model, instead of a lane')
     .option('--cwd <dir>', 'run directory')
     .option('--profile <profile>', 'read or write tools')
     .option('--thinking <level>', 'thinking override')
@@ -25,7 +25,7 @@ program
     .action(async (options: RunOptions) => {
         process.exitCode = await run(options)
     })
-program.command('pin <version>').description('Pin a runner release in .ft.json').action(pin)
+program.command('pin <version>').description('Pin a runner release in .ft.lock').action(pin)
 program
     .command('doctor')
     .description('Show config and runtime health')
