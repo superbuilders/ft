@@ -47,8 +47,8 @@ export async function doctor(runnerVersion: string): Promise<void> {
         try {
             await getKey(provider.key, config.root)
             lines.push(`Provider ${id}: key ready`)
-        } catch {
-            lines.push(`Provider ${id}: key failed (run ft key ${id} to see why)`)
+        } catch (error) {
+            lines.push(`Provider ${id}: key failed (${(error as Error).message})`)
         }
     }
 

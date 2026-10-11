@@ -10,7 +10,9 @@ import type { Lane, Provider, Selection, Thinking } from './types'
  */
 function thinkingLevel(value: string): Thinking {
     if (!THINKING_LEVELS.includes(value as Thinking)) {
-        throw new Error(`Invalid thinking level: ${value}`)
+        throw new Error(
+            `Invalid thinking level ${value}; choose one of ${THINKING_LEVELS.join(', ')}`,
+        )
     }
 
     return value as Thinking
@@ -42,7 +44,13 @@ export function findModel(providers: Record<string, Provider>, ref: string): Sel
     const entry = config.models?.find(candidate => candidate.id === model)
 
     if (!entry && !(isBuiltinProvider(provider) && isBuiltinModel(provider, model))) {
-        throw new Error(`Provider ${provider} has no model ${model}`)
+        const ids = config.models?.map(candidate => candidate.id) ?? []
+
+        throw new Error(
+            ids.length > 0
+                ? `Provider ${provider} has no model ${model}; it configures ${ids.join(', ')}`
+                : `Provider ${provider} has no model ${model}`,
+        )
     }
 
     return { provider, model, ...(entry ? { entry } : {}) }
@@ -68,7 +76,13 @@ export function resolveLane(
     const chosen = model ? { model } : lanes[name]
 
     if (!chosen) {
-        throw new Error(`.ft.json has no lane named ${name}`)
+        const known = Object.keys(lanes)
+
+        throw new Error(
+            known.length > 0
+                ? `.ft.json has no lane named ${name}; its lanes are ${known.join(', ')}`
+                : `.ft.json has no lane named ${name}, and no lanes at all; add one under "lanes"`,
+        )
     }
 
     const level = thinking ?? chosen.thinking
