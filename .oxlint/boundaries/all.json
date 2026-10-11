@@ -1,0 +1,42 @@
+// Keep in sync with playcademy-arcade.
+{
+    "$schema": "../../node_modules/oxlint/configuration_schema.json",
+    "jsPlugins": [{ "name": "boundaries", "specifier": "../plugins/boundaries/index.mjs" }],
+    "overrides": [
+        /*
+         * A constants.ts holds pure values: literals and as-const derivations,
+         * with type-only imports as the one sanctioned edge. Runtime imports,
+         * calls and constructions bind a values module to its runtime.
+         * Runtime objects live with their consumers; derived unions live in
+         * the sibling types.ts, never in constants.ts.
+         */
+        {
+            "files": ["**/constants.ts"],
+            "rules": {
+                "boundaries/no-impure-constants": "error",
+                "boundaries/no-type-exports": "error"
+            }
+        },
+        /*
+         * Every tests tree shares one depth rule, and each shared fake names
+         * its contract owner. Owned contracts point at a certifying test suite,
+         * so a renamed suite fails loudly instead of leaving stale prose.
+         */
+        {
+            "files": ["tests/**/*.ts", "**/tests/**/*.ts"],
+            "rules": {
+                "boundaries/tests-tree-layout": "error",
+                "boundaries/fakes-declare-contract": "error"
+            }
+        },
+        /*
+         * Residency covers all code: a fake-named declaration outside a
+         * tests-tree fakes/ directory or an inline test has escaped the
+         * obligations enforced by the other two rules.
+         */
+        {
+            "files": ["**/*.ts"],
+            "rules": { "boundaries/fakes-residency": "error" }
+        }
+    ]
+}

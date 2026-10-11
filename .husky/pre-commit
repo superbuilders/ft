@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+
+# Keep in sync with playcademy-arcade.
+
+# We're in a hook
+export FT_HOOK=pre-commit
+
+CHANGED_FILES=$(git diff --cached --name-only)
+
+# Check if dependency files changed
+has_dependency_changes() {
+  echo "$CHANGED_FILES" | grep -qE '(^|/)package\.json$|^bun\.lock$'
+}
+
+# Ensure dependencies are in sync when dependency files changed
+if has_dependency_changes; then
+  bun install --frozen-lockfile || {
+    echo "❌ bun.lock is out of sync. Please run 'bun install' and commit the changes."
+    exit 1
+  }
+fi
+
+# Lint and format staged files only (fast — scoped to what you changed)
+bunx lint-staged || {
+  echo "❌ lint-staged failed. Please fix lint/format errors before committing."
+  exit 1
+}

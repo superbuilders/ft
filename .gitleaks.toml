@@ -1,0 +1,50 @@
+# Keep in sync with playcademy-arcade.
+# Rules for the PR gate (secret-scan.yml) and local audits. Extends the
+# 222 default rules with the two classes they verifiably miss here, plus
+# scoped allowlists:
+#
+# - internal-env-secret: the default generic-api-key rule only triggers on
+#   names containing access/auth/api/credential/key/passwd/password/
+#   secret/token; this covers the internally-minted names outside that
+#   list (*_HMAC, *_PEPPER, ...).
+# - discord-webhook-url: no default rule matches webhook URLs (only bot
+#   tokens); the URL is the whole credential and also grants deletion.
+# - Allowlists stay narrow on purpose: only generated dependency hashes are
+#   excluded here; product-specific fixture/research exemptions do not apply.
+
+title = "ft gitleaks config"
+
+[extend]
+useDefault = true
+
+# Generic internal secrets live here, not in secretlint: catching a
+# high-entropy value needs an entropy gate, which gitleaks has and
+# secretlint (regex-only, by design) does not. The default generic-api-key
+# rule already covers *_SECRET/*_TOKEN/*_KEY names; this adds the internal
+# suffixes those keywords miss.
+[[rules]]
+id = "internal-env-secret"
+description = "High-entropy value assigned to an internal secret-bearing env var name"
+regex = '''\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_(?:HMAC|PEPPER|SALT|SIGNING|NONCE)S?)\s*(?:=|:=?|=>)\s*['"`]?([A-Za-z0-9+/_-]{24,128}={0,2})['"`]?'''
+secretGroup = 2
+# 4.3, not a lower floor plus a stopword allowlist: our minted secrets are
+# >=32 random bytes (entropy ~4.7-5.0), while placeholder prose
+# (example-placeholder-hmac-value, your-secret-here) sits at 3.5-3.9, so the
+# floor alone separates them. A stopword/substring exemption would instead
+# let FOO_HMAC=test<realkey> through — a content-based exemption is
+# bypassable by construction, so we don't have one.
+entropy = 4.3
+keywords = ["_hmac", "_pepper", "_salt", "_signing", "_nonce"]
+
+[[rules]]
+id = "discord-webhook-url"
+description = "Discord webhook URL"
+regex = '''https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_-]{60,72}'''
+keywords = ["discord.com/api/webhooks", "discordapp.com/api/webhooks"]
+
+# bun.lock is committed and large; excluding it before read is a scan-speed
+# win. (Other build output is gitignored, so it never reaches a commit scan.)
+[[allowlists]]
+description = "lockfile"
+paths = ['''(?:^|/)bun\.lockb?$''']
+

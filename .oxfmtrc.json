@@ -1,0 +1,22 @@
+{
+    "$schema": "./node_modules/oxfmt/configuration_schema.json",
+    "ignorePatterns": ["docs/plan.md", "tmp", "dist", "coverage"],
+    "trailingComma": "all",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 4,
+    "arrowParens": "avoid",
+    "semi": false,
+    "experimentalSortImports": {
+        "groups": [
+            ["side_effect"],
+            ["builtin"],
+            ["external"],
+            ["parent", "sibling", "index"],
+            ["type-builtin", "type-external"],
+            ["type-parent", "type-sibling", "type-index"]
+        ],
+        "newlinesBetween": true
+    },
+    "experimentalSortPackageJson": false
+}

@@ -1,0 +1,8 @@
+# Keep in sync with playcademy-arcade (single-package subset).
+node_modules/
+tmp/
+dist/
+coverage/
+.env*
+!.env.example
+*.tsbuildinfo

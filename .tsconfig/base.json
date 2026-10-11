@@ -1,0 +1,15 @@
+// The ladder's root: Bun-typed ESNext — the baseline every workspace member shares unless a dialect below says otherwise.
+{
+    "compilerOptions": {
+        "lib": ["ESNext"],
+        "target": "ESNext",
+        "module": "Preserve",
+        "moduleDetection": "force",
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "verbatimModuleSyntax": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "types": ["bun-types"]
+    }
+}

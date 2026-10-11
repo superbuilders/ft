@@ -1,0 +1,8 @@
+# Keep in sync with playcademy-arcade.
+[install]
+linker = "isolated"
+
+# A release must be 7 days old before bun add/install will take it, matching
+# the Dependabot cooldown: the window in which malicious releases typically
+# get caught and yanked. Override per-command with --minimum-release-age 0.
+minimumReleaseAge = 604800

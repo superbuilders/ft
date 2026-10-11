@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+
+# Keep in sync with playcademy-arcade.
+
+# We're in a hook
+export FT_HOOK=pre-push
+
+# --silent drops bun's "$ command" echo so the check's own first line (the log path) leads
+status=0
+bun run --silent check --pre-push || status=$?
+
+case $status in
+  0) exit 0 ;;
+  # CHECKS_FAILED_EXIT_CODE in scripts/check/lib/constants.ts: the check already
+  # printed and saved which checks failed
+  3) exit 1 ;;
+  *)
+    echo "❌ Pre-push checks stopped before finishing. See the output above."
+    exit 1
+    ;;
+esac

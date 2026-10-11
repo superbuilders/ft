@@ -1,0 +1,87 @@
+// Keep in sync with playcademy-arcade.
+{
+    "plugins": ["jsdoc"],
+    "jsPlugins": [
+        { "name": "jsdoc-ext", "specifier": "eslint-plugin-jsdoc" },
+        "./plugins/comment-style.mjs"
+    ],
+    "rules": {
+        "comment-style/property-comments": "error",
+        "jsdoc/check-property-names": "off",
+        "jsdoc/implements-on-classes": "off",
+        "jsdoc/check-tag-names": "off",
+        "jsdoc/empty-tags": "off",
+        "jsdoc/no-defaults": "off",
+        "jsdoc/require-param": "off",
+        "jsdoc/require-param-description": "off",
+        "jsdoc/require-param-name": "off",
+        "jsdoc/require-param-type": "off",
+        "jsdoc/require-property": "off",
+        "jsdoc/require-property-description": "off",
+        "jsdoc/require-property-name": "off",
+        "jsdoc/require-property-type": "off",
+        "jsdoc/require-yields": "off",
+        "jsdoc/require-returns": "off",
+        "jsdoc/require-returns-description": "off",
+        "jsdoc/require-returns-type": "off"
+    },
+    "overrides": [
+        {
+            "files": ["src/**/*.ts", "scripts/**/*.ts"],
+            "rules": {
+                "jsdoc-ext/require-jsdoc": [
+                    "error",
+                    {
+                        "require": {
+                            "FunctionDeclaration": true,
+                            "ClassDeclaration": true,
+                            "MethodDefinition": true,
+                            "ArrowFunctionExpression": false,
+                            "FunctionExpression": false
+                        },
+                        "exemptEmptyConstructors": true,
+                        "checkConstructors": false,
+                        "enableFixer": false
+                    }
+                ],
+                "jsdoc/check-property-names": "error",
+                "jsdoc/implements-on-classes": "error",
+                "jsdoc/check-tag-names": [
+                    "error",
+                    {
+                        "typed": true,
+                        "definedTags": [
+                            "public",
+                            "fake",
+                            "certifiedBy",
+                            "typeParam",
+                            "packageDocumentation",
+                            "category",
+                            "group",
+                            "internal",
+                            "alpha",
+                            "beta",
+                            "remarks",
+                            "defaultValue",
+                            "inheritDoc"
+                        ]
+                    }
+                ],
+                "jsdoc/empty-tags": "error",
+                "jsdoc/no-defaults": "allow",
+                "jsdoc/require-param": "error",
+                "jsdoc/require-param-description": "error",
+                "jsdoc/require-param-name": "error",
+                "jsdoc/require-param-type": "allow",
+                "jsdoc/require-property": "allow",
+                "jsdoc/require-property-description": "error",
+                "jsdoc/require-property-name": "error",
+                "jsdoc/require-property-type": "allow",
+                "jsdoc/require-yields": "allow",
+                "jsdoc/require-returns": "error",
+                "jsdoc/require-returns-description": "error",
+                "jsdoc/require-returns-type": "allow"
+            }
+        }
+    ]
+}

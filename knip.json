@@ -1,0 +1,8 @@
+{
+    "$schema": "https://unpkg.com/knip@latest/schema.json",
+    "exclude": ["duplicates"],
+    "ignoreExportsUsedInFile": { "interface": true, "type": true },
+    "ignoreDependencies": ["@secretlint/.+"],
+    "entry": ["src/cli.ts", "scripts/*/index.ts", "*.config.ts", ".oxlint/plugins/**/*.mjs"],
+    "project": ["src/**/*.ts", "scripts/**/*.ts", "*.ts", ".oxlint/plugins/**/*.mjs"]
+}

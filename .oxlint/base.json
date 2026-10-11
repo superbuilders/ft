@@ -1,0 +1,75 @@
+// Keep in sync with playcademy-arcade.
+{
+    "$schema": "../node_modules/oxlint/configuration_schema.json",
+    "extends": ["./spacing.json", "./jsdoc.json", "./overrides.json", "./boundaries/all.json"],
+    "plugins": ["typescript", "unicorn", "import"],
+    "jsPlugins": ["@stylistic/eslint-plugin", "./plugins/console-style.mjs"],
+
+    "categories": {
+        "correctness": "error",
+        "suspicious": "error",
+        "style": "error"
+    },
+
+    "rules": {
+        // ── Enforced with custom config ──────────────────────────────
+
+        "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "ignoreRestSiblings": true }],
+        "func-style": ["error", "declaration"],
+        "one-var": ["error", "never"],
+        "max-params": ["error", { "max": 5 }],
+        "max-statements": ["error", { "max": 50 }],
+        "@stylistic/multiline-comment-style": ["error", "starred-block"],
+        "console-style/spacing-newlines": "error",
+
+        // ── Enabled: off by default, not covered by an active category ──
+
+        "unicorn/prefer-node-protocol": "error",
+        "unicorn/throw-new-error": "error",
+        "unicorn/error-message": "error",
+        "unicorn/prefer-string-slice": "error",
+        "typescript/no-explicit-any": "error",
+        "typescript/no-non-null-assertion": "error",
+
+        // ── Disabled: handled by TypeScript ────────────────────────────
+
+        "init-declarations": "off",
+        "no-duplicate-imports": "off",
+
+        // ── Disabled: not useful ───────────────────────────────────────
+
+        // Type-aware (on via --type-aware); too many deliberate narrowing casts to be worth it.
+        "typescript/no-unsafe-type-assertion": "off",
+        "no-magic-numbers": "off",
+        "id-length": "off",
+        "no-ternary": "off",
+        "prefer-ternary": "off",
+        "prefer-destructuring": "off",
+        "capitalized-comments": "off",
+        "sort-imports": "off",
+        "sort-keys": "off",
+        "number-literal-case": "off",
+        "no-continue": "off",
+        "unicorn/no-null": "off",
+        // Three-deep call nesting is ordinary here (expect/builder chains, wrappers).
+        "unicorn/max-nested-calls": "off",
+        "unicorn/prefer-global-this": "off",
+        "no-underscore-dangle": "off",
+        "unicorn/prefer-add-event-listener": "off",
+        "new-cap": "off",
+        "unicorn/require-module-specifiers": "off",
+        "prefer-named-capture-group": "off",
+        "typescript/method-signature-style": "off",
+
+        // ── Disabled: import plugin's other style rules ────────────────
+
+        "import/no-named-export": "off",
+        "import/group-exports": "off",
+        "import/exports-last": "off",
+        "import/prefer-default-export": "off",
+        "import/no-nodejs-modules": "off",
+        "import/no-namespace": "off",
+        "import/no-unassigned-import": "off",
+        "import/no-anonymous-default-export": "off"
+    }
+}
