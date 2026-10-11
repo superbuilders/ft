@@ -45,8 +45,8 @@ describe('config', () => {
         { ...valid, apiKey: { command: ['echo'], env: 'TEST_KEY' } },
         { ...valid, apiKey: { env: 'not a name' } },
         { ...valid, gateway: { baseUrl: 'https://key@example.test' } },
-        { ...valid, lanes: { smart: { model: 'fuzzy' } } },
-        { ...valid, lanes: { smart: { model: 'gpt-6.1-sol', thinking: 'invalid' } } },
+        { ...valid, lanes: { code: { model: 'fuzzy' } } },
+        { ...valid, lanes: { code: { model: 'gpt-6.1-sol', thinking: 'invalid' } } },
     ])('rejects invalid schema %#', value => {
         expect(() => validateConfig(value)).toThrow()
     })
@@ -57,20 +57,20 @@ describe('config', () => {
         directories.push(root)
         await writeFile(
             join(root, '.ft.json'),
-            JSON.stringify({ ...valid, lanes: { smart: { model: 'grok-latest' } } }),
+            JSON.stringify({ ...valid, lanes: { code: { model: 'grok-latest' } } }),
         )
         vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
 
         const config = await loadConfig(root)
 
-        expect(resolveLane(config, 'smart')).toEqual({ model: 'grok-latest' })
-        expect(resolveLane(config, 'cheap')).toEqual({ model: 'deepseek-v4-flash-0731' })
+        expect(resolveLane(config, 'code')).toEqual({ model: 'grok-latest' })
+        expect(resolveLane(config)).toEqual({ model: 'grok-latest' })
+        expect(resolveLane(config, 'research')).toEqual({ model: 'sonar-pro' })
         expect(resolveLane(config, undefined, 'gpt-6.1-sol', 'high')).toEqual({
             model: 'gpt-6.1-sol',
             thinking: 'high',
         })
-        expect(() => resolveLane(config, 'smart', 'gpt-6.1-sol')).toThrow()
-        expect(() => resolveLane(config)).toThrow()
+        expect(() => resolveLane(config, 'code', 'gpt-6.1-sol')).toThrow()
         expect(() => resolveLane(config, 'missing')).toThrow()
     })
 })

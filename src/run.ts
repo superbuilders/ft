@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { finished } from 'node:stream/promises'
 
 import { loadConfig, resolveLane } from './config'
-import { CANCEL_SIGNALS, PI_VERSION } from './constants'
+import { CANCEL_SIGNALS, DEFAULT_LANE, PI_VERSION } from './constants'
 import { collectContext } from './context'
 import { filterEnvironment } from './environment'
 import { serveGateway } from './gateway'
@@ -27,7 +27,7 @@ function initialStatus(options: RunOptions, cwd: string): Status {
         schemaVersion: 1,
         outcome: 'configuration_error',
         piVersion: PI_VERSION,
-        lane: options.lane ?? null,
+        lane: options.model ? null : (options.lane ?? DEFAULT_LANE),
         provider: 'truefoundry',
         model: options.model ?? null,
         thinking: options.thinking ?? null,

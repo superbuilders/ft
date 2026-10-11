@@ -87,7 +87,7 @@ export interface Status {
     outcome: Outcome
     /** Pinned Pi release associated with this runner. */
     piVersion: string
-    /** Requested lane name; null for explicit model selection. */
+    /** Lane the run used; null for explicit model selection. */
     lane: string | null
     /** Custom provider id, fixed to truefoundry. */
     provider: string

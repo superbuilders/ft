@@ -80,9 +80,7 @@ process.stdout.write(output);
         'Call bash exactly once with command "printf ft-real-tool-ok", then report ft-real-tool-ok. Do not read, edit or write any other files. Do not call other tools.',
     )
 
-    for (const lane of ['smart', 'cheap']) {
-        await liveToolTurn(context, lane)
-    }
+    await liveToolTurn(context, 'code')
 
     await liveResearch(context)
 }

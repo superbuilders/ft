@@ -141,10 +141,6 @@ export const SCENARIOS = {
         'SIGHUP-cancelled',
         'SIGHUP-no-descendants',
     ],
-    'real-gateway': [
-        'smart-tool-round-trip',
-        'cheap-tool-round-trip',
-        'research-answer-with-sources',
-    ],
+    'real-gateway': ['code-tool-round-trip', 'research-answer-with-sources'],
     'real-release': ['installer', 'published-version', 'cold-runner'],
 } as const

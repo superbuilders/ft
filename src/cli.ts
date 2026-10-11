@@ -25,7 +25,7 @@ program
     .description('Run one brief on one pinned model')
     .requiredOption('--brief <path>', 'brief file')
     .requiredOption('--out <path>', 'answer destination')
-    .option('--lane <name>', 'configured lane')
+    .option('--lane <name>', 'configured lane (default: code)')
     .option('--model <id>', 'exact catalog model')
     .option('--cwd <dir>', 'run directory')
     .option('--profile <profile>', 'read or write tools')

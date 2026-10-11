@@ -225,10 +225,12 @@ export const MODEL_CATALOG = [
 export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 
 export const DEFAULT_LANES = {
-    smart: { model: 'gpt-6.1-sol', thinking: 'high' },
-    cheap: { model: 'deepseek-v4-flash-0731' },
+    code: { model: 'gpt-6.1-sol', thinking: 'high' },
     research: { model: 'sonar-pro' },
 } as const
+
+/** The lane a run uses when the caller names neither a lane nor a model. */
+export const DEFAULT_LANE = 'code'
 
 export const GATEWAY_URL = 'https://gateway.example.com'
 

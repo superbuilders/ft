@@ -50,7 +50,7 @@ function brief(
             '--brief',
             'brief.md',
             '--lane',
-            'smart',
+            'code',
             '--out',
             join(context.project, `${name}.out`),
             ...extra,
@@ -109,7 +109,7 @@ export async function loopback(
         const lane =
             ({ research: 'research', 'configuration-error': 'missing' } as Record<string, string>)[
                 name
-            ] ?? 'smart'
+            ] ?? 'code'
         const child = start(
             context,
             [
@@ -322,17 +322,7 @@ export async function parallel(context: Context): Promise<void> {
 
                 const capture = await start(
                     context,
-                    [
-                        'sh',
-                        resolve('shim/ft'),
-                        'run',
-                        '--brief',
-                        input,
-                        '--lane',
-                        'smart',
-                        '--out',
-                        out,
-                    ],
+                    ['sh', resolve('shim/ft'), 'run', '--brief', input, '--out', out],
                     context.project,
                     context.env,
                 ).result
@@ -465,7 +455,7 @@ export async function cancelGroup(context: Context): Promise<void> {
                     '--brief',
                     'brief.md',
                     '--lane',
-                    'smart',
+                    'code',
                     '--out',
                     out,
                 ],

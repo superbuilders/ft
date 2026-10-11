@@ -18,7 +18,7 @@ it('writes configuration-error status and sidecars without overwriting an existi
         const out = join(root, 'answer.txt')
 
         await writeFile(out, 'prior successful answer')
-        expect(await run({ brief: join(root, 'brief.md'), lane: 'smart', out })).toBe(2)
+        expect(await run({ brief: join(root, 'brief.md'), out })).toBe(2)
 
         const status = JSON.parse(await readFile(`${out}.status.json`, 'utf8')) as Status
 
