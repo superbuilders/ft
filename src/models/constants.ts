@@ -162,6 +162,9 @@ export const MODEL_CATALOG = [
     },
 ] as const
 
+/** Catalog models that cannot call tools: Sonar searches the web itself. */
+export const TOOL_FREE_MODELS: readonly string[] = ['sonar-pro']
+
 export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 
 export const DEFAULT_LANES = {

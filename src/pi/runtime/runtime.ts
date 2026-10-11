@@ -23,13 +23,15 @@ export function runtimePaths(root: string): {
 }
 
 /**
- * Provision Pi and both pinned search tools.
+ * Provision Pi, and both pinned search tools when the run offers Pi tools.
  * @param root - shared cache root
+ * @param searchTools - whether to provision rg and fd
  * @param signal - run cancellation
  * @returns executable and PATH directories
  */
 export async function installRuntime(
     root: string,
+    searchTools: boolean,
     signal: AbortSignal,
 ): Promise<{ pi: string; toolDirs: string[] }> {
     const target = platformTarget()
@@ -47,6 +49,10 @@ export async function installRuntime(
         signal,
     )
     const toolDirs: string[] = []
+
+    if (!searchTools) {
+        return { pi, toolDirs }
+    }
 
     for (const name of ['rg', 'fd'] as const) {
         const release = TOOL_RELEASES[name]

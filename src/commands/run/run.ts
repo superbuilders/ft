@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { finished } from 'node:stream/promises'
 
-import { resolveLane } from '../../models/models'
+import { resolveLane, supportsTools } from '../../models/models'
 import { prepareAgent } from '../../pi/agent/agent'
 import { serveKey } from '../../pi/agent/key-broker'
 import { createJudge, judgeOutcome } from '../../pi/events/judge'
@@ -16,7 +16,7 @@ import { loadConfig } from '../../project/config/config'
 import { collectContext } from '../../project/context/context'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { cacheRoot, platformTarget } from '../../system/host/host'
-import { CANCEL_SIGNALS } from './constants'
+import { CANCEL_SIGNALS, PROFILE_TOOLS } from './constants'
 import { exitCode, initialStatus, publish, writeStatus } from './status'
 
 import type { Outcome, RunOptions, Status } from './types'
@@ -48,7 +48,7 @@ async function execute(
     try {
         const profile = options.profile ?? 'read'
 
-        if (!['read', 'write'].includes(profile)) {
+        if (!PROFILE_TOOLS[profile]) {
             throw new Error('--profile must be read or write')
         }
 
@@ -62,6 +62,8 @@ async function execute(
         status.model = selected.model
         status.thinking = selected.thinking ?? null
 
+        const tools = supportsTools(selected.model) ? PROFILE_TOOLS[profile] : []
+
         const brief = await readFile(resolve(options.brief), 'utf8')
 
         if (!brief.trim()) {
@@ -74,7 +76,7 @@ async function execute(
         controller.signal.throwIfAborted()
 
         const root = cacheRoot()
-        const runtime = await installRuntime(root, controller.signal)
+        const runtime = await installRuntime(root, tools.length > 0, controller.signal)
 
         await mkdir(join(root, 'runs'), { recursive: true, mode: 0o700 })
         dir = await mkdtemp(join(root, 'runs', 'run-'))
@@ -103,7 +105,7 @@ async function execute(
             cwd,
             brief,
             selected,
-            profile,
+            tools,
             env,
             state,
             signal: controller.signal,

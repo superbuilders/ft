@@ -192,6 +192,18 @@ export async function loopback(
                 false,
                 fixture.requests.some(request => 'tools' in request),
             )
+            check(
+                context.result,
+                'tool-free-prompt',
+                false,
+                fixture.requests.some(request =>
+                    request.messages.some(
+                        message =>
+                            message.role === 'system' &&
+                            JSON.stringify(message.content).includes('bash'),
+                    ),
+                ),
+            )
         }
 
         check(

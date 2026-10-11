@@ -1,4 +1,4 @@
-import { DEFAULT_LANE, MODEL_CATALOG, THINKING_LEVELS } from './constants'
+import { DEFAULT_LANE, MODEL_CATALOG, THINKING_LEVELS, TOOL_FREE_MODELS } from './constants'
 
 import type { Lane, Thinking } from './types'
 
@@ -56,4 +56,13 @@ export function resolveLane(
     }
 
     return { ...selected, ...(thinking === undefined ? {} : { thinking: thinkingLevel(thinking) }) }
+}
+
+/**
+ * Whether a catalog model can call tools.
+ * @param model - exact catalog model id
+ * @returns false for a tool-free model
+ */
+export function supportsTools(model: string): boolean {
+    return !TOOL_FREE_MODELS.includes(model)
 }

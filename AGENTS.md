@@ -108,6 +108,8 @@ catalog model's gateway traffic is something Pi 1.1.0 cannot read, add an
 adapter file in `src/pi/gateway/adapters/` that names its models and
 rewrites their requests or responses, and register it in that folder's
 `index.ts`. Never add a separate code path in `commands/run/` for one model.
+A model that cannot call tools goes in `TOOL_FREE_MODELS` (`src/models/constants.ts`);
+its runs start Pi with no tools and skip installing rg and fd.
 
 ## Scripts
 

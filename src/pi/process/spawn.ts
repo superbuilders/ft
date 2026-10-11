@@ -16,7 +16,7 @@ export async function runPi(input: {
     cwd: string
     brief: string
     selected: Lane
-    profile: string
+    tools: readonly string[]
     env: NodeJS.ProcessEnv
     toolDirs: string[]
     agent: string
@@ -44,11 +44,15 @@ export async function runPi(input: {
         'truefoundry',
         '--model',
         input.selected.model,
-        '--tools',
-        input.profile === 'write' ? 'read,grep,find,ls,bash,edit,write' : 'read,grep,find,ls,bash',
         '--append-system-prompt',
         input.contextPath,
     ]
+
+    if (input.tools.length > 0) {
+        flags.push('--tools', input.tools.join(','))
+    } else {
+        flags.push('--no-tools')
+    }
 
     if (input.selected.thinking) {
         flags.push('--thinking', input.selected.thinking)
