@@ -120,7 +120,7 @@ bun scripts/lab run real-gateway --project /path/to/project
 bun scripts/lab run real-release --version 0.1.0
 ```
 
-`real-gateway` is Linux-only and makes one smart and one cheap tool round trip
+`real-gateway` is Linux-only and makes one smart and one cheap tool round trip and one research question
 through the compiled runner (90-second per-lane deadlines). It uses the supplied
 project's real `.ft.json` key reference at that project's root, never resolving
 or printing the key in the lab. Tools work in scratch. This is paid/live behavior.

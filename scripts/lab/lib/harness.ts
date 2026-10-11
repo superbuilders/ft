@@ -560,6 +560,21 @@ export async function killDownload(context: Context): Promise<void> {
 }
 
 /**
+ * Read why a live run failed from its status file, which never holds the key.
+ * @param out - the run's answer path
+ * @returns the runner's error, or null when the run succeeded
+ */
+async function liveError(out: string): Promise<string | null> {
+    const status = JSON.parse((await artifact(`${out}.status.json`)) ?? 'null') as Status | null
+
+    if (status?.outcome === 'success') {
+        return null
+    }
+
+    return `${status?.outcome ?? 'no status'}: ${status?.error ?? 'no error recorded'}`
+}
+
+/**
  * Assert a live-lane tool event without storing or printing credential-bearing pipes.
  * @param context - compiled runner and isolated environment
  * @param lane - explicit live lane
@@ -577,11 +592,57 @@ export async function liveToolTurn(context: Context, lane: string): Promise<void
     check(
         context.result,
         `${lane}-tool-round-trip`,
-        { code: 0, tool: true },
+        { code: 0, tool: true, error: null },
         {
             code: capture.code,
             tool: events.includes('tool_execution_end') && !events.includes('"isError":true'),
+            error: await liveError(join(context.project, `${lane}.out`)),
         },
     )
     await rm(join(context.project, 'key-count'), { force: true })
+}
+
+/**
+ * Ask the real research model one question and require a published answer with sources.
+ * @param context - result and project
+ * @returns completion of evidence recording
+ */
+export async function liveResearch(context: Context): Promise<void> {
+    const out = join(context.project, 'research.out')
+
+    await writeFile(
+        join(context.project, 'research.md'),
+        'In two sentences, what is the latest stable release of the Bun JavaScript runtime? Cite your sources.',
+    )
+
+    const capture = await start(
+        context,
+        [
+            context.build.binary,
+            'run',
+            '--brief',
+            'research.md',
+            '--lane',
+            'research',
+            '--out',
+            out,
+            '--deadline',
+            '90',
+        ],
+        context.project,
+        context.env,
+    ).result
+    const answer = (await artifact(out)) ?? ''
+
+    check(
+        context.result,
+        'research-answer-with-sources',
+        { code: 0, answer: true, sources: true, error: null },
+        {
+            code: capture.code,
+            answer: answer.trim().length > 0,
+            sources: answer.includes('## Citations'),
+            error: await liveError(out),
+        },
+    )
 }

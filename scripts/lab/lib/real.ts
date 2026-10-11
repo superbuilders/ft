@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 
 import { validateConfig } from '../../../src/config'
 import { TARGETS } from '../../../src/constants'
-import { liveToolTurn } from './harness'
+import { liveResearch, liveToolTurn } from './harness'
 import { check, PrerequisiteError, start } from './processes'
 
 import type { Context, Options } from './types'
@@ -83,6 +83,8 @@ process.stdout.write(output);
     for (const lane of ['smart', 'cheap']) {
         await liveToolTurn(context, lane)
     }
+
+    await liveResearch(context)
 }
 
 /**
