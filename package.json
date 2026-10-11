@@ -7,7 +7,7 @@
         "check": "bun scripts/check",
         "knip": "knip --reporter compact --treat-config-hints-as-errors",
         "prepare": "husky",
-        "test": "vitest run",
+        "test": "bun --bun vitest run",
         "typecheck": "tsgo --project tsconfig.json"
     },
     "dependencies": {
