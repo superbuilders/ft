@@ -220,7 +220,6 @@ async function runOne(
             scenario !== 'kill-download' &&
             scenario !== 'kill-extract' &&
             scenario !== 'configuration-error' &&
-            scenario !== 'research' &&
             scenario !== 'real-release' &&
             scenario !== 'real-gateway' &&
             !(scenario === 'exec' && !argv.includes('run'))

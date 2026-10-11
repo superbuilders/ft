@@ -58,8 +58,8 @@ gateway. Acquire approved runtime assets separately, then place them under
 checks are exactly `src/constants.ts`'s pinned upstream Pi/rg/fd artifacts. Use
 `lab list` and the error result to identify a missing asset. A missing or wrong
 archive is a prerequisite error, not a fake success. `kill-extract` needs only
-the native Pi archive; research, configuration-error, switch, kill-download and
-non-run exec commands need no runtime archives.
+the native Pi archive; configuration-error, switch, kill-download and non-run
+exec commands need no runtime archives.
 
 The lab serves these verified bytes on **host-local loopback**. A Bun preload
 redirects only the runner's exact runtime-release fetches to that server, counts

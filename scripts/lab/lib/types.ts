@@ -162,8 +162,6 @@ export interface Context {
 export interface ModelRequest {
     /** Exact model id received by the loopback fixture. */
     model: string
-    /** False selects the non-streaming research fixture. */
-    stream?: boolean
     /** Provider conversation retained to assert context and tool round trips. */
     messages: { role: string; content?: unknown }[]
 }

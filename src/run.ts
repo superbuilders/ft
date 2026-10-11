@@ -7,12 +7,12 @@ import { loadConfig, resolveLane } from './config'
 import { CANCEL_SIGNALS, PI_VERSION } from './constants'
 import { collectContext } from './context'
 import { filterEnvironment } from './environment'
+import { serveGateway } from './gateway'
 import { cacheRoot, installRuntime, platformTarget } from './install'
 import { createJudge, exitCode, judgeOutcome } from './judge'
 import { serveKey } from './key'
 import { atomicWrite, writeStatus } from './output'
 import { prepareAgent, runPi } from './pi'
-import { research } from './research'
 
 import type { Outcome, RunOptions, Status } from './types'
 
@@ -65,6 +65,7 @@ async function execute(
     const { events, stderr } = streams
     let dir: string | undefined
     let closeKey: (() => Promise<void>) | undefined
+    let stopGateway: (() => Promise<void>) | undefined
     let text = ''
 
     try {
@@ -91,71 +92,69 @@ async function execute(
         status.outcome = 'runtime_error'
         controller.signal.throwIfAborted()
 
-        if (selected.model === 'sonar-pro') {
-            const result = await research(config, brief, context, controller.signal)
+        const root = cacheRoot()
+        const runtime = await installRuntime(root, controller.signal)
 
-            text = result.text
-            events.write(result.event)
-            status.stopReason = result.stopReason
-            status.settled = true
-            status.outcome = result.stopReason === 'stop' ? 'success' : 'incomplete'
-        } else {
-            const root = cacheRoot()
-            const runtime = await installRuntime(root, controller.signal)
+        await mkdir(join(root, 'runs'), { recursive: true, mode: 0o700 })
+        dir = await mkdtemp(join(root, 'runs', 'run-'))
 
-            await mkdir(join(root, 'runs'), { recursive: true, mode: 0o700 })
-            dir = await mkdtemp(join(root, 'runs', 'run-'))
+        const gateway = serveGateway(config.baseUrl)
 
-            const privatePaths = await prepareAgent(dir, config.baseUrl, context)
-            const socket = join(dir, 'key.sock')
+        stopGateway = gateway.stop
 
-            closeKey = await serveKey(socket, config, controller.signal)
+        const privatePaths = await prepareAgent(dir, gateway.url, context)
+        const socket = join(dir, 'key.sock')
 
-            const state = createJudge()
-            const env = filterEnvironment(
-                process.env,
-                'env' in config.config.apiKey ? config.config.apiKey.env : undefined,
-            )
+        closeKey = await serveKey(socket, config, controller.signal)
 
-            env.FT_CONFIG = config.path
-            env.FT_KEY_SOCKET = socket
+        const state = createJudge()
+        const env = filterEnvironment(
+            process.env,
+            'env' in config.config.apiKey ? config.config.apiKey.env : undefined,
+        )
 
-            const result = await runPi({
-                ...runtime,
-                ...privatePaths,
-                cwd,
-                brief,
-                selected,
-                profile,
-                env,
-                state,
-                signal: controller.signal,
-                events: chunk => {
-                    events.write(chunk)
-                },
-                stderr: chunk => {
-                    stderr.write(chunk)
-                },
-            })
+        env.FT_CONFIG = config.path
+        env.FT_KEY_SOCKET = socket
 
-            text = state.text
-            Object.assign(status, {
-                piExitCode: result.code,
-                signal: result.signal,
-                settled: state.settled,
-                stopReason: state.stopReason,
-                retryCount: state.retryCount,
-                compactionCount: state.compactionCount,
-                toolErrorCount: state.toolErrorCount,
-                outcome: judgeOutcome(state, result.code, result.signal),
-                error: state.protocolError ?? state.modelError,
-            })
-        }
+        const result = await runPi({
+            ...runtime,
+            ...privatePaths,
+            cwd,
+            brief,
+            selected,
+            profile,
+            env,
+            state,
+            signal: controller.signal,
+            events: chunk => {
+                events.write(chunk)
+            },
+            stderr: chunk => {
+                stderr.write(chunk)
+            },
+        })
+
+        text = state.text
+        Object.assign(status, {
+            piExitCode: result.code,
+            signal: result.signal,
+            settled: state.settled,
+            stopReason: state.stopReason,
+            retryCount: state.retryCount,
+            compactionCount: state.compactionCount,
+            toolErrorCount: state.toolErrorCount,
+            outcome: judgeOutcome(state, result.code, result.signal),
+            error: state.protocolError ?? state.modelError,
+        })
 
         return text
     } finally {
         if (closeKey) {
             await closeKey()
+        }
+
+        if (stopGateway) {
+            await stopGateway()
         }
 
         if (dir) {
@@ -257,7 +256,7 @@ export async function run(options: RunOptions): Promise<number> {
         text = await execute(options, status, controller, { events, stderr })
     } catch (error) {
         if (status.outcome !== 'configuration_error') {
-            status.outcome = status.model === 'sonar-pro' ? 'model_error' : 'runtime_error'
+            status.outcome = 'runtime_error'
         }
 
         status.error = error instanceof Error ? error.message : 'Runner failed'

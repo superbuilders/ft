@@ -66,6 +66,7 @@ export const SCENARIOS = {
         'quiet-stdout',
         'key-redaction',
         'citations',
+        'no-tools',
         'run-state-removed',
     ],
     timeout: [

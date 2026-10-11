@@ -244,9 +244,6 @@ export const FROZEN_SETTINGS = {
     themes: [],
 } as const
 
-export const RESEARCH_SYSTEM =
-    'You are a staff engineer doing live-web prior-art research. Write dense, useful prose with concrete analogs. Inline full URLs in the prose for every claim that has a source. Prefer primary docs, engineering blogs, and product help pages over aggregators.'
-
 export const KILL_GRACE_MS = 1500
 export const LOCK_POLL_MS = 200
 

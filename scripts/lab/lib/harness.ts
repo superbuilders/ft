@@ -182,6 +182,12 @@ export async function loopback(
                 true,
                 answer?.includes('## Citations\n\n1. https://example.test/source') ?? false,
             )
+            check(
+                context.result,
+                'no-tools',
+                false,
+                fixture.requests.some(request => 'tools' in request),
+            )
         }
 
         check(

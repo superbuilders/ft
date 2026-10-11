@@ -90,6 +90,14 @@ enforce layout, contract declaration and residency.
   runtime. Runtime objects live with their consumers (e.g. `patterns.ts`);
   derived types live in the sibling `types.ts`, never in `constants.ts`.
 
+## Model adapters
+
+Pi reaches the gateway through a loopback relay in `src/gateway.ts`. When a
+catalog model's gateway traffic is something Pi 1.1.0 cannot read, add an
+adapter file in `src/adapters/` that names its models and rewrites their
+requests or responses, and register it in `src/adapters/index.ts`. Never add
+a separate code path in `run.ts` for one model.
+
 ## Scripts
 
 Scripts run under Bun, with one commander entrypoint per `scripts/<name>/index.ts`.

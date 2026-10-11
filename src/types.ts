@@ -97,7 +97,7 @@ export interface Status {
     thinking: string | null
     /** Explicit tool working directory, absolute in status. */
     cwd: string
-    /** Actual Pi exit code; null for research or before Pi starts. */
+    /** Actual Pi exit code; null before Pi starts. */
     piExitCode: number | null
     /** Actual Pi termination signal, if any. */
     signal: string | null
