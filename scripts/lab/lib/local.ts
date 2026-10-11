@@ -17,8 +17,10 @@ import { cancelGroup, distribution, killDownload, loopback, parallel, switchBuil
 import { modelServer } from './model'
 import { PrerequisiteError, signalGroup, start } from './processes'
 import { realGateway, realRelease } from './real'
+import { summarize } from './results'
+import { pinnedBunVersion, requirePinnedBun } from './toolchain'
 
-import type { Context, Options, Result } from './types'
+import type { Aggregate, Build, Context, Options, Result } from './types'
 
 /**
  * Construct the single schema-versioned result used on either host, including errors.
@@ -97,20 +99,72 @@ function prerequisites(scenario: string, options: Options, argv: string[]): void
 
 /**
  * Run with a fresh private filesystem, a minimal dummy-only environment and owned cleanup.
- * @param scenario - named scenario or exec
+ * @param scenarios - ordered named scenarios or exec
  * @param options - host-local command options
  * @param argv - literal ft arguments for exec, otherwise empty
- * @returns terminal result, also saved under the lab's results directory
+ * @returns ordered terminal results, each saved under the lab's results directory
  */
 export async function local(
-    scenario: string,
+    scenarios: string[],
     options: Options,
     argv: string[] = [],
+): Promise<Result[]> {
+    const buildCache = options.cold
+        ? join(LAB_ROOT, 'runs', resultFor('build', options.host).runId, 'cache')
+        : join(LAB_ROOT, 'cache')
+    const results: Result[] = []
+    let compiled: Promise<Build> | undefined
+    const pinned = pinnedBunVersion().then(version => requirePinnedBun(Bun.version, version))
+
+    /* A rejected prerequisite is consumed by each result, not an unhandled promise. */
+    void pinned.catch(() => {})
+
+    try {
+        for (const scenario of scenarios) {
+            results.push(
+                await runOne(scenario, options, argv, buildCache, async result => {
+                    await pinned
+                    compiled ??= phase(result, 'build', () => build(buildCache))
+
+                    return compiled
+                }),
+            )
+        }
+    } finally {
+        if (options.cold) {
+            try {
+                await rm(join(buildCache, '..'), { recursive: true, force: true })
+            } catch (error) {
+                for (const result of results) {
+                    result.cleanup = { outcome: 'failed', error: String(error) }
+                    result.outcome = 'lab_error'
+                }
+            }
+        }
+    }
+
+    return results
+}
+
+/**
+ * Execute one scenario using the invocation's shared native build.
+ * @param scenario - exact scenario name
+ * @param options - scratch lifecycle options
+ * @param argv - literal ad hoc ft arguments
+ * @param buildCache - invocation-wide build/runtime cache root
+ * @param prepare - once-per-host compiler and prerequisite preparation
+ * @returns persisted scenario result
+ */
+async function runOne(
+    scenario: string,
+    options: Options,
+    argv: string[],
+    buildCache: string,
+    prepare: (result: Result) => Promise<Build>,
 ): Promise<Result> {
     const result = resultFor(scenario, options.host === 'air' ? 'air' : 'local')
     const directory = join(LAB_ROOT, 'runs', result.runId)
     const persistentCache = join(LAB_ROOT, 'cache')
-    const cache = options.cold ? join(directory, 'cache') : persistentCache
     const archiveDirectory = options.archives ?? join(persistentCache, 'archives')
     let context: Context | undefined
     let fixture: ReturnType<typeof Bun.serve> | undefined
@@ -118,21 +172,22 @@ export async function local(
     try {
         prerequisites(scenario, options, argv)
 
+        const compiled = await prepare(result)
+
         await mkdir(directory, { recursive: true, mode: 0o700 })
         await chmod(directory, 0o700)
         await layout(directory)
-
-        const compiled = await phase(result, 'build', () => build(cache))
 
         result.buildVersion = compiled.version
         result.buildDigest = compiled.digest
         context = {
             directory,
-            cache,
+            cache: buildCache,
             build: compiled,
             project: join(directory, 'project'),
             result,
             processes: new Map(),
+            childStderr: [],
             env: {
                 PATH: `${join(directory, 'bin')}:${process.platform === 'darwin' ? '/usr/bin:/bin:/usr/sbin:/sbin' : '/usr/bin:/bin'}`,
                 HOME: join(directory, 'home'),
@@ -221,6 +276,7 @@ export async function local(
     } catch (error) {
         result.outcome = error instanceof PrerequisiteError ? 'prerequisite_error' : 'lab_error'
         result.error = error instanceof Error ? error.message : String(error)
+        process.stderr.write(`${result.error}\n`)
     } finally {
         try {
             await phase(result, 'cleanup', async () => {
@@ -229,6 +285,10 @@ export async function local(
                 }
 
                 if (context) {
+                    if (result.assertions.some(assertion => !assertion.passed)) {
+                        result.childStderr = context.childStderr
+                    }
+
                     for (const pid of context.processes.keys()) {
                         signalGroup(pid, 'SIGKILL')
                     }
@@ -266,6 +326,10 @@ export async function local(
     } catch (error) {
         result.outcome = 'lab_error'
         result.error = `Result persistence failed: ${String(error)}`
+    }
+
+    if (process.env.FT_LAB_REMOTE !== '1') {
+        summarize(result)
     }
 
     return result
@@ -310,7 +374,7 @@ async function adHoc(context: Context, argv: string[]): Promise<void> {
  * @param result - terminal verdict
  * @returns 0 pass, 1 assertion/ft failure, 2 prerequisite, 3 lab infrastructure failure
  */
-export function resultCode(result: Result): number {
+export function resultCode(result: Result | Aggregate): number {
     return { passed: 0, failed: 1, prerequisite_error: 2, lab_error: 3 }[result.outcome]
 }
 

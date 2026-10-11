@@ -2,39 +2,50 @@ import { Option } from 'commander'
 
 import { SCENARIOS } from '../lib/constants'
 import { local, resultCode, resultFor } from '../lib/local'
-import { both, remote } from '../lib/remote'
+import { remote } from '../lib/remote'
+import { aggregate, selectScenarios, summarize } from '../lib/results'
 
 import type { Command } from 'commander'
 
-import type { Options } from '../lib/types'
+import type { Options, Result } from '../lib/types'
 
 /**
  * Run the selected host(s), keeping stdout reserved for one terminal JSON object.
- * @param scenario - named scenario or exec
+ * @param scenarios - named scenarios or exec
  * @param options - commander options
  * @param argv - ft argv for ad hoc execution
  * @returns completion of result output
  */
-async function execute(scenario: string, options: Options, argv: string[] = []): Promise<void> {
-    let result
+async function execute(scenarios: string[], options: Options, argv: string[] = []): Promise<void> {
+    const results: Result[] = []
 
-    if (scenario.startsWith('real-') && options.host !== 'local') {
-        result = resultFor(scenario, options.host)
-        result.outcome = 'prerequisite_error'
-        result.error = 'Real checks are local-only and must be explicitly named'
-    } else if (options.host === 'both') {
-        result = both(
-            [
-                await local(scenario, { ...options, host: 'local' }, argv),
-                await remote(scenario, options, argv),
-            ],
-            scenario,
-        )
-    } else if (options.host === 'air' && process.env.FT_LAB_REMOTE !== '1') {
-        result = await remote(scenario, options, argv)
-    } else {
-        result = await local(scenario, options, argv)
+    if (scenarios.some(scenario => scenario.startsWith('real-')) && options.host !== 'local') {
+        for (const scenario of scenarios) {
+            const result = resultFor(scenario, options.host)
+
+            result.outcome = 'prerequisite_error'
+            result.error = 'Real checks are local-only and must be explicitly named'
+            results.push(result)
+            summarize(result)
+        }
     }
+
+    const hosts = options.host === 'both' ? (['local', 'air'] as const) : [options.host]
+
+    for (const host of results.length ? [] : hosts) {
+        let completed: Result[]
+
+        if (host === 'air' && process.env.FT_LAB_REMOTE !== '1') {
+            completed = await remote(scenarios, options, argv)
+            completed.forEach(summarize)
+        } else {
+            completed = await local(scenarios, { ...options, host }, argv)
+        }
+
+        results.push(...completed)
+    }
+
+    const result = results.length === 1 ? results[0] : aggregate(results, options.host)
 
     process.stdout.write(`${JSON.stringify(result)}\n`)
     process.exitCode = resultCode(result)
@@ -81,10 +92,11 @@ export function register(program: Command): void {
         })
     scratchOptions(
         program
-            .command('run <scenario>')
-            .description('Run exactly one named scenario; no default suite'),
+            .command('run [scenario...]')
+            .description('Run exact scenario names or --all (non-real scenarios only)'),
         ['local', 'air', 'both'],
     )
+        .option('--all', 'run every non-real scenario; never includes real checks')
         .option(
             '--project <dir>',
             'real-gateway ONLY: Linux project .ft.json with actual apiKey reference; two paid tool round trips, 90s per lane',
@@ -93,8 +105,8 @@ export function register(program: Command): void {
             '--version <version>',
             'real-release ONLY: exact published version, cold install.sh and actual authenticated gh; no model requests',
         )
-        .action(async (scenario: string, inputs: Options) => {
-            await execute(scenario, inputs)
+        .action(async (scenarios: string[], inputs: Options) => {
+            await execute(selectScenarios(scenarios, inputs.all), inputs)
         })
     scratchOptions(
         program
@@ -106,6 +118,6 @@ export function register(program: Command): void {
             .passThroughOptions(),
         ['local', 'air'],
     ).action(async (argv: string[], inputs: Options) => {
-        await execute('exec', inputs, argv)
+        await execute(['exec'], inputs, argv)
     })
 }

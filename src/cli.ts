@@ -1,18 +1,14 @@
 import { Command } from 'commander'
 
-import { version } from '../package.json'
 import { loadConfig } from './config'
 import { brokerKey, getKey } from './key'
 import { doctor, pin } from './maintenance'
 import { run } from './run'
+import { RUNNER_VERSION } from './version'
 
 import type { RunOptions } from './types'
 
-declare const FT_BUILD_VERSION: string | undefined
-
-const program = new Command()
-    .name('ft')
-    .version(typeof FT_BUILD_VERSION === 'undefined' ? version : FT_BUILD_VERSION)
+const program = new Command().name('ft').version(RUNNER_VERSION)
 
 program
     .command('key')

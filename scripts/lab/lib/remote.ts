@@ -2,10 +2,11 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 import { AIR_TOOLCHAIN, LAB_ROOT } from './constants'
-import { phase, readResult, resultCode, resultFor } from './local'
+import { phase, readResult, resultFor } from './local'
 import { command, PrerequisiteError, start } from './processes'
+import { pinnedBunVersion } from './toolchain'
 
-import type { Options, Result } from './types'
+import type { Aggregate, Options, Result } from './types'
 
 /**
  * Quote one literal argument for the SSH remote shell.
@@ -14,23 +15,6 @@ import type { Options, Result } from './types'
  */
 function quote(value: string): string {
     return `'${value.replaceAll("'", String.raw`'\''`)}'`
-}
-
-/**
- * Read the Bun version CI builds with, from package.json's packageManager field.
- * @returns exact version such as 1.3.13
- */
-async function pinnedBunVersion(): Promise<string> {
-    const manifest = (await Bun.file(join(process.cwd(), 'package.json')).json()) as {
-        packageManager?: string
-    }
-    const version = /^bun@(\d+\.\d+\.\d+)/.exec(manifest.packageManager ?? '')?.[1]
-
-    if (!version) {
-        throw new PrerequisiteError('package.json packageManager must pin bun@<version>')
-    }
-
-    return version
 }
 
 /**
@@ -64,17 +48,21 @@ mv "$stage/out" ${directory}`
 /**
  * Sync the working tree and execute the same host-local command natively on air.
  * Only /tmp/ft-lab is writable; gh and keychain access are never used remotely.
- * @param scenario - selected non-real scenario or exec
+ * @param scenarios - selected non-real scenarios or exec
  * @param options - remote options
  * @param argv - literal exec arguments
- * @returns copied structured remote result
+ * @returns copied structured remote results
  */
-export async function remote(scenario: string, options: Options, argv: string[]): Promise<Result> {
-    let result = resultFor(scenario, 'air')
-    const transport: Record<string, number> = {}
+export async function remote(
+    scenarios: string[],
+    options: Options,
+    argv: string[],
+): Promise<Result[]> {
+    const result = resultFor(scenarios.join(','), 'air')
+    const results: Result[] = []
 
     try {
-        if (scenario.startsWith('real-')) {
+        if (scenarios.some(scenario => scenario.startsWith('real-'))) {
             throw new PrerequisiteError(
                 'Real scenarios are local-only; lab never forwards credentials or runs gh on air',
             )
@@ -131,7 +119,9 @@ fi`
         })
 
         const arguments_ =
-            scenario === 'exec' ? ['exec', '--host', 'air'] : ['run', scenario, '--host', 'air']
+            scenarios[0] === 'exec'
+                ? ['exec', '--host', 'air']
+                : ['run', ...scenarios, '--host', 'air']
 
         if (options.cold) {
             arguments_.push('--cold')
@@ -139,7 +129,7 @@ fi`
 
         arguments_.push('--keep')
 
-        if (scenario === 'exec') {
+        if (scenarios[0] === 'exec') {
             arguments_.push('--', ...argv)
         }
 
@@ -160,78 +150,80 @@ fi`
         )
 
         process.stderr.write(capture.stderr)
-        Object.assign(transport, result.phases)
 
-        const candidate = JSON.parse(capture.stdout) as Result
+        const envelope = JSON.parse(capture.stdout) as Result | Aggregate
+        const candidates = 'results' in envelope ? envelope.results : [envelope]
 
         if (
-            !/^\d+-[a-f0-9]{8}$/.test(candidate.runId) ||
-            candidate.schemaVersion !== 1 ||
-            candidate.host !== 'air'
+            envelope.schemaVersion !== 1 ||
+            envelope.host !== 'air' ||
+            candidates.length !== scenarios.length ||
+            candidates.some(
+                (candidate, index) =>
+                    !/^\d+-[a-f0-9]{8}$/.test(candidate.runId) ||
+                    candidate.schemaVersion !== 1 ||
+                    candidate.host !== 'air' ||
+                    candidate.scenario !== scenarios[index],
+            )
         ) {
             throw new Error('Invalid remote result identity')
         }
 
-        const copy = join(LAB_ROOT, 'results', `air-${candidate.runId}.json`)
-
         await mkdir(join(LAB_ROOT, 'results'), { recursive: true, mode: 0o700 })
-        await command(['rsync', '-az', `air:${LAB_ROOT}/results/${candidate.runId}.json`, copy])
-        result = await readResult(copy)
 
-        if (!options.keep) {
-            try {
-                await phase(result, 'remote-cleanup', () =>
-                    command(['ssh', 'air', `rm -rf ${LAB_ROOT}/runs/${candidate.runId}`]),
-                )
-                result.cleanup = { outcome: 'removed' }
-                result.keptPaths = []
-            } catch (error) {
-                result.cleanup = { outcome: 'failed', error: String(error) }
-                throw error
+        for (const candidate of candidates) {
+            const copy = join(LAB_ROOT, 'results', `air-${candidate.runId}.json`)
+
+            await command(['rsync', '-az', `air:${LAB_ROOT}/results/${candidate.runId}.json`, copy])
+
+            const copied = await readResult(copy)
+
+            if (
+                copied.runId !== candidate.runId ||
+                copied.host !== 'air' ||
+                copied.scenario !== candidate.scenario
+            ) {
+                throw new Error('Copied remote result identity mismatch')
             }
-        }
 
-        result.phases = {
-            ...result.phases,
-            ...Object.fromEntries(
-                Object.entries(transport).map(([name, ms]) => [`transport-${name}`, ms]),
-            ),
+            results.push(copied)
+
+            if (!options.keep) {
+                try {
+                    await phase(copied, 'remote-cleanup', () =>
+                        command(['ssh', 'air', `rm -rf ${LAB_ROOT}/runs/${candidate.runId}`]),
+                    )
+                    copied.cleanup = { outcome: 'removed' }
+                    copied.keptPaths = []
+                } catch (error) {
+                    copied.cleanup = { outcome: 'failed', error: String(error) }
+                    throw error
+                }
+            }
+
+            if (results.length === 1) {
+                Object.assign(
+                    copied.phases,
+                    Object.fromEntries(
+                        Object.entries(result.phases).map(([name, ms]) => [
+                            `transport-${name}`,
+                            ms,
+                        ]),
+                    ),
+                )
+            }
+
+            await writeFile(copy, JSON.stringify(copied, null, 4))
         }
-        await writeFile(copy, JSON.stringify(result, null, 4))
     } catch (error) {
-        result.outcome = error instanceof PrerequisiteError ? 'prerequisite_error' : 'lab_error'
-        result.error = error instanceof Error ? error.message : String(error)
+        for (const [index, scenario] of scenarios.entries()) {
+            const failed = results[index] ?? resultFor(scenario, 'air')
+
+            failed.outcome = error instanceof PrerequisiteError ? 'prerequisite_error' : 'lab_error'
+            failed.error = error instanceof Error ? error.message : String(error)
+            results[index] = failed
+        }
     }
 
-    return result
-}
-
-/**
- * Aggregate local-then-air without emitting multiple stdout objects.
- * @param results - ordered host results
- * @param scenario - requested scenario
- * @returns combined verdict and nested per-host evidence
- */
-export function both(results: Result[], scenario: string): Result {
-    const result = resultFor(scenario, 'both')
-    const worst = Math.max(...results.map(resultCode))
-
-    result.results = results
-    result.outcome =
-        (['passed', 'failed', 'prerequisite_error', 'lab_error'] as const)[worst] ?? 'lab_error'
-    result.assertions = results.flatMap(host =>
-        host.assertions.map(assertion => ({
-            ...assertion,
-            name: `${host.host}:${assertion.name}`,
-        })),
-    )
-    result.keptPaths = results.flatMap(host => host.keptPaths)
-
-    if (results.some(host => host.cleanup.outcome === 'failed')) {
-        result.cleanup.outcome = 'failed'
-    } else if (results.some(host => host.cleanup.outcome === 'kept')) {
-        result.cleanup.outcome = 'kept'
-    }
-
-    return result
+    return results
 }

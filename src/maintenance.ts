@@ -2,12 +2,12 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
-import { version as runnerVersion } from '../package.json'
 import { findConfig, loadConfig } from './config'
 import { PI_VERSION, TARGETS, TOOL_RELEASES } from './constants'
 import { cacheRoot, commandOutput, platformTarget } from './install'
 import { getKey } from './key'
 import { atomicWrite } from './output'
+import { RUNNER_VERSION } from './version'
 
 /**
  * Fetch a private release manifest through authenticated gh and preserve project overrides.
@@ -74,7 +74,7 @@ export async function doctor(): Promise<void> {
     const lines = [
         `Config: ${config.path}`,
         `Project root: ${dirname(config.path)}`,
-        `Runner: ${runnerVersion}`,
+        `Runner: ${RUNNER_VERSION}`,
         `Pi: ${PI_VERSION} (${existsSync(join(root, 'pi', PI_VERSION)) ? 'installed' : 'not installed'})`,
     ]
 

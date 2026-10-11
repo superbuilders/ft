@@ -6,12 +6,13 @@ import { describe, expect, it } from 'vitest'
 
 import { ANSWER, DUMMY_KEY, SCENARIOS } from './constants'
 import { configure, scratchFixtures } from './fixtures'
-import { resultCode, resultFor } from './local'
+import { local, resultCode, resultFor } from './local'
 import { modelServer } from './model'
-import { check, start } from './processes'
-import { both } from './remote'
+import { check, start, stderrTail } from './processes'
+import { aggregate, selectScenarios } from './results'
+import { requirePinnedBun } from './toolchain'
 
-import type { Context } from './types'
+import type { Aggregate, Context } from './types'
 
 /**
  * Run the CLI without ambient credentials, keeping its output contract observable.
@@ -53,6 +54,14 @@ describe('lab contract', () => {
         expect(capture.stdout.trim().split('\n')).toHaveLength(1)
     })
 
+    it('rejects real checks on both hosts before any execution or transport', async () => {
+        const capture = await cli(['run', 'real-gateway', '--host', 'both'])
+
+        expect(capture.code).toBe(2)
+        expect(JSON.parse(capture.stdout).outcome).toBe('prerequisite_error')
+        expect(capture.stderr).not.toContain('[lab]')
+    })
+
     it('documents live checks without running them', async () => {
         const capture = await cli(['run', '--help'])
 
@@ -80,18 +89,87 @@ describe('lab contract', () => {
     })
 
     it('aggregates per-host results without hiding remote infrastructure failures', () => {
-        const local = resultFor('parallel', 'local')
+        const native = resultFor('parallel', 'local')
         const air = resultFor('parallel', 'air')
 
-        check(local, 'eight-answers', 8, 8)
+        check(native, 'eight-answers', 8, 8)
         air.outcome = 'lab_error'
         air.cleanup.outcome = 'failed'
 
-        const combined = both([local, air], 'parallel')
+        const combined = aggregate([native, air], 'both')
 
         expect(combined.outcome).toBe('lab_error')
-        expect(combined.cleanup.outcome).toBe('failed')
-        expect(combined.assertions[0]?.name).toBe('local:eight-answers')
+        expect(combined.results).toEqual([native, air])
+        expect(Object.keys(combined)).toEqual(['schemaVersion', 'host', 'outcome', 'results'])
+    })
+
+    it('never selects real checks through --all and preserves explicit ordering', () => {
+        expect(selectScenarios([], true)).toEqual(
+            Object.keys(SCENARIOS).filter(name => !name.startsWith('real-')),
+        )
+        expect(selectScenarios(['success', 'switch'])).toEqual(['success', 'switch'])
+        expect(() => selectScenarios([], false)).toThrow('requires one or more')
+        expect(() => selectScenarios(['success'], true)).toThrow('not both')
+    })
+
+    it.each([[], ['success', '--all']])(
+        'rejects ambiguous or empty selection %j',
+        async (...args) => {
+            const capture = await cli(['run', ...args])
+
+            expect(capture.code).toBe(2)
+            expect(JSON.parse(capture.stdout).outcome).toBe('prerequisite_error')
+            expect(capture.stdout.trim().split('\n')).toHaveLength(1)
+        },
+    )
+
+    it('returns a flat multi-scenario result and one stderr summary per scenario', async () => {
+        const capture = await cli(['run', 'unknown-one', 'unknown-two'])
+        const result = JSON.parse(capture.stdout) as Aggregate
+
+        expect(capture.code).toBe(2)
+        expect(capture.stdout.trim().split('\n')).toHaveLength(1)
+        expect(result.host).toBe('local')
+        expect(result.results.map(item => item.scenario)).toEqual(['unknown-one', 'unknown-two'])
+        expect(capture.stderr.match(/^local unknown-\w+: failed$/gm)).toHaveLength(2)
+    })
+
+    it('keeps invalid scenario prerequisites isolated within one invocation', async () => {
+        const results = await local(['unknown-one', 'unknown-two'], { host: 'local' })
+
+        expect(results.map(result => resultCode(result))).toEqual([2, 2])
+        expect(results.every(result => result.buildVersion === null)).toBe(true)
+    })
+
+    it('uses lab > assertion > usage > passed precedence rather than numeric maximum', () => {
+        const results = ['passed', 'prerequisite_error', 'failed', 'lab_error'].map(outcome => ({
+            ...resultFor('success', 'local'),
+            outcome: outcome as Context['result']['outcome'],
+        }))
+
+        for (const length of [1, 2, 3, 4]) {
+            const selected = results.slice(0, length)
+
+            expect(resultCode(aggregate(selected, 'local'))).toBe([0, 2, 1, 3][length - 1])
+            expect(aggregate(selected.toReversed(), 'both').outcome).toBe(selected.at(-1)?.outcome)
+        }
+    })
+
+    it('refuses a different local Bun and names actual and pinned versions on one line', () => {
+        expect(() => requirePinnedBun('1.3.12', '1.3.13')).toThrow(
+            'Local Bun 1.3.12 differs from package.json pin 1.3.13',
+        )
+        expect(() => requirePinnedBun('1.3.13', '1.3.13')).not.toThrow()
+    })
+
+    it('keeps exactly forty stderr lines and redacts repeated dummy keys', () => {
+        const lines = Array.from({ length: 45 }, (_, index) => `${index}: ${DUMMY_KEY}`)
+        const tail = stderrTail(`${lines.join('\r\n')}\r\n`)
+
+        expect(tail.split('\n')).toHaveLength(40)
+        expect(tail.split('\n')[0]).toBe('5: <redacted>')
+        expect(tail).not.toContain(DUMMY_KEY)
+        expect(stderrTail('')).toBe('')
     })
 
     it('uses the real native hash and zero placeholders, and gh serves exact version assets', async () => {
@@ -109,6 +187,7 @@ describe('lab contract', () => {
             },
             result: resultFor('distribution', 'local'),
             processes: new Map(),
+            childStderr: [],
             env: {
                 PATH: `${join(directory, 'bin')}:/usr/bin:/bin`,
                 FAKE_CALLS: join(directory, 'gh.calls'),
@@ -150,6 +229,19 @@ describe('lab contract', () => {
             expect(await readFile(join(directory, 'download', 'ft-linux-x64'), 'utf8')).toBe(
                 'real bytes',
             )
+
+            const failed = await start(
+                context,
+                ['sh', '-c', String.raw`printf "%s\n" "$E2E_SECRET" >&2; exit 7`],
+                context.project,
+                { ...context.env, E2E_SECRET: DUMMY_KEY },
+            ).result
+
+            expect(failed.code).toBe(7)
+            expect(context.childStderr).toEqual([
+                { argv0: 'gh', code: 0, tail: '' },
+                { argv0: 'sh', code: 7, tail: '<redacted>' },
+            ])
         } finally {
             await rm(directory, { recursive: true, force: true })
         }

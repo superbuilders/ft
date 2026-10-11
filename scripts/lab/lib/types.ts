@@ -6,6 +6,8 @@ import type { Target } from '../../../src/types'
 export interface Options {
     /** Execution host, never inferred from the network endpoint. */
     host: 'local' | 'air' | 'both'
+    /** Select every non-real scenario, never live checks. */
+    all?: boolean
     /** Retain this run only; persistent caches are unaffected. */
     keep?: boolean
     /** Build and runtime cache state must start empty. */
@@ -62,8 +64,34 @@ export interface Result {
     error?: string
     /** Ad hoc child exit and pipes; runDirectory can already have been removed. */
     execution?: { exitCode: number; stdout: string; stderr: string; runDirectory: string }
-    /** Ordered local-then-air results for both-host requests. */
-    results?: Result[]
+    /** Redacted stderr tails for all scenario children when an assertion fails. */
+    childStderr?: ChildStderr[]
+}
+
+/**
+ * Terminal envelope for multiple scenarios or hosts.
+ */
+export interface Aggregate {
+    /** Wire discriminator fixed at 1. */
+    schemaVersion: 1
+    /** Requested execution host(s). */
+    host: Options['host']
+    /** Most severe verdict: lab failure, assertion failure, usage, pass. */
+    outcome: Result['outcome']
+    /** Flat host-major scenario results, local before air. */
+    results: Result[]
+}
+
+/**
+ * Captured child diagnostics, safe to embed in a terminal result.
+ */
+export interface ChildStderr {
+    /** Executable passed to the scenario's child launcher. */
+    argv0: string
+    /** Normalized child exit code. */
+    code: number
+    /** Last forty stderr lines with the dummy key redacted. */
+    tail: string
 }
 
 /**
@@ -122,6 +150,8 @@ export interface Context {
     result: Result
     /** Recorded owned group leaders and executable provenance. */
     processes: Map<number, string>
+    /** Child diagnostics in launch order, populated after pipe drainage. */
+    childStderr: ChildStderr[]
 }
 
 /**

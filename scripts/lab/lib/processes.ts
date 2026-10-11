@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { isDeepStrictEqual } from 'node:util'
 
-import { CHILD_TIMEOUT_MS, CHECKPOINT_TIMEOUT_MS } from './constants'
+import { CHILD_TIMEOUT_MS, CHECKPOINT_TIMEOUT_MS, DUMMY_KEY } from './constants'
 
 import type { Capture, Child, Context, Result } from './types'
 
@@ -55,6 +55,12 @@ export function start(
         stdio: ['ignore', 'pipe', 'pipe'],
     })
     const pid = child.pid ?? 0
+    const diagnostic = { argv0: executable, code: 128, tail: '' }
+
+    if (context && !context.result.scenario.startsWith('real-')) {
+        context.childStderr.push(diagnostic)
+    }
+
     let stdout = ''
     let stderr = ''
     let expired = false
@@ -86,6 +92,8 @@ export function start(
         child.on('close', (code, signal) => {
             clearTimeout(timer)
             context?.processes.delete(pid)
+            diagnostic.code = code ?? (signal === 'SIGKILL' ? 137 : 128)
+            diagnostic.tail = stderrTail(stderr)
 
             if (expired) {
                 reject(new Error(`Child deadline exceeded: ${argv[0]}`))
@@ -99,6 +107,20 @@ export function start(
     void result.catch(() => {})
 
     return { pid, result }
+}
+
+/**
+ * Retain the final forty stderr lines without exposing the lab dummy credential.
+ * @param stderr - drained child diagnostics
+ * @returns redacted tail, excluding a trailing line terminator
+ */
+export function stderrTail(stderr: string): string {
+    return stderr
+        .replaceAll(DUMMY_KEY, '<redacted>')
+        .replace(/\r?\n$/, '')
+        .split(/\r?\n/)
+        .slice(-40)
+        .join('\n')
 }
 
 /**

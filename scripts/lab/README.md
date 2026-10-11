@@ -4,7 +4,8 @@ One native smoke-test CLI for agent-driven iteration:
 
 ```sh
 bun scripts/lab list --json
-bun scripts/lab run success
+bun scripts/lab run success switch
+bun scripts/lab run --all --host both
 bun scripts/lab run distribution --host air
 bun scripts/lab run parallel --host both
 bun scripts/lab run kill-extract --keep
@@ -13,9 +14,15 @@ bun scripts/lab exec --host air -- doctor
 bun run test scripts/lab
 ```
 
-`run` requires an exact scenario name. There is no implicit suite and neither real
-check can be reached by a non-real scenario. `--cold` gives the run fresh build
-and runtime caches. `--keep` retains that run's scratch directory and unmodified
+If your `bun` is a version-manager shim that writes to stdout, run the lab with the real Bun binary.
+
+`run` requires one or more exact scenario names or `--all`, which selects every
+non-real scenario and never includes either real check. There is no implicit
+suite. Local Bun must match package.json's `packageManager` pin; a mismatch is
+an exit-2 prerequisite error naming both versions. Build preparation happens
+once per host per invocation; air sync, toolchain and dependency preparation do
+too. `--cold` gives the invocation a fresh build cache and each scenario a fresh
+runtime cache. `--keep` retains that run's scratch directory and unmodified
 ft status/events/stderr artifacts. Progress goes to stderr; stdout receives one
 terminal JSON object. `list` emits one catalog object (also with `--json`). Help
 is ordinary commander help, not a run result.
@@ -91,13 +98,14 @@ not a fixed startup sleep. Fixture recording into src is intentionally removed.
 
 `--host air` uses rsync over `ssh air` to `/tmp/ft-lab/checkout`, excluding `.git`,
 `tmp`, and `node_modules`. It runs frozen-lockfile installation only when bun.lock
-changes or dependencies are absent. Bun is invoked as
-`/Users/hbauer/.bun/bin/bun`; installation HOME/cache/temp and Bun package cache
+changes or dependencies are absent. Bun is pinned from package.json and invoked from
+`/tmp/ft-lab/cache/toolchain/bun-<version>/bun`; installation HOME/cache/temp and Bun package cache
 are also under `/tmp/ft-lab`. No real gh or keychain operations run remotely.
 `--archives` syncs those offline fixture files into the Mac's archive cache.
 The Mac builds and serves its own loopback fixtures. The coordinator copies the
 result before removing only that validated run ID's directory unless `--keep`.
-`--host both` runs local then air and emits one aggregate containing both results.
+`--host both` runs all selected scenarios locally then on air and emits one
+aggregate containing the flat, host-major per-scenario results.
 
 All children have outer deadlines and recorded process-group ownership. The lab
 kills only groups it started or captured as descendants. A hard-killed lab or a
@@ -130,7 +138,16 @@ missing prerequisite, **3** lab/build/transport/cleanup failure. An expected ft
 child exit code, stdout, stderr and run directory; nonzero ft exit maps to lab 1.
 Results include schemaVersion, runId, host, scenario, buildVersion, buildDigest,
 outcome, named assertions with expected/observed values, phase milliseconds,
-kept paths and cleanup outcome.
+kept paths and cleanup outcome. Failed assertions additionally include
+`childStderr: [{ argv0, code, tail }]` for every captured scenario child (last 40
+stderr lines, with the dummy key replaced by `<redacted>`); real checks do not
+capture credential-bearing pipes. Stderr ends each scenario with
+`<host> <scenario>: passed|failed <failed assertion names>`.
+
+Multiple results use `{ schemaVersion, host, outcome, results: [...] }`; single
+scenario/single host results retain their original shape. Aggregate severity is
+lab failure (3), assertion/ft failure (1), usage/prerequisite (2), pass (0), not
+numeric maximum.
 
 This is a **scratch environment, not a security sandbox**. Bash and arbitrary
 `exec` commands retain the user's filesystem/network permissions. Routine fixture
