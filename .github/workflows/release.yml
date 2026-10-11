@@ -1,0 +1,94 @@
+name: Release
+
+on:
+    push:
+        tags: ['v*']
+
+permissions:
+    contents: read
+
+jobs:
+    version:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version-file: package.json
+
+            - name: Verify tag matches package.json version
+              env:
+                  RELEASE_TAG: ${{ github.ref_name }}
+              run: test "$RELEASE_TAG" = "v$(bun -p "require('./package.json').version")"
+
+    build:
+        needs: version
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - runner: ubuntu-latest
+                      target: linux-x64
+                    - runner: ubuntu-latest
+                      target: linux-arm64
+                    - runner: macos-latest
+                      target: darwin-arm64
+                    - runner: macos-latest
+                      target: darwin-x64
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version-file: package.json
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Compile runner
+              env:
+                  TARGET: ${{ matrix.target }}
+              run: bun build --compile --target="bun-$TARGET" src/cli.ts --outfile "ft-$TARGET"
+
+            - name: Sign Darwin runner
+              if: startsWith(matrix.target, 'darwin-')
+              env:
+                  TARGET: ${{ matrix.target }}
+              run: codesign --force --sign - "ft-$TARGET"
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: ft-${{ matrix.target }}
+                  path: ft-${{ matrix.target }}
+                  if-no-files-found: error
+
+    release:
+        needs: build
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: actions/download-artifact@v4
+              with:
+                  path: release-assets
+                  merge-multiple: true
+
+            - name: Prepare release assets
+              run: |
+                  cp shim/ft release-assets/ft-shim
+                  cp install.sh release-assets/install.sh
+                  cd release-assets
+                  sha256sum ft-darwin-arm64 ft-darwin-x64 ft-linux-arm64 ft-linux-x64 ft-shim install.sh > SHA256SUMS
+
+            - name: Create release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RELEASE_TAG: ${{ github.ref_name }}
+              run: gh release create "$RELEASE_TAG" -R superbuilders/ft --verify-tag --generate-notes release-assets/*

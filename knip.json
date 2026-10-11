@@ -3,6 +3,13 @@
     "exclude": ["duplicates"],
     "ignoreExportsUsedInFile": { "interface": true, "type": true },
     "ignoreDependencies": ["@secretlint/.+"],
+    "ignoreBinaries": ["dash"],
     "entry": ["src/cli.ts", "scripts/*/index.ts", "*.config.ts", ".oxlint/plugins/**/*.mjs"],
-    "project": ["src/**/*.ts", "scripts/**/*.ts", "*.ts", ".oxlint/plugins/**/*.mjs"]
+    "project": [
+        "src/**/*.ts",
+        "scripts/**/*.ts",
+        "shim/**/*.ts",
+        "*.ts",
+        ".oxlint/plugins/**/*.mjs"
+    ]
 }

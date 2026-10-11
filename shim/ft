@@ -1,0 +1,196 @@
+#!/bin/sh
+SHIM_VERSION=0.1.0
+
+# Releases and .ft.json use the same target names and checksum format.
+set -u
+umask 077
+
+fail() {
+    printf 'ft: %s\n' "$2" >&2
+    exit "$1"
+}
+
+if [ "${1:-}" = --shim-version ]; then
+    printf '%s\n' "$SHIM_VERSION"
+    exit 0
+fi
+
+stage=
+active_pid=
+lock=
+locked=no
+cleanup() {
+    if [ -n "$active_pid" ]; then
+        kill "$active_pid" 2>/dev/null || :
+    fi
+    [ -z "$stage" ] || rm -rf "$stage"
+    [ "$locked" = no ] || rm -rf "$lock"
+    return 0
+}
+trap cleanup 0
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+case $(uname -s) in
+    Linux) os=linux ;;
+    Darwin) os=darwin ;;
+    *) fail 2 'unsupported platform (expected Linux or Darwin)' ;;
+esac
+case $(uname -m) in
+    arm64|aarch64) arch=arm64 ;;
+    x86_64|amd64) arch=x64 ;;
+    *) fail 2 'unsupported platform architecture (expected arm64 or x64)' ;;
+esac
+target=$os-$arch
+
+project=$(pwd -P) || fail 2 'cannot resolve working directory'
+config=
+while :; do
+    if [ -f "$project/.ft.json" ]; then
+        config=$project/.ft.json
+        break
+    fi
+    [ "$project" != / ] || break
+    project=${project%/*}
+    [ -n "$project" ] || project=/
+done
+
+bootstrap=no
+if [ -n "$config" ]; then
+    version=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$config")
+    expected=$(sed -n '/^[[:space:]]*"sha256"[[:space:]]*:/,/^[[:space:]]*}/p' "$config" |
+        sed -n "s/^[[:space:]]*\"$target\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p")
+    [ -n "$expected" ] || fail 2 "missing hash for target $target in $config"
+    FT_CONFIG=$config
+    export FT_CONFIG
+else
+    [ "${1:-}" = pin ] || fail 2 'no .ft.json found; run ft pin <version> in the project root'
+    bootstrap=yes
+    unset FT_CONFIG
+fi
+
+validate_version() {
+    printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' ||
+        fail 2 'invalid or missing runner version'
+}
+validate_hash() {
+    [ "${#expected}" -eq 64 ] && printf '%s\n' "$expected" | grep -Eq '^[0-9a-fA-F]+$' ||
+        fail 2 "invalid SHA-256 for target $target"
+    expected=$(printf '%s' "$expected" | tr 'A-F' 'a-f')
+}
+
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
+if [ "$bootstrap" = no ]; then
+    validate_version
+    validate_hash
+    if [ -f "$cache/runner/$version/ft" ]; then
+        exec "$cache/runner/$version/ft" "$@"
+    fi
+fi
+
+mkdir -p "$cache/runner" "$cache/staging" "$cache/locks" || fail 1 'cannot create cache directories'
+cache=$(cd "$cache" && pwd -P) || fail 1 'cannot resolve cache directory'
+
+new_stage() {
+    stage=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
+}
+require_gh() {
+    command -v gh >/dev/null 2>&1 || fail 2 'gh is required; install GitHub CLI and run gh auth login'
+}
+gh_call() {
+    # wait is interruptible by traps, unlike a foreground external command.
+    gh "$@" 2>"$stage/gh.stderr" &
+    active_pid=$!
+    if wait "$active_pid"; then
+        active_pid=
+        return 0
+    else
+        gh_status=$?
+        active_pid=
+    fi
+    if [ "$gh_status" -eq 4 ] || grep -Eiq 'not logged|not authenticated|authentication|gh auth login|HTTP 401|bad credentials|GH_TOKEN' "$stage/gh.stderr"; then
+        fail 2 'gh is not authenticated; run gh auth login'
+    fi
+    fail 1 'GitHub release download or lookup failed'
+}
+
+if [ "$bootstrap" = yes ]; then
+    require_gh
+    new_stage
+    gh_call release view -R superbuilders/ft --json tagName >"$stage/release.json"
+    tag=$(sed -n 's/.*"tagName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$stage/release.json")
+    case $tag in
+        v*) version=${tag#v} ;;
+        *) fail 2 'latest release has an invalid tag' ;;
+    esac
+    validate_version
+    if [ -f "$cache/runner/$version/ft" ]; then
+        cleanup
+        stage=
+        exec "$cache/runner/$version/ft" "$@"
+    fi
+fi
+
+lock=$cache/locks/runner-$version.lock
+host=$(hostname) || fail 1 'cannot resolve lock hostname'
+waiting=no
+while ! mkdir "$lock" 2>/dev/null; do
+    owner_pid=
+    owner_host=
+    if [ -f "$lock/owner" ]; then
+        read -r owner_pid owner_host <"$lock/owner" || :
+    fi
+    case $owner_pid in
+        ''|*[!0-9]*|0) ;;
+        *)
+            if [ "$owner_host" = "$host" ] && ! kill -0 "$owner_pid" 2>/dev/null; then
+                rm -rf "$lock" || fail 1 'cannot recover stale runner lock'
+                continue
+            fi
+            ;;
+    esac
+    if [ "$waiting" = no ]; then
+        printf 'ft: waiting for runner-%s lock held by %s %s\n' "$version" "${owner_pid:-unknown}" "${owner_host:-unknown}" >&2
+        waiting=yes
+    fi
+    sleep 0.2
+done
+locked=yes
+printf '%s %s\n' "$$" "$host" >"$lock/owner" || fail 1 'cannot write runner lock owner'
+
+if [ ! -f "$cache/runner/$version/ft" ]; then
+    require_gh
+    [ -n "$stage" ] || new_stage
+    if [ "$bootstrap" = yes ]; then
+        gh_call release download "v$version" -R superbuilders/ft -p SHA256SUMS -D "$stage" >/dev/null
+        expected=$(sed -n "s/^\([0-9a-fA-F]*\)  ft-$target\$/\1/p" "$stage/SHA256SUMS")
+        [ -n "$expected" ] || fail 2 "missing hash for target $target in release SHA256SUMS"
+        validate_hash
+    fi
+    gh_call release download "v$version" -R superbuilders/ft -p "ft-$target" -D "$stage" >/dev/null
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum <"$stage/ft-$target") || fail 1 'SHA-256 verification failed'
+    elif command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 <"$stage/ft-$target") || fail 1 'SHA-256 verification failed'
+    else
+        fail 2 'sha256sum or shasum is required'
+    fi
+    actual=${actual%% *}
+    [ "$actual" = "$expected" ] || fail 1 "checksum mismatch for ft-$target"
+    chmod +x "$stage/ft-$target" || fail 1 'cannot make runner executable'
+    "$stage/ft-$target" --version >"$stage/smoke.stdout" 2>"$stage/smoke.stderr" &
+    active_pid=$!
+    wait "$active_pid" || fail 1 'runner smoke test failed (--version)'
+    active_pid=
+    smoke=$(cat "$stage/smoke.stdout") || fail 1 'cannot read runner smoke test result'
+    [ "$smoke" = "$version" ] || fail 1 'runner smoke test failed (unexpected version)'
+    mv "$stage/ft-$target" "$stage/ft" || fail 1 'cannot prepare runner'
+    rm -f "$stage/gh.stderr" "$stage/smoke.stdout" "$stage/smoke.stderr" "$stage/SHA256SUMS" "$stage/release.json" || fail 1 'cannot clean staging metadata'
+    mv "$stage" "$cache/runner/$version" || fail 1 'cannot publish runner'
+    stage=
+fi
+cleanup
+stage=
+locked=no
+exec "$cache/runner/$version/ft" "$@"
