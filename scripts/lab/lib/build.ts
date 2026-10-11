@@ -4,7 +4,7 @@ import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promis
 import { join, resolve } from 'node:path'
 
 import { version as packageVersion } from '../../../package.json'
-import { platformTarget } from '../../../src/install'
+import { platformTarget } from '../../../src/system/host/host'
 import { command } from './processes'
 
 import type { Build } from './types'

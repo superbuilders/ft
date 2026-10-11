@@ -1,4 +1,4 @@
-import type { Target } from '../../../src/types'
+import type { Target } from '../../../src/system/host/types'
 
 /**
  * Validated commander inputs shared by native and remote execution.

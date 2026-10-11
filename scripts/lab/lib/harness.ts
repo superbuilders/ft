@@ -2,15 +2,15 @@ import { existsSync } from 'node:fs'
 import { readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-import { PI_VERSION } from '../../../src/constants'
-import { exitCode } from '../../../src/judge'
+import { exitCode } from '../../../src/pi/events/judge'
+import { PI_VERSION } from '../../../src/pi/runtime/constants'
 import { build, digest } from './build'
 import { ANSWER, DUMMY_KEY, LOOPBACK_SCENARIOS } from './constants'
 import { archives, calls, configure } from './fixtures'
 import { modelServer } from './model'
 import { check, checkpoint, command, signalGroup, start } from './processes'
 
-import type { Status } from '../../../src/types'
+import type { Status } from '../../../src/commands/run/types'
 import type { Capture, Context } from './types'
 
 /**

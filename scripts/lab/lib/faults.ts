@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-import { PI_SHA256, PI_VERSION } from '../../../src/constants'
+import { PI_SHA256, PI_VERSION } from '../../../src/pi/runtime/constants'
 import { digest } from './build'
 import { descendants } from './harness'
 import { check, checkpoint, command, PrerequisiteError, signalGroup, start } from './processes'
@@ -56,7 +56,7 @@ exec '${tar}' "$@"
     )
     await writeFile(
         worker,
-        `import { installArchive } from ${JSON.stringify(resolve('src/install.ts'))};
+        `import { installArchive } from ${JSON.stringify(resolve('src/system/install/install.ts'))};
 await installArchive(${JSON.stringify(root)}, ${JSON.stringify({ name: `pi-${PI_VERSION}`, finalPath: final, url: `http://127.0.0.1:${server.port}/${asset}`, sha256: PI_SHA256[context.build.target], binary: 'pi', version: PI_VERSION })});
 `,
     )

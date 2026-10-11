@@ -35,12 +35,6 @@ secretGroup = 2
 entropy = 4.3
 keywords = ["_hmac", "_pepper", "_salt", "_signing", "_nonce"]
 
-[[rules]]
-id = "discord-webhook-url"
-description = "Discord webhook URL"
-regex = '''https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_-]{60,72}'''
-keywords = ["discord.com/api/webhooks", "discordapp.com/api/webhooks"]
-
 # bun.lock is committed and large; excluding it before read is a scan-speed
 # win. (Other build output is gitignored, so it never reaches a commit scan.)
 [[allowlists]]

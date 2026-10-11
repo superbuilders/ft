@@ -1,0 +1,15 @@
+{
+    "root": "src",
+    "allow": {
+        "cli": ["commands", "version"],
+        "version": [],
+        "commands": ["pi", "project", "models", "system"],
+        "pi": ["project", "models", "system"],
+        "pi/process": ["pi/events"],
+        "project": ["models", "system"],
+        "project/key": ["project/config"],
+        "models": [],
+        "system": [],
+        "system/install": ["system/process"]
+    }
+}

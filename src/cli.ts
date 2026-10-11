@@ -1,25 +1,16 @@
 import { Command } from 'commander'
 
-import { loadConfig } from './config'
-import { brokerKey, getKey } from './key'
-import { doctor, pin } from './maintenance'
-import { run } from './run'
+import { doctor } from './commands/doctor/doctor'
+import { key } from './commands/key/key'
+import { pin } from './commands/pin/pin'
+import { run } from './commands/run/run'
 import { RUNNER_VERSION } from './version'
 
-import type { RunOptions } from './types'
+import type { RunOptions } from './commands/run/types'
 
 const program = new Command().name('ft').version(RUNNER_VERSION)
 
-program
-    .command('key')
-    .description('Resolve the project API key')
-    .action(async () => {
-        const key = process.env.FT_KEY_SOCKET
-            ? await brokerKey(process.env.FT_KEY_SOCKET)
-            : await getKey(await loadConfig(process.cwd()))
-
-        process.stdout.write(`${key}\n`)
-    })
+program.command('key').description('Resolve the project API key').action(key)
 program
     .command('run')
     .description('Run one brief on one pinned model')
@@ -35,7 +26,10 @@ program
         process.exitCode = await run(options)
     })
 program.command('pin <version>').description('Pin a runner release in .ft.json').action(pin)
-program.command('doctor').description('Show config and runtime health').action(doctor)
+program
+    .command('doctor')
+    .description('Show config and runtime health')
+    .action(() => doctor(RUNNER_VERSION))
 
 try {
     await program.parseAsync()

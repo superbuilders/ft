@@ -55,7 +55,7 @@ must still match their manifest and report their baked version. Scratch
 Routine tests never authenticate, resolve a real key, or contact GitHub/the real
 gateway. Acquire approved runtime assets separately, then place them under
 `/tmp/ft-lab/cache/archives`, or pass `--archives <dir>`. The filenames and SHA-256
-checks are exactly `src/constants.ts`'s pinned upstream Pi/rg/fd artifacts. Use
+checks are exactly `src/pi/runtime/constants.ts`'s pinned upstream Pi/rg/fd artifacts. Use
 `lab list` and the error result to identify a missing asset. A missing or wrong
 archive is a prerequisite error, not a fake success. `kill-extract` needs only
 the native Pi archive; configuration-error, switch, kill-download and non-run

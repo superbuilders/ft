@@ -52,7 +52,7 @@ jobs:
             - uses: actions/cache@v4
               with:
                   path: /tmp/ft-lab/cache/archives
-                  key: lab-archives-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/constants.ts') }}
+                  key: lab-archives-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/pi/runtime/constants.ts') }}
 
             - name: Lab scenarios
               run: bun scripts/lab run --all > lab-result.json

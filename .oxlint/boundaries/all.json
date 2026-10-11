@@ -36,6 +36,15 @@
         {
             "files": ["**/*.ts"],
             "rules": { "boundaries/fakes-residency": "error" }
+        },
+        /*
+         * The runner source is layered: cli, commands, pi, project, models,
+         * system, each importing only downward, with sibling folders isolated.
+         * layers.json is the map; layer-imports.mjs explains the rule.
+         */
+        {
+            "files": ["src/**/*.ts"],
+            "rules": { "boundaries/layer-imports": "error" }
         }
     ]
 }

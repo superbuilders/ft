@@ -3,8 +3,8 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { validateConfig } from '../../../src/config'
-import { TARGETS } from '../../../src/constants'
+import { validateConfig } from '../../../src/project/config/config'
+import { TARGETS } from '../../../src/system/host/constants'
 import { liveResearch, liveToolTurn } from './harness'
 import { check, PrerequisiteError, start } from './processes'
 

@@ -90,13 +90,24 @@ enforce layout, contract declaration and residency.
   runtime. Runtime objects live with their consumers (e.g. `patterns.ts`);
   derived types live in the sibling `types.ts`, never in `constants.ts`.
 
+## Source layout
+
+`src/` is layered, and each layer imports only from the layers below it:
+`cli.ts`, then `commands/` (one folder per command), `pi/` (driving Pi),
+`project/` (reading the caller's project), `models/` (the catalog and
+lanes), and `system/` (helpers with no ft knowledge). Sibling folders do not
+import each other unless `.oxlint/boundaries/layers.json` names the edge. The
+`boundaries/layer-imports` rule enforces that map; a new folder needs an
+entry before its files lint. Move code down a layer rather than adding an
+upward edge.
+
 ## Model adapters
 
-Pi reaches the gateway through a loopback relay in `src/gateway.ts`. When a
+Pi reaches the gateway through a loopback relay in `src/pi/gateway/`. When a
 catalog model's gateway traffic is something Pi 1.1.0 cannot read, add an
-adapter file in `src/adapters/` that names its models and rewrites their
-requests or responses, and register it in `src/adapters/index.ts`. Never add
-a separate code path in `run.ts` for one model.
+adapter file in `src/pi/gateway/adapters/` that names its models and
+rewrites their requests or responses, and register it in that folder's
+`index.ts`. Never add a separate code path in `commands/run/` for one model.
 
 ## Scripts
 
