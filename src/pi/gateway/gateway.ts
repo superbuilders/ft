@@ -46,6 +46,10 @@ export function serveGateway(upstream: string): { url: string; stop: () => Promi
     const server = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
+        /*
+         * A model can think silently for longer than Bun's 10-second default; the run deadline bounds it instead.
+         */
+        idleTimeout: 0,
         async fetch(request) {
             const url = new URL(request.url)
             const headers = new Headers(request.headers)
