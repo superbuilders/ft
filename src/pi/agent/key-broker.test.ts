@@ -36,11 +36,24 @@ it('resolves a key command at the config root and brokers it once without an inh
         await mkdir(join(root, 'run'), { mode: 0o700 })
 
         const socket = join(root, 'run', 'key.sock')
-        const close = await serveKey(socket, config, new AbortController().signal)
+        const close = serveKey(socket, config, new AbortController().signal)
 
         try {
             expect(await brokerKey(socket)).toBe('unit-test-dummy')
             expect(await brokerKey(socket)).toBe('unit-test-dummy')
+
+            /* Pi asks from its own process, where an instant answer used to beat the client's open and read as refused. */
+            const client = `import { brokerKey } from ${JSON.stringify(join(import.meta.dirname, 'key-broker.ts'))}; process.stdout.write(await brokerKey(${JSON.stringify(socket)}))`
+
+            for (let attempt = 0; attempt < 5; attempt++) {
+                const child = Bun.spawn([process.execPath, '-e', client], {
+                    stdout: 'pipe',
+                    stderr: 'inherit',
+                })
+
+                expect(await new Response(child.stdout).text()).toBe('unit-test-dummy')
+                expect(await child.exited).toBe(0)
+            }
         } finally {
             await close()
         }

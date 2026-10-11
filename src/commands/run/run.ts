@@ -81,7 +81,7 @@ async function execute(
         const privatePaths = await prepareAgent(dir, gateway.url, context)
         const socket = join(dir, 'key.sock')
 
-        closeKey = await serveKey(socket, config, controller.signal)
+        closeKey = serveKey(socket, config, controller.signal)
 
         const state = createJudge()
         const env = filterEnvironment(
