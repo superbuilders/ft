@@ -7,8 +7,7 @@ Instructions for coding agents working in this repository.
 `ft` is a pinned, isolated Pi runner that agent harnesses with native subagents
 can call to run one brief on one model, in parallel with other runs. It
 standardizes the team's personal `/pi-sub` workflow. This is a single-package
-Bun + TypeScript CLI; the current scaffold implements only `ft --version`, not
-the runner. `docs/plan.md` describes the future build.
+Bun + TypeScript CLI. `docs/plan.md` records the original design.
 
 ## Commands
 
@@ -20,6 +19,7 @@ bun run check                       # Hooks/CI only: typecheck, lint, format che
 bun run check --pre-push             # Also type-aware lint and knip
 bun run knip                        # Compact unused-code report; config hints fail
 bun src/cli.ts --version             # Package version
+bun run release <patch|minor|major|x.y.z>   # Bump, tag, push; release.yml builds and publishes
 ```
 
 ## Validation Workflow
