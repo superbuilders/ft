@@ -7,6 +7,7 @@ import {
     headline,
     renderReport,
     renderTable,
+    tally,
 } from './render'
 import settled from './tests/stubs/status.json'
 
@@ -119,4 +120,17 @@ it('lists runs with what each is doing or why it failed', () => {
     expect(header).toMatch(/^RUN\s+STATE\s+STARTED\s+TIME\s+TOKENS\s+MODEL\s+WHAT$/)
     expect(running).toMatch(/now: read: src\/refund\.ts$/)
     expect(failed).toMatch(/Deadline reached$/)
+})
+
+it('tallies runs and names each one that did not succeed', () => {
+    expect(tally([{ status: statusWith({ id: 'a-1' }), state: 'success' }])).toBe(
+        '1 run: 1 succeeded',
+    )
+    expect(
+        tally([
+            { status: statusWith({ id: 'a-1' }), state: 'success' },
+            { status: statusWith({ id: 'b-2' }), state: 'model_error' },
+            { status: statusWith({ id: 'c-3' }), state: 'timeout' },
+        ]),
+    ).toBe('3 runs: 1 succeeded; b-2 failed (model_error); c-3 timed out')
 })

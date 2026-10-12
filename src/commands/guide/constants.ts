@@ -4,7 +4,7 @@ export const LANE_FALLBACK_DESCRIPTION = 'No description in .ft.json.'
 /** The guide's fixed body, after the version and the project's lanes. */
 export const GUIDE_BODY = `## Run one brief
 
-    ft run --brief tmp/review.md
+    ft run tmp/review.md
 
 A brief is the whole task as the other model sees it, written to a file anywhere (ft keeps a copy). \`ft run\` waits, then prints a report: the verdict, the tools used and files written, the answer, and what to do next if it failed. The report's last line repeats the verdict. Exit code 0 means success; the answer is also saved in the run's folder.
 
@@ -12,11 +12,11 @@ Options: \`--name review\` (the start of the run id), \`--lane <lane>\` or \`--m
 
 ## Run several at once, or anything long
 
-    ft start --brief tmp/review.md --name review        # prints: Started review-k3x2 ...
-    ft start --brief tmp/research.md --name research --lane research
-    ft watch review-k3x2 research-9f1c --timeout 540
+    ft start tmp/review.md tmp/security.md    # prints a Started line per run, then: Watch with: ft watch ...
+    ft start tmp/research.md --lane research
+    ft watch review-k3x2 security-7d0e research-9f1c --timeout 540
 
-\`ft start\` takes the same options, starts the run detached from your shell and returns at once with its id. \`ft watch <ids>\` prints each run's report as it finishes and exits with the worst run's code. If its timeout ends first, it lists what is still running and exits 75: call it again with the ids it names. Pass every id you started: a run that finished before you called \`ft watch\` is reported only when named (with no ids, \`ft watch\` waits for the runs that are running at that moment). Runs keep going when the shell that started them is killed or backgrounded, so start every run before you wait on any.
+\`ft start\` takes one or more briefs and the same options, which apply to every run (\`--name\` and \`--out\` take a single brief). It checks every brief before starting any, starts the runs detached from your shell, and returns at once: one line per run, then the \`ft watch\` command for them. \`ft watch <ids>\` prints each run's report as it finishes, then one line counting the outcomes and naming every run that did not succeed, and exits with the worst run's code. If its timeout ends first, it lists what is still running and exits 75: call it again with the ids it names. Pass every id you started: a run that finished before you called \`ft watch\` is reported only when named (with no ids, \`ft watch\` waits for the runs that are running at that moment). Runs keep going when the shell that started them is killed or backgrounded, so start every run before you wait on any.
 
 ## Write the brief
 

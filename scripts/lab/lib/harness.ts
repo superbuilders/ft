@@ -75,7 +75,6 @@ function brief(
         [
             executable,
             'run',
-            '--brief',
             prompt,
             '--lane',
             lane,
@@ -148,7 +147,6 @@ export async function loopback(
             [
                 ...argv,
                 'run',
-                '--brief',
                 'brief.md',
                 '--lane',
                 lane,
@@ -395,7 +393,7 @@ export async function parallel(context: Context): Promise<void> {
 
                 const capture = await start(
                     context,
-                    ['sh', resolve('shim/ft'), 'run', '--brief', input, '--out', out, '--json'],
+                    ['sh', resolve('shim/ft'), 'run', input, '--out', out, '--json'],
                     context.project,
                     context.env,
                 ).result
@@ -520,17 +518,7 @@ export async function cancelGroup(context: Context): Promise<void> {
             const out = join(context.project, `${signal}.out`)
             const child = start(
                 context,
-                [
-                    context.build.binary,
-                    'run',
-                    '--brief',
-                    'brief.md',
-                    '--lane',
-                    'code',
-                    '--out',
-                    out,
-                    '--json',
-                ],
+                [context.build.binary, 'run', 'brief.md', '--lane', 'code', '--out', out, '--json'],
                 context.project,
                 context.env,
             )

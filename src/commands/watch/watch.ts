@@ -1,9 +1,9 @@
 import { projectRoot } from '../../project/config/config'
-import { exitCode, jsonLine, renderTable, settledOutput } from '../../project/runs/render'
+import { exitCode, jsonLine, renderTable, settledOutput, tally } from '../../project/runs/render'
 import { findRuns, listRuns, readStatus, stateOf } from '../../project/runs/store'
 import { WAIT_POLL_MS } from './constants'
 
-import type { Status } from '../../project/runs/types'
+import type { State, Status } from '../../project/runs/types'
 
 /**
  * Tell a person at the terminal what each run is doing now, once per change. Agents read only
@@ -74,6 +74,7 @@ export async function watch(
 
     let pending = targets.map(status => status.dir)
     let code = 0
+    const settled: { status: Status; state: State }[] = []
     const seen = new Map<string, string>()
     const narrating = !options.json && process.stderr.isTTY
 
@@ -89,6 +90,7 @@ export async function watch(
                     `${await settledOutput(status, state, options.json)}${options.json ? '' : '\n'}`,
                 )
                 code = Math.max(code, exitCode(state))
+                settled.push({ status, state })
             } else if (status) {
                 running.push(status)
             }
@@ -101,6 +103,10 @@ export async function watch(
         }
 
         if (pending.length === 0) {
+            if (!options.json) {
+                process.stdout.write(`${tally(settled)}\n`)
+            }
+
             return code
         }
 
@@ -112,9 +118,10 @@ export async function watch(
                     running.map(status => ({ status, state: 'running' as const })),
                 )
                 const waiting = running.map(status => status.id).join(' ')
+                const finished = settled.length > 0 ? `${tally(settled)}\n` : ''
 
                 process.stdout.write(
-                    `${table}Still running. Call ft watch ${waiting} again to keep watching\n`,
+                    `${finished}${table}Still running. Call ft watch ${waiting} again to keep watching\n`,
                 )
             }
 

@@ -2,11 +2,9 @@
  * Commander inputs, validated before a run is created.
  */
 export interface RunOptions {
-    /** Brief file path relative to invocation cwd, or `-` to read it from stdin. */
-    brief: string
-    /** Readable part of the run id; defaults to the brief file's name. */
+    /** Readable part of the run id, for a single brief; defaults to the brief file's name. */
     name?: string
-    /** Optional path that receives the answer on success and is removed when the run fails. */
+    /** For a single brief: a path that receives the answer on success, removed when the run fails. */
     out?: string
     /** Requested lane name. */
     lane?: string

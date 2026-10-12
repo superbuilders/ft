@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { expect, it, vi } from 'vitest'
 
-import { run } from './run'
+import { run, start } from './run'
 
 it('refuses a run it cannot start before creating anything, and clears a stale --out', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ft-run-'))
@@ -17,7 +17,7 @@ it('refuses a run it cannot start before creating anything, and clears a stale -
         const out = join(root, 'answer.txt')
 
         await writeFile(out, 'an answer from an earlier run')
-        expect(await run({ brief: join(root, 'brief.md'), out })).toBe(2)
+        expect(await run(join(root, 'brief.md'), { out })).toBe(2)
         expect(stderr).toHaveBeenCalledWith(
             expect.stringContaining('could not start the run (configuration_error)'),
         )
@@ -36,7 +36,7 @@ it('prints the refusal as JSON when asked', async () => {
     vi.stubEnv('FT_CONFIG', join(tmpdir(), 'ft-missing', '.ft.json'))
 
     try {
-        expect(await run({ brief: 'brief.md', json: true })).toBe(2)
+        expect(await run('brief.md', { json: true })).toBe(2)
 
         const printed = JSON.parse(String(stdout.mock.calls[0]?.[0])) as {
             outcome: string
@@ -48,5 +48,42 @@ it('prints the refusal as JSON when asked', async () => {
     } finally {
         stdout.mockRestore()
         vi.unstubAllEnvs()
+    }
+})
+
+it.each([
+    ['--name', { name: 'review' }, '--name and --out take a single brief'],
+    ['a missing brief', {}, 'gone.md'],
+])('starts no run when one of several briefs fails (%s)', async (_case, options, error) => {
+    const root = await mkdtemp(join(tmpdir(), 'ft-start-'))
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+    const config = {
+        providers: {
+            gateway: {
+                key: { env: 'GATEWAY_KEY' },
+                baseUrl: 'https://gateway.test/v1',
+                api: 'openai-completions',
+                models: [{ id: 'model-a' }],
+            },
+        },
+        lanes: { code: { model: 'gateway/model-a' } },
+    }
+
+    vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
+    vi.stubEnv('GATEWAY_KEY', 'test-key')
+
+    try {
+        await writeFile(join(root, '.ft.json'), JSON.stringify(config))
+        await writeFile(join(root, 'a.md'), 'First brief')
+
+        const briefs = [join(root, 'a.md'), join(root, error === 'gone.md' ? 'gone.md' : 'a.md')]
+
+        expect(await start(briefs, options)).toBe(2)
+        expect(stderr).toHaveBeenCalledWith(expect.stringContaining(error))
+        expect(existsSync(join(root, '.ft', 'runs'))).toBe(false)
+    } finally {
+        stderr.mockRestore()
+        vi.unstubAllEnvs()
+        await rm(root, { recursive: true, force: true })
     }
 })

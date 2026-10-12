@@ -117,6 +117,23 @@ function verdict(state: State): string {
 }
 
 /**
+ * Count what happened to a set of runs in one line, naming each run that did not succeed.
+ * @param settled - each run and its final state
+ * @returns e.g. `8 runs: 7 succeeded; review-k3x2 failed (model_error)`
+ */
+export function tally(settled: { status: Status; state: State }[]): string {
+    const succeeded = settled.filter(({ state }) => state === 'success').length
+    const others = settled
+        .filter(({ state }) => state !== 'success')
+        .map(({ status, state }) => `${status.id} ${verdict(state)}`)
+
+    return [
+        `${settled.length} ${settled.length === 1 ? 'run' : 'runs'}: ${succeeded} succeeded`,
+        ...others,
+    ].join('; ')
+}
+
+/**
  * The run's facts in one parenthesis: model, thinking, tokens, cost.
  * @param status - run status
  * @returns the parenthetical, or empty before the model is known

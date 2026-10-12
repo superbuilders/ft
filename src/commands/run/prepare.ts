@@ -52,13 +52,23 @@ async function readBrief(brief: string): Promise<string> {
 }
 
 /**
- * Check everything that can be checked before work starts, then create the run: its folder, its
- * request, its brief and a first status. A mistake here never leaves a run behind. Any file at
- * --out goes first, so that path holds an answer only when this run succeeded.
- * @param options - caller options
- * @returns the new run's first status
+ * Check everything that can be checked before work starts, for every brief, then create one run
+ * per brief: its folder, its request, its brief and a first status. A mistake in any brief leaves
+ * no run behind. Any file at --out goes first, so that path holds an answer only when this run
+ * succeeded.
+ * @param briefs - brief paths relative to the working directory, or `-` for stdin
+ * @param options - caller options, shared by every run
+ * @returns each new run's first status, in brief order
  */
-export async function prepare(options: RunOptions): Promise<Status> {
+export async function prepare(briefs: string[], options: RunOptions): Promise<Status[]> {
+    if (briefs.length > 1 && (options.name || options.out)) {
+        throw new Error('--name and --out take a single brief; each run is named after its brief')
+    }
+
+    if (briefs.filter(brief => brief === '-').length > 1) {
+        throw new Error('Only one brief can come from stdin')
+    }
+
     if (options.out) {
         await rm(resolve(options.out), { force: true })
     }
@@ -89,13 +99,17 @@ export async function prepare(options: RunOptions): Promise<Status> {
         await getKey(provider.key, config.root)
     }
 
-    const brief = await readBrief(options.brief)
+    const texts = await Promise.all(briefs.map(readBrief))
 
-    return openRun(config.workspace, {
-        name: runName(options.name, options.brief),
-        brief,
-        request,
-        selected,
-        piVersion: PI_VERSION,
-    })
+    return Promise.all(
+        briefs.map((brief, index) =>
+            openRun(config.workspace, {
+                name: runName(options.name, brief),
+                brief: texts[index] ?? '',
+                request,
+                selected,
+                piVersion: PI_VERSION,
+            }),
+        ),
+    )
 }

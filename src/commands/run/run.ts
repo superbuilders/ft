@@ -1,5 +1,5 @@
 import { execute } from '../../pi/run/execute'
-import { displayPath, exitCode, jsonLine, settledOutput } from '../../project/runs/render'
+import { exitCode, jsonLine, settledOutput } from '../../project/runs/render'
 import { readStatus, writeStatus } from '../../project/runs/store'
 import { selfCommand } from '../../system/process/self'
 import { START_CONFIRM_MS, START_POLL_MS } from './constants'
@@ -30,14 +30,15 @@ function refuse(error: unknown, json: boolean | undefined): number {
 
 /**
  * Run one brief in the foreground and print its report.
+ * @param brief - brief path, or `-` for stdin
  * @param options - caller options
  * @returns the run's exit code
  */
-export async function run(options: RunOptions): Promise<number> {
+export async function run(brief: string, options: RunOptions): Promise<number> {
     let status: Status
 
     try {
-        status = await prepare(options)
+        ;[status] = (await prepare([brief], options)) as [Status]
     } catch (error) {
         return refuse(error, options.json)
     }
@@ -50,21 +51,12 @@ export async function run(options: RunOptions): Promise<number> {
 }
 
 /**
- * Start one brief detached from this shell and return at once; `ft watch` collects it. The run
- * keeps going when the harness kills or backgrounds the command that started it.
- * @param options - caller options
- * @returns 0 once the run is started, or the configuration-error code
+ * Spawn one prepared run detached from this shell, and wait until it owns the run or dies.
+ * @param prepared - the run's first status
+ * @returns its status once started, or settled when it could not start
  */
-export async function start(options: RunOptions): Promise<number> {
-    let status: Status
-
-    try {
-        status = await prepare(options)
-    } catch (error) {
-        return refuse(error, options.json)
-    }
-
-    const child = Bun.spawn([...selfCommand(), 'exec', status.dir], {
+async function launch(prepared: Status): Promise<Status> {
+    const child = Bun.spawn([...selfCommand(), 'exec', prepared.dir], {
         cwd: process.cwd(),
         env: process.env,
         detached: true,
@@ -81,11 +73,10 @@ export async function start(options: RunOptions): Promise<number> {
     const giveUp = Date.now() + START_CONFIRM_MS
 
     for (;;) {
-        const current = (await readStatus(status.dir)) ?? status
+        const current = (await readStatus(prepared.dir)) ?? prepared
 
         if (current.pid !== null || current.outcome !== 'running') {
-            status = current
-            break
+            return current
         }
 
         /*
@@ -93,48 +84,74 @@ export async function start(options: RunOptions): Promise<number> {
          * once more first: it may have settled the run between the read above and its exit.
          */
         if (exited !== null) {
-            const last = (await readStatus(status.dir)) ?? current
+            const last = (await readStatus(prepared.dir)) ?? current
 
             if (last.pid !== null || last.outcome !== 'running') {
-                status = last
-                break
+                return last
             }
 
-            status = {
+            const failed: Status = {
                 ...last,
                 outcome: 'runtime_error',
                 error: `The run's process exited (code ${String(exited)}) before it started`,
             }
-            await writeStatus(status)
-            break
+
+            await writeStatus(failed)
+
+            return failed
         }
 
         if (Date.now() > giveUp) {
             process.stderr.write(
-                `ft started ${status.id} but it has not reported in; ft watch ${status.id} will tell\n`,
+                `ft started ${current.id} but it has not reported in; ft watch ${current.id} will tell\n`,
             )
-            break
+
+            return current
         }
 
         await Bun.sleep(START_POLL_MS)
     }
+}
 
-    if (status.outcome !== 'running') {
-        process.stdout.write(await settledOutput(status, status.outcome, options.json))
+/**
+ * Start briefs detached from this shell and return at once; `ft watch` collects them. Every brief
+ * is checked before any run starts. The runs keep going when the harness kills or backgrounds the
+ * command that started them.
+ * @param briefs - brief paths, or `-` for stdin
+ * @param options - caller options, shared by every run
+ * @returns 0 once every run is started, else the highest exit code of a run that could not start
+ */
+export async function start(briefs: string[], options: RunOptions): Promise<number> {
+    let prepared: Status[]
 
-        return exitCode(status.outcome)
+    try {
+        prepared = await prepare(briefs, options)
+    } catch (error) {
+        return refuse(error, options.json)
     }
 
-    if (options.json) {
-        process.stdout.write(jsonLine(status, status.outcome))
-    } else {
-        process.stdout.write(
-            `Started ${status.id} (${status.provider}/${status.model}, ${status.profile} profile): ${status.title}\n` +
-                `Its record is in ${displayPath(status.dir)}. Collect it with: ft watch ${status.id}\n`,
-        )
+    const started = await Promise.all(prepared.map(launch))
+    const running = started.filter(status => status.outcome === 'running')
+    let code = 0
+
+    for (const status of started) {
+        if (status.outcome !== 'running') {
+            process.stdout.write(await settledOutput(status, status.outcome, options.json))
+            code = Math.max(code, exitCode(status.outcome))
+        } else if (options.json) {
+            process.stdout.write(jsonLine(status, status.outcome))
+        } else {
+            process.stdout.write(
+                `Started ${status.id} (${status.provider}/${status.model}, ${status.profile} profile): ${status.title}\n`,
+            )
+        }
     }
 
-    return 0
+    if (running.length > 0 && !options.json) {
+        process.stdout.write(`Watch with: ft watch ${running.map(status => status.id).join(' ')}\n`)
+    }
+
+    return code
 }
 
 /**

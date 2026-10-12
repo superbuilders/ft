@@ -27,7 +27,6 @@ const program = new Command()
  */
 function runOptions(command: Command): Command {
     return command
-        .requiredOption('--brief <path>', 'brief file, or - for stdin')
         .option('--name <name>', 'start of the run id (default: the brief file name)')
         .option('--lane <name>', 'configured lane (default: code)')
         .option('--model <ref>', 'provider/model, instead of a lane')
@@ -43,15 +42,21 @@ program
     .command('guide')
     .description('How to use ft, for agents')
     .action(() => guide(RUNNER_VERSION))
-runOptions(program.command('run').description('Run one brief and print its report')).action(
-    async (options: RunOptions) => {
-        process.exitCode = await run(options)
-    },
-)
 runOptions(
-    program.command('start').description('Start one brief detached; ft watch collects it'),
-).action(async (options: RunOptions) => {
-    process.exitCode = await start(options)
+    program
+        .command('run')
+        .description('Run one brief and print its report')
+        .argument('<brief>', 'brief file, or - for stdin'),
+).action(async (brief: string, options: RunOptions) => {
+    process.exitCode = await run(brief, options)
+})
+runOptions(
+    program
+        .command('start')
+        .description('Start briefs detached; ft watch collects them')
+        .argument('<briefs...>', 'brief files, or - for stdin'),
+).action(async (briefs: string[], options: RunOptions) => {
+    process.exitCode = await start(briefs, options)
 })
 program
     .command('watch')
