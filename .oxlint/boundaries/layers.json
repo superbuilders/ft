@@ -6,6 +6,7 @@
         "commands": ["pi", "project", "models", "system"],
         "pi": ["project", "models", "system"],
         "pi/process": ["pi/events"],
+        "pi/run": ["pi/agent", "pi/events", "pi/gateway", "pi/process", "pi/runtime"],
         "project": ["models", "system"],
         "project/key": ["project/config"],
         "models": [],

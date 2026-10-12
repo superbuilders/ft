@@ -1,8 +1,8 @@
+import { execute } from '../../pi/run/execute'
 import { displayPath, exitCode, jsonLine, renderReport } from '../../project/runs/render'
 import { readKept, readStatus, writeStatus } from '../../project/runs/store'
 import { selfCommand } from '../../system/process/self'
 import { START_CONFIRM_MS, START_POLL_MS } from './constants'
-import { execute } from './execute'
 import { prepare } from './prepare'
 
 import type { Status } from '../../project/runs/types'

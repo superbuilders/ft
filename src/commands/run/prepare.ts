@@ -1,67 +1,19 @@
 import { existsSync, statSync } from 'node:fs'
-import { readFile, rm, writeFile } from 'node:fs/promises'
-import { hostname } from 'node:os'
-import { join, resolve } from 'node:path'
+import { readFile, rm } from 'node:fs/promises'
+import { resolve } from 'node:path'
 
 import { DEFAULT_LANE } from '../../models/constants'
-import { resolveLane } from '../../models/models'
-import { adapterNamed } from '../../pi/gateway/adapters'
-import { PROFILE_TOOLS } from '../../pi/process/constants'
+import { chooseModel } from '../../pi/run/model'
 import { PI_VERSION } from '../../pi/runtime/constants'
-import { loadConfig, resolveBaseUrl } from '../../project/config/config'
+import { loadConfig } from '../../project/config/config'
 import { getKey } from '../../project/key/key'
-import { RUN_FILES } from '../../project/runs/constants'
-import {
-    briefTitle,
-    createRun,
-    emptyProgress,
-    runName,
-    writeRequest,
-    writeStatus,
-} from '../../project/runs/store'
+import { openRun } from '../../project/runs/lifecycle'
+import { runName } from '../../project/runs/store'
 import { platformTarget } from '../../system/host/host'
 import { DEADLINE_MAX_SECONDS } from './constants'
 
-import type { Config } from '../../project/config/types'
 import type { Request, Status } from '../../project/runs/types'
-import type { ModelChoice, RunOptions } from './types'
-
-/**
- * Resolve the run's model, its provider and adapter, and the tools Pi may use.
- * @param request - the run's request
- * @param config - the project's validated config
- * @returns everything the run needs to know about its model
- */
-export function chooseModel(request: Omit<Request, 'cwd'>, config: Config): ModelChoice {
-    const allowed = PROFILE_TOOLS[request.profile]
-
-    if (!allowed) {
-        throw new Error(`--profile must be one of ${Object.keys(PROFILE_TOOLS).join(', ')}`)
-    }
-
-    if (request.lane && request.model) {
-        throw new Error('Choose at most one of --lane or --model')
-    }
-
-    const selected = resolveLane(
-        config.providers,
-        config.lanes,
-        request.lane,
-        request.model,
-        request.thinking,
-    )
-    const adapter = selected.entry?.adapter ? adapterNamed(selected.entry.adapter) : undefined
-    const provider = config.providers[selected.provider]
-    const baseUrl = resolveBaseUrl(selected.provider, provider)
-
-    return {
-        selected,
-        provider,
-        ...(baseUrl ? { baseUrl } : {}),
-        ...(adapter ? { adapter } : {}),
-        tools: adapter?.tools === false ? [] : allowed,
-    }
-}
+import type { RunOptions } from './types'
 
 /**
  * Validate the caller's deadline.
@@ -140,42 +92,12 @@ export async function prepare(options: RunOptions): Promise<Status> {
 
     const brief = await readBrief(options.brief)
 
-    const { id, dir } = await createRun(config.root, runName(options.name, options.brief))
-    const now = new Date().toISOString()
-    const status: Status = {
-        schemaVersion: 2,
-        id,
-        dir,
-        title: briefTitle(brief),
-        outcome: 'running',
-        piVersion: PI_VERSION,
+    return openRun(config.root, {
+        name: runName(options.name, options.brief),
+        brief,
+        request,
         lane: request.model ? null : (request.lane ?? DEFAULT_LANE),
-        provider: selected.provider,
-        model: selected.model,
-        thinking: selected.thinking ?? null,
-        profile: request.profile,
-        cwd,
-        pid: null,
-        host: hostname(),
-        startedAt: now,
-        updatedAt: now,
-        piExitCode: null,
-        signal: null,
-        settled: false,
-        stopReason: null,
-        retryCount: 0,
-        compactionCount: 0,
-        toolErrorCount: 0,
-        durationMs: 0,
-        error: null,
-        answer: null,
-        partial: null,
-        ...emptyProgress(),
-    }
-
-    await writeFile(join(dir, RUN_FILES.brief), brief, { mode: 0o600 })
-    await writeRequest(dir, request)
-    await writeStatus(status)
-
-    return status
+        selected,
+        piVersion: PI_VERSION,
+    })
 }

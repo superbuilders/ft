@@ -4,61 +4,26 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { finished } from 'node:stream/promises'
 
-import { prepareAgent } from '../../pi/agent/agent'
-import { serveKey } from '../../pi/agent/key-broker'
-import { createJudge, judgeOutcome } from '../../pi/events/judge'
-import { serveGateway } from '../../pi/gateway/gateway'
-import { filterEnvironment } from '../../pi/process/environment'
-import { runPi } from '../../pi/process/spawn'
-import { installRuntime } from '../../pi/runtime/runtime'
 import { loadConfig } from '../../project/config/config'
 import { collectContext } from '../../project/context/context'
 import { getKey } from '../../project/key/key'
 import { RUN_FILES } from '../../project/runs/constants'
-import { readRequest, readStatus, writeStatus } from '../../project/runs/store'
-import { atomicWrite } from '../../system/files/atomic-write'
+import { publisher, saveText } from '../../project/runs/lifecycle'
+import { readRequest, readStatus } from '../../project/runs/store'
 import { cacheRoot } from '../../system/host/host'
-import { CANCEL_SIGNALS, DELEGATE_PREAMBLE, STATUS_INTERVAL_MS } from './constants'
-import { chooseModel } from './prepare'
+import { prepareAgent } from '../agent/agent'
+import { serveKey } from '../agent/key-broker'
+import { createJudge, judgeOutcome } from '../events/judge'
+import { serveGateway } from '../gateway/gateway'
+import { filterEnvironment } from '../process/environment'
+import { runPi } from '../process/spawn'
+import { installRuntime } from '../runtime/runtime'
+import { CANCEL_SIGNALS, DELEGATE_PREAMBLE } from './constants'
+import { chooseModel } from './model'
 
-import type { JudgeState } from '../../pi/events/types'
 import type { Outcome, Request, Status } from '../../project/runs/types'
+import type { JudgeState } from '../events/types'
 import type { Judged } from './types'
-
-/**
- * Publish status changes at most once per interval, and on demand.
- * @param status - the live status
- * @returns a nudge for each change and a flush for the end
- */
-function publisher(status: Status): { touch: () => void; flush: () => Promise<void> } {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    let writing = Promise.resolve()
-
-    /**
-     * Queue one write behind any in flight, so writes never interleave.
-     * @returns the queued write
-     */
-    function write(): Promise<void> {
-        status.durationMs = Date.now() - Date.parse(status.startedAt)
-        writing = writing.then(() => writeStatus(status)).catch(() => {})
-
-        return writing
-    }
-
-    return {
-        touch() {
-            timer ??= setTimeout(() => {
-                timer = undefined
-                void write()
-            }, STATUS_INTERVAL_MS)
-        },
-        async flush() {
-            clearTimeout(timer)
-            timer = undefined
-            await write()
-        },
-    }
-}
 
 /**
  * Drive Pi for the run: resolve the key, gather context, start Pi, and judge what it did.
@@ -169,32 +134,6 @@ async function drive(
 }
 
 /**
- * Keep the run's answer, or the last thing a failed run's model said.
- * @param request - the run's request
- * @param status - status with its outcome decided, updated with the path written
- * @param state - the judge holding the model's text
- * @returns completion
- */
-async function keepText(request: Request, status: Status, state: JudgeState): Promise<void> {
-    if (status.outcome === 'success') {
-        const answer = join(status.dir, RUN_FILES.answer)
-
-        await atomicWrite(answer, state.text)
-
-        if (request.out) {
-            await atomicWrite(request.out, state.text)
-        }
-
-        status.answer = answer
-    } else if (state.lastText.trim()) {
-        const partial = join(status.dir, RUN_FILES.partial)
-
-        await atomicWrite(partial, state.lastText)
-        status.partial = partial
-    }
-}
-
-/**
  * Execute a prepared run to its verdict, in this process: it owns cancellation and the deadline,
  * keeps status.json current while Pi works, and always writes a final status.
  * @param dir - the run's folder
@@ -290,7 +229,7 @@ export async function execute(dir: string): Promise<Status> {
     }
 
     try {
-        await keepText(request, decided, state)
+        await saveText(decided, { answer: state.text, partial: state.lastText }, request.out)
     } catch (error) {
         Object.assign(decided, {
             outcome: 'runtime_error',

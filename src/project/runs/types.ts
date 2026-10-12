@@ -1,3 +1,5 @@
+import type { Selection } from '../../models/types'
+
 /**
  * A run's stored verdict. `running` until the run settles; a reader turns a `running` run whose
  * process has vanished into `lost`, which is never stored.
@@ -128,4 +130,22 @@ export interface Status extends Progress {
     answer: string | null
     /** Absolute path of the last unfinished answer text kept from a failed run; null otherwise. */
     partial: string | null
+}
+
+/**
+ * What creating a run needs to know: its name, the brief, the request, and the model chosen.
+ */
+export interface OpenRun {
+    /** Readable part of the id. */
+    name: string
+    /** Brief text, saved beside the run. */
+    brief: string
+    /** The validated request. */
+    request: Request
+    /** Lane name, or null when the caller named a model. */
+    lane: string | null
+    /** Provider, model and thinking level. */
+    selected: Selection
+    /** Pi version the run uses. */
+    piVersion: string
 }

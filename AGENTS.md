@@ -125,7 +125,10 @@ A run is an object with an id (`<name>-<4 hex>`) and a folder under
 `.ft/runs/<id>/` in the caller's project: `brief.md`, `request.json`,
 `status.json` (rewritten atomically while Pi works), `events.jsonl`,
 `stderr.log`, then `answer.md` or `partial.md`. The folder ignores itself in
-git. `ft run` executes in the foreground; `ft start` spawns the hidden
+git. The run code is split by layer: `project/runs/` owns the folder (create,
+publish status, save the answer), `pi/run/` drives Pi (choose the model,
+launch, judge, handle signals and the deadline), and `commands/run/` only
+reads the command line and prints. `ft run` executes in the foreground; `ft start` spawns the hidden
 `ft exec <dir>` detached and returns, so the run survives a harness killing or
 backgrounding its shell. `wait`, `runs`, `show` and `stop` only read the
 folder (a running status whose process is gone reads as `lost`; nothing
@@ -146,7 +149,7 @@ whether the model can call tools, and register it by name in that folder's
 `index.ts`. A model entry opts in with `"adapter": "<name>"`; its runs then go
 through ft's loopback relay in `src/pi/gateway/`, and a tool-free adapter starts
 Pi with no tools and skips installing rg and fd. Never add a separate code path
-in `commands/run/` for one model.
+in `pi/run/` for one model.
 
 ## Scripts
 

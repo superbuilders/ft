@@ -65,3 +65,6 @@ export const NEXT_STEPS = {
     cancelled: 'The run was stopped by a signal. Start it again if it is still needed.',
     lost: "The run's process ended without a verdict (killed, or the machine slept). Start it again.",
 } as const
+
+/** A running run rewrites its status at most this often, so readers see it move without a write per token. */
+export const STATUS_INTERVAL_MS = 1000
