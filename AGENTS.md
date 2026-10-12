@@ -19,6 +19,7 @@ bun run check --pre-push                   # Also type-aware lint and knip
 bun run knip                               # Compact unused-code report; config hints fail
 bun src/cli.ts --version                   # Package version
 bun src/cli.ts guide                       # The agent manual a consuming repo's skill points at
+bun src/cli.ts init [--user]               # Set ft up in a repository, or for one person
 bun run release <patch|minor|major|x.y.z>  # Bump, tag, push; release.yml builds and publishes
 bun run dogfood                            # Install the last commit's ft as ft on PATH
 ```
@@ -117,8 +118,25 @@ with `baseUrl`, `api`, `key` and Pi-format `models`) and `lanes`
 (`provider/model` plus optional thinking; `code` is the default lane). A
 `baseUrl` may be `{"env": "NAME"}` so a public repo need not name a private
 endpoint. `.ft/lock.json` (version and checksums) and `.ft/schema.json` (the
-config's JSON Schema) come from the pinned release; only `ft pin` writes them,
-and the shim reads the lock. `ft schema` prints the same schema.
+config's JSON Schema) come from the pinned release; only `ft pin` and `ft init`
+write them, and the shim reads the lock. `ft schema` prints the same schema.
+
+`ft init` sets a repository up from one release: the lock, schema, launcher
+`.ft/ft` (the shim, so cloners need only gh), a starter `.ft.json`, the skill
+at `.agents/skills/ft/SKILL.md` with a `.claude/skills/ft` link, and an `ft`
+package script when there is a package.json. `ft init --user` writes the same
+config, lock and schema under `${XDG_CONFIG_HOME:-~/.config}/ft/` and the skill
+under `~/.agents/skills`. That personal config is the fallback when no
+`.ft.json` is found walking up; a repository's own config always wins. With the
+personal config, `root` (where key commands run) is the config directory, and
+`workspace` (where runs and context live) is the git repository around the
+working directory. Release assets are the runners, `ft-shim`, `install.sh`,
+`schema.json` and `SKILL.md`, all listed in `SHA256SUMS`.
+
+Printed commands follow how ft was invoked (`src/system/process/self.ts`): a
+package script reads as `bun ft …` or `npm run ft …`, the launcher as
+`.ft/ft …` (the shim exports `FT_LAUNCHER`), otherwise `ft …`. Output meant
+for programs (`--json`, `schema`, `key`, `exec`) is never rewritten.
 
 The schema in `src/project/config/schema.ts` is strict: every field, Pi's
 included, is named, so a typo fails in ft instead of being ignored by Pi. A type

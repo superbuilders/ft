@@ -51,7 +51,7 @@ async function drive(
     const [brief, key, repository] = await Promise.all([
         readFile(join(dir, RUN_FILES.brief), 'utf8'),
         getKey(provider.key, config.root, signal),
-        collectContext(config.root, request.cwd),
+        collectContext(config.workspace, request.cwd),
     ])
     const context = `${RUN_PROFILES[request.profile].preamble}\n\n${repository}`
 

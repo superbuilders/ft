@@ -9,8 +9,19 @@ import { TARGETS } from '../../system/host/constants'
 import { pin } from './pin'
 
 const SCHEMA = '{"title":".ft.json"}\n'
+const SHIM = '#!/bin/sh\n'
+const SKILL = '# ft\n'
 const assets: Record<string, string> = {}
 let root: string
+
+/**
+ * Hash text the way a release manifest does.
+ * @param text - asset contents
+ * @returns hex SHA-256
+ */
+function sha(text: string): string {
+    return createHash('sha256').update(text).digest('hex')
+}
 
 vi.mock('../../system/process/subprocess', () => ({
     commandOutput: async (argv: string[]) => {
@@ -25,15 +36,17 @@ vi.mock('../../system/process/subprocess', () => ({
 }))
 
 /**
- * Serve one release's SHA256SUMS and schema.json in place of gh.
+ * Serve one release's assets in place of gh.
  * @param schemaDigest - the digest the manifest lists for schema.json
  */
 function release(schemaDigest: string): void {
+    Object.assign(assets, { 'schema.json': SCHEMA, 'ft-shim': SHIM, 'SKILL.md': SKILL })
     assets.SHA256SUMS = `${[
         ...TARGETS.map((target, index) => `${String(index).repeat(64)}  ft-${target}`),
         `${schemaDigest}  schema.json`,
+        `${sha(SHIM)}  ft-shim`,
+        `${sha(SKILL)}  SKILL.md`,
     ].join('\n')}\n`
-    assets['schema.json'] = SCHEMA
 }
 
 beforeEach(async () => {
@@ -50,7 +63,7 @@ afterEach(async () => {
 })
 
 it("writes the release's checksums, its checked schema, and a starter config", async () => {
-    release(createHash('sha256').update(SCHEMA).digest('hex'))
+    release(sha(SCHEMA))
     await pin('0.2.0')
 
     const lock = JSON.parse(await readFile(join(root, '.ft/lock.json'), 'utf8'))
@@ -67,5 +80,5 @@ it("writes the release's checksums, its checked schema, and a starter config", a
 
 it('refuses a schema that does not match the release manifest', async () => {
     release('f'.repeat(64))
-    await expect(pin('0.2.0')).rejects.toThrow('does not match its checksum')
+    await expect(pin('0.2.0')).rejects.toThrow('schema.json does not match its checksum')
 })

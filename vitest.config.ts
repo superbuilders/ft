@@ -27,5 +27,7 @@ export default defineConfig({
         include: ['**/*.test.ts'],
         exclude: ['**/node_modules/**'],
         silent: 'passed-only',
+        /** Tests never read the developer's personal ft config. */
+        env: { XDG_CONFIG_HOME: '/nonexistent/ft-tests-config' },
     },
 })

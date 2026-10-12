@@ -4,7 +4,35 @@
 set -u
 umask 077
 
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    dim=$(printf '\033[2m') bold=$(printf '\033[1m') green=$(printf '\033[32m')
+    red=$(printf '\033[31m') cyan=$(printf '\033[2;36m') reset=$(printf '\033[0m')
+else
+    dim= bold= green= red= cyan= reset=
+fi
+width=0
+open_step=
+
+# A step prints its label now and its status when it ends, right-aligned to the widest label.
+# The optional second argument is the label as shown, with color inside it.
+step() {
+    step_label="$1..."
+    printf '  %s%s...%s' "$dim" "${2:-$1}" "$reset"
+    open_step=yes
+}
+step_end() {
+    pad=$((width - ${#step_label} - ${#1}))
+    [ "$pad" -ge 1 ] || pad=1
+    printf "%${pad}s%s%s%s\n" '' "$2" "$1" "$reset"
+    open_step=
+}
+rule() {
+    line=
+    while [ "${#line}" -lt "$width" ]; do line="$line-"; done
+    printf '  %s%s%s\n' "$dim" "$(printf '%s' "$line" | sed 's/-/─/g')" "$reset"
+}
 fail() {
+    [ -z "$open_step" ] || step_end failed "$red"
     printf 'ft install: %s\n' "$2" >&2
     exit "$1"
 }
@@ -63,7 +91,32 @@ else
 fi
 printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' ||
     fail 2 'invalid release version'
+install_dir=${FT_INSTALL_DIR:-$HOME/.local/bin}
+shown_dir=$install_dir
+case $install_dir in
+    "$HOME"/*) shown_dir="~${install_dir#"$HOME"}" ;;
+esac
+personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
+labels="Downloading ft $version|Verifying checksum|Installing to $shown_dir"
+[ -f "$personal" ] || labels="$labels|Setting up your personal config"
+widest_status=unchanged
+old_ifs=$IFS
+IFS='|'
+for label in $labels; do
+    [ "${#label}" -le "$width" ] || width=${#label}
+done
+IFS=$old_ifs
+width=$((width + 3 + 1 + ${#widest_status}))
+
+printf '\n'
+rule
+printf '  %sft %s%s%s\n' "$bold" "$green" "$version" "$reset"
+rule
+
+step "Downloading ft $version"
 gh_call release download "v$version" -R superbuilders/ft -p ft-shim -p SHA256SUMS -D "$stage" >/dev/null
+step_end done "$green"
+step 'Verifying checksum'
 expected=$(sed -n 's/^\([0-9a-fA-F]*\)  ft-shim$/\1/p' "$stage/SHA256SUMS")
 [ "${#expected}" -eq 64 ] && printf '%s\n' "$expected" | grep -Eq '^[0-9a-fA-F]+$' ||
     fail 1 'missing or invalid ft-shim hash in release SHA256SUMS'
@@ -77,22 +130,63 @@ else
 fi
 actual=${actual%% *}
 [ "$actual" = "$expected" ] || fail 1 'checksum mismatch for ft-shim'
+step_end done "$green"
 
-install_dir=${FT_INSTALL_DIR:-$HOME/.local/bin}
+step "Installing to $shown_dir" "Installing to $cyan$shown_dir$dim"
 mkdir -p "$install_dir" || fail 1 'cannot create installation directory'
 install_dir=$(cd "$install_dir" && pwd -P) || fail 1 'cannot resolve installation directory'
-# Stage beside the destination so replacement is atomic even across filesystems.
-replacement=$(mktemp "$install_dir/.ft-install.XXXXXXXXXX") || fail 1 'cannot stage shim replacement'
-cat "$stage/ft-shim" >"$replacement" || fail 1 'cannot copy shim'
-chmod 755 "$replacement" || fail 1 'cannot make shim executable'
-mv -f "$replacement" "$install_dir/ft" || fail 1 'cannot install shim'
-replacement=
-printf 'Installed ft shim from v%s to %s/ft\n' "$version" "$install_dir"
+if [ -f "$install_dir/ft" ] && cmp -s "$stage/ft-shim" "$install_dir/ft"; then
+    step_end unchanged "$dim"
+else
+    # Stage beside the destination so replacement is atomic even across filesystems.
+    replacement=$(mktemp "$install_dir/.ft-install.XXXXXXXXXX") || fail 1 'cannot stage shim replacement'
+    cat "$stage/ft-shim" >"$replacement" || fail 1 'cannot copy shim'
+    chmod 755 "$replacement" || fail 1 'cannot make shim executable'
+    mv -f "$replacement" "$install_dir/ft" || fail 1 'cannot install shim'
+    replacement=
+    step_end done "$green"
+fi
+
+setup=
+if [ ! -f "$personal" ]; then
+    step 'Setting up your personal config'
+    if "$install_dir/ft" init --user "$version" >"$stage/init.out" 2>&1; then
+        step_end done "$green"
+        setup=done
+    else
+        step_end failed "$red"
+        setup=failed
+    fi
+fi
+
+rule
+printf '  %s✔ Installed ft %s%s\n' "$green" "$version" "$reset"
+rule
+
 case :${PATH:-}: in
-    *:"$install_dir":*) printf '%s is on PATH.\n' "$install_dir" ;;
+    *:"$install_dir":*) ;;
     *)
-        printf '%s is not on PATH. Add this line to ~/.bashrc or ~/.zshrc:\n' "$install_dir"
         escaped=$(printf '%s' "$install_dir" | sed "s/'/'\\\\''/g")
-        printf "export PATH='%s':\"\$PATH\"\n" "$escaped"
+        shell=${SHELL:-}
+        case ${shell##*/} in
+            zsh) rc='~/.zshrc' ;;
+            bash) rc='~/.bashrc' ;;
+            fish) rc='~/.config/fish/config.fish' ;;
+            *) rc='~/.profile' ;;
+        esac
+        printf '  %s%s is not on your PATH. Add this line to %s, then open a new terminal:%s\n' "$dim" "$shown_dir" "$rc" "$reset"
+        if [ "$rc" = '~/.config/fish/config.fish' ]; then
+            printf "  fish_add_path '%s'\n" "$escaped"
+        else
+            printf "  export PATH='%s':\"\$PATH\"\n" "$escaped"
+        fi
         ;;
 esac
+case $setup in
+    done) sed 's/^/  /' "$stage/init.out" ;;
+    failed)
+        sed 's/^/  /' "$stage/init.out" >&2
+        printf '  Finish with: ft init --user\n'
+        ;;
+esac
+printf '\n'

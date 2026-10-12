@@ -18,9 +18,25 @@ export function platformTarget(os = process.platform, arch = process.arch): Targ
 }
 
 /**
+ * The person's home directory, from HOME first as a POSIX shell would read it.
+ * @returns absolute home directory
+ */
+export function homeDirectory(): string {
+    return process.env.HOME || homedir()
+}
+
+/**
  * Resolve the shared cache layout.
  * @returns absolute ft cache root
  */
 export function cacheRoot(): string {
-    return resolvePath(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'ft')
+    return resolvePath(process.env.XDG_CACHE_HOME || join(homeDirectory(), '.cache'), 'ft')
+}
+
+/**
+ * Resolve the personal config directory, used where a project has no `.ft.json` of its own.
+ * @returns absolute ft config directory
+ */
+export function configRoot(): string {
+    return resolvePath(process.env.XDG_CONFIG_HOME || join(homeDirectory(), '.config'), 'ft')
 }

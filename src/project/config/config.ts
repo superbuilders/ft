@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 
 import { isBuiltinProvider } from '../../models/catalog'
 import { findModel } from '../../models/models'
+import { configRoot } from '../../system/host/host'
 import { CONFIG_FILE, FORBIDDEN_PROVIDER_FIELDS } from './constants'
 import { configValidator } from './schema'
 
@@ -13,7 +14,7 @@ import type { Provider } from '../../models/types'
 import type { Config, ResolvedConfig } from './types'
 
 /**
- * Find the nearest config, honoring the shim handoff.
+ * Find the nearest project config, honoring the shim handoff, else the personal config.
  * @param cwd - discovery start directory
  * @param handoff - explicit config path from the shim
  * @returns absolute config path, or undefined
@@ -35,7 +36,9 @@ export function findConfig(cwd: string, handoff?: string): string | undefined {
         const parent = dirname(dir)
 
         if (parent === dir) {
-            return undefined
+            const personal = join(configRoot(), CONFIG_FILE)
+
+            return existsSync(personal) ? personal : undefined
         }
 
         dir = parent
@@ -43,18 +46,65 @@ export function findConfig(cwd: string, handoff?: string): string | undefined {
 }
 
 /**
- * The project root for commands that read runs: the directory holding .ft.json, without
- * validating it, so a broken config does not hide the runs it already made.
- * @returns absolute project root
+ * Whether a config is the personal one rather than a project's.
+ * @param path - absolute config path
+ * @returns true for the personal config
+ */
+export function isPersonal(path: string): boolean {
+    return dirname(path) === configRoot()
+}
+
+/**
+ * Where runs live and instructions are read from: a project config's directory, or, for the
+ * personal config, the git repository around cwd (cwd itself outside one).
+ * @param path - absolute config path
+ * @param cwd - invocation directory
+ * @returns absolute workspace directory
+ */
+function workspaceOf(path: string, cwd: string): string {
+    return isPersonal(path) ? repositoryRoot(cwd) : dirname(path)
+}
+
+/**
+ * The git repository around a directory.
+ * @param cwd - any directory
+ * @returns the repository's top directory, or cwd outside a repository
+ */
+export function repositoryRoot(cwd: string): string {
+    for (let dir = resolve(cwd); ; dir = dirname(dir)) {
+        if (existsSync(join(dir, '.git'))) {
+            return dir
+        }
+
+        if (dirname(dir) === dir) {
+            return resolve(cwd)
+        }
+    }
+}
+
+/**
+ * Explain that no config applies here.
+ * @returns the error to throw
+ */
+function noConfig(): Error {
+    return new Error(
+        `No ${CONFIG_FILE} here or above, and no personal config. Set ft up with ft init (this repository) or ft init --user (every repository you work in)`,
+    )
+}
+
+/**
+ * Where this directory's runs live, without validating the config, so a broken config does not
+ * hide the runs it already made.
+ * @returns absolute workspace directory
  */
 export function projectRoot(): string {
     const found = findConfig(process.cwd(), process.env.FT_CONFIG)
 
     if (!found) {
-        throw new Error(`No ${CONFIG_FILE} found here or above; runs live beside it`)
+        throw noConfig()
     }
 
-    return dirname(found)
+    return workspaceOf(found, process.cwd())
 }
 
 /**
@@ -246,12 +296,13 @@ export async function loadConfig(cwd: string): Promise<ResolvedConfig> {
     const path = findConfig(cwd, process.env.FT_CONFIG)
 
     if (!path) {
-        throw new Error(`No ${CONFIG_FILE} found; run ft pin <version> in the project root`)
+        throw noConfig()
     }
 
     return {
         path,
         root: dirname(path),
+        workspace: workspaceOf(path, cwd),
         config: validateConfig(JSON.parse(await readFile(path, 'utf8'))),
     }
 }

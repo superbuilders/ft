@@ -27,8 +27,24 @@ export interface Lock {
 export interface ResolvedConfig {
     /** Absolute discovered .ft.json path. */
     path: string
-    /** Project directory containing the selected config. */
+    /** Directory containing the selected config; a key command runs here. */
     root: string
+    /** Where runs live and instructions are read from (see workspaceOf). */
+    workspace: string
     /** Validated on-disk configuration. */
     config: Config
+}
+
+/**
+ * What a project takes from one release, each file checked against the release manifest.
+ */
+export interface Release {
+    /** The runner version and per-target checksums. */
+    lock: Lock
+    /** The config JSON Schema. */
+    schema: string
+    /** The shim, written as the repository launcher. */
+    launcher: string
+    /** The agent skill. */
+    skill: string
 }

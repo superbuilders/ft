@@ -47,6 +47,24 @@ describe('config', () => {
         expect(loaded.root).toBe(root)
     })
 
+    it('falls back to the personal config, with runs in the repository around cwd', async () => {
+        const root = await mkdtemp(join(tmpdir(), 'ft-config-'))
+        const nested = join(root, 'repo', 'src')
+
+        directories.push(root)
+        await mkdir(join(root, 'config', 'ft'), { recursive: true })
+        await mkdir(join(root, 'repo', '.git'), { recursive: true })
+        await mkdir(nested)
+        await writeFile(join(root, 'config', 'ft', '.ft.json'), JSON.stringify(valid))
+        vi.stubEnv('XDG_CONFIG_HOME', join(root, 'config'))
+
+        const loaded = await loadConfig(nested)
+
+        expect(loaded.path).toBe(join(root, 'config', 'ft', '.ft.json'))
+        expect(loaded.root).toBe(join(root, 'config', 'ft'))
+        expect(loaded.workspace).toBe(join(root, 'repo'))
+    })
+
     it('accepts built-in and custom providers, Pi fields, $schema and an env base URL', () => {
         expect(validateConfig(valid)).toEqual(valid)
 
@@ -66,6 +84,7 @@ describe('config', () => {
         expect(() => resolveBaseUrl('gateway', provider)).toThrow(
             'TEST_GATEWAY_URL is empty or unset',
         )
+        // secretlint-disable-next-line @secretlint/secretlint-rule-basicauth -- a fake credential the code must reject
         vi.stubEnv('TEST_GATEWAY_URL', 'https://user:pass@gateway.test/v1')
         expect(() => resolveBaseUrl('gateway', provider)).toThrow('without credentials')
         vi.stubEnv('TEST_GATEWAY_URL', 'https://gateway.test/v1')

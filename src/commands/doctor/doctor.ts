@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 
 import { PI_VERSION, TOOL_RELEASES } from '../../pi/runtime/constants'
 import { runtimePaths } from '../../pi/runtime/runtime'
-import { loadConfig, resolveBaseUrl } from '../../project/config/config'
+import { isPersonal, loadConfig, resolveBaseUrl } from '../../project/config/config'
 import { getKey } from '../../project/key/key'
 import { cacheRoot, platformTarget } from '../../system/host/host'
 
@@ -17,8 +17,8 @@ export async function doctor(runnerVersion: string): Promise<void> {
     const config = await loadConfig(process.cwd())
     const paths = runtimePaths(cacheRoot())
     const lines = [
-        `Config: ${config.path}`,
-        `Project root: ${config.root}`,
+        `Config: ${config.path}${isPersonal(config.path) ? ' (personal; this directory has no .ft.json)' : ''}`,
+        `Runs: ${config.workspace}`,
         `Runner: ${runnerVersion}`,
         `Pi: ${PI_VERSION} (${existsSync(paths.pi) ? 'installed' : 'not installed'})`,
     ]

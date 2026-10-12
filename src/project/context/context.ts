@@ -59,8 +59,8 @@ async function instruction(path: string, root: string, seen: Set<string>): Promi
 }
 
 /**
- * Collect one context file per directory from git root (or config root) through cwd.
- * @param projectRoot - directory containing .ft.json
+ * Collect one context file per directory from git root (or the workspace) through cwd.
+ * @param projectRoot - the run's workspace, used when cwd is not in a git repository
  * @param cwd - run directory
  * @returns root-to-leaf instruction text
  */

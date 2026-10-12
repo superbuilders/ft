@@ -91,7 +91,7 @@ export async function prepare(options: RunOptions): Promise<Status> {
 
     const brief = await readBrief(options.brief)
 
-    return openRun(config.root, {
+    return openRun(config.workspace, {
         name: runName(options.name, options.brief),
         brief,
         request,

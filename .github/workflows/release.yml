@@ -101,8 +101,9 @@ jobs:
               run: |
                   cp shim/ft release-assets/ft-shim
                   cp install.sh release-assets/install.sh
+                  cp .agents/skills/ft/SKILL.md release-assets/SKILL.md
                   cd release-assets
-                  sha256sum ft-darwin-arm64 ft-darwin-x64 ft-linux-arm64 ft-linux-x64 ft-shim install.sh schema.json > SHA256SUMS
+                  sha256sum ft-darwin-arm64 ft-darwin-x64 ft-linux-arm64 ft-linux-x64 ft-shim install.sh schema.json SKILL.md > SHA256SUMS
 
             - name: Create release
               env:

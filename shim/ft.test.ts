@@ -195,6 +195,7 @@ beforeEach(() => {
         'sleep',
         'tr',
         'sha256sum',
+        'cmp',
         'shasum',
     ]) {
         const located = spawnSync('sh', ['-c', `command -v ${utility}`], { encoding: 'utf8' })
@@ -230,6 +231,7 @@ esac
         TMPDIR: root,
         XDG_CACHE_HOME: cache,
         FT_INSTALL_DIR: join(root, 'install with spaces'),
+        SHELL: '/bin/bash',
         FT_CONFIG: '/must-not-leak-to-bootstrap',
         FAKE_FIXTURES: fixtures,
         FAKE_CALLS: calls,
@@ -388,12 +390,36 @@ describe.each(shells)('shim via %s', shell => {
         expectClean()
     })
 
-    it('requires pin when no config exists', async () => {
+    it('bootstraps init using the latest runner', async () => {
+        const result = await start(shell, ['init', '--user']).result
+
+        expect(result.code, result.stderr).toBe(0)
+        expect(result.stdout).toContain('arg=<init>\narg=<--user>')
+        expect(ghCalls()[0]).toBe('release view -R superbuilders/ft --json tagName')
+    })
+
+    it('uses the personal config where the directory has none', async () => {
+        const personal = join(root, 'xdg', 'ft')
+
+        mkdirSync(join(personal, '.ft'), { recursive: true })
+        writeFileSync(join(personal, '.ft.json'), '{}')
+        writeFileSync(
+            join(personal, '.ft/lock.json'),
+            JSON.stringify({ version, sha256: { [target]: digest(runner) } }, null, 4),
+        )
+
+        const result = await start(shell, ['doctor'], { XDG_CONFIG_HOME: join(root, 'xdg') }).result
+
+        expect(result.code, result.stderr).toBe(0)
+        expect(result.stdout).toContain(`FT_CONFIG=${join(personal, '.ft.json')}`)
+    })
+
+    it('asks for ft init when no config exists', async () => {
         const result = await start(shell, ['doctor']).result
 
         expect(result.code).toBe(2)
         expect(result.stderr).toContain(
-            'no .ft.json found; run ft pin <version> in the project root',
+            'no .ft.json here or above, and no personal config; set ft up with ft init',
         )
         expect(ghCalls()).toEqual([])
     })
@@ -618,8 +644,10 @@ describe('installer via sh', () => {
 
         expect(result.code, result.stderr).toBe(0)
         expect(readFileSync(installed, 'utf8')).toBe(readFileSync(shim, 'utf8'))
-        expect(result.stdout).toContain(`export PATH='${env.FT_INSTALL_DIR}':"$PATH"`)
-        expect(ghCalls()).toEqual([
+        expect(result.stdout).toContain(`  export PATH='${env.FT_INSTALL_DIR}':"$PATH"`)
+        expect(result.stdout).toMatch(/Setting up your personal config\.\.\. +done/)
+        expect(result.stdout).toContain('  arg=<init>\n  arg=<--user>\n  arg=<0.1.0>')
+        expect(ghCalls().slice(0, 3)).toEqual([
             'auth status',
             'release view -R superbuilders/ft --json tagName',
             expect.stringContaining(
@@ -635,7 +663,8 @@ describe('installer via sh', () => {
         ).result
 
         expect(rerun.code).toBe(0)
-        expect(rerun.stdout).toContain(`${env.FT_INSTALL_DIR} is on PATH.`)
+        expect(rerun.stdout).toMatch(/Installing to .+\.\.\. +unchanged/)
+        expect(rerun.stdout).not.toContain('export PATH=')
         expect(readdirSync(env.FT_INSTALL_DIR ?? '')).toEqual(['ft'])
     })
 
@@ -643,7 +672,10 @@ describe('installer via sh', () => {
         const destination = join(root, "user's bin")
         const result = await start('sh', [version], { FT_INSTALL_DIR: destination }, installer)
             .result
-        const line = result.stdout.split('\n').find(text => text.startsWith('export PATH='))
+        const line = result.stdout
+            .split('\n')
+            .map(text => text.trim())
+            .find(text => text.startsWith('export PATH='))
 
         expect(result.code, result.stderr).toBe(0)
         expect(line).toBeDefined()

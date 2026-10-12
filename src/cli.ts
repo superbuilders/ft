@@ -2,17 +2,21 @@ import { Command } from 'commander'
 
 import { doctor } from './commands/doctor/doctor'
 import { guide } from './commands/guide/guide'
+import { init } from './commands/init/init'
 import { key } from './commands/key/key'
 import { list } from './commands/list/list'
 import { pin } from './commands/pin/pin'
 import { exec, run, start } from './commands/run/run'
 import { schema } from './commands/schema/schema'
 import { show } from './commands/show/show'
+import { speakTheCallersWay } from './commands/speak'
 import { stop } from './commands/stop/stop'
 import { watch } from './commands/watch/watch'
 import { RUNNER_VERSION } from './version'
 
 import type { RunOptions } from './commands/run/types'
+
+speakTheCallersWay()
 
 const program = new Command()
     .name('ft')
@@ -85,6 +89,14 @@ program.addCommand(
     { hidden: true },
 )
 program.command('key <provider>').description("Print a configured provider's key").action(key)
+program
+    .command('init [version]')
+    .description('Set ft up in this repository, or with --user for you in every repository')
+    .option('--user', 'set ft up for you rather than this repository')
+    .option('--from <file>', 'copy this .ft.json instead of starting an empty one')
+    .action((version: string | undefined, options: { user?: boolean; from?: string }) =>
+        init(version ?? RUNNER_VERSION, options),
+    )
 program.command('pin <version>').description('Pin a runner release in .ft/lock.json').action(pin)
 program.command('schema').description('Print the JSON Schema for .ft.json').action(schema)
 program

@@ -15,6 +15,8 @@ ft guide
 
 It prints the manual for the exact version this repository pins: the lanes configured here, how to write a brief, the run and watch commands, exit codes, and notes for your harness. Follow it over anything you remember about ft.
 
+If `ft` is not on PATH, run it the way this repository does: through its package script (`bun ft guide`, `npm run ft guide`) or the launcher (`sh .ft/ft guide`). The manual then spells every command that way.
+
 ## The loop
 
 1. Write the brief to a file (for example `tmp/ft/review.md`): the task, where to look, what done means, what to leave alone. One task per brief.

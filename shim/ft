@@ -56,6 +56,11 @@ while :; do
     project=${project%/*}
     [ -n "$project" ] || project=/
 done
+# A directory with no .ft.json of its own uses the personal config, if there is one.
+if [ -z "$config" ]; then
+    personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
+    [ ! -f "$personal" ] || config=$personal
+fi
 
 bootstrap=no
 pinned=${config%/*}/.ft/lock.json
@@ -67,8 +72,14 @@ if [ -n "$config" ] && [ -f "$pinned" ]; then
     FT_CONFIG=$config
     export FT_CONFIG
 else
-    [ -n "$config" ] || pinned=
-    [ "${1:-}" = pin ] || fail 2 "no ${pinned:-.ft.json} found; run ft pin <version> in the project root"
+    case ${1:-} in
+        pin|init) ;;
+        *)
+            [ -z "$config" ] ||
+                fail 2 "no $pinned found; run ft pin <version> in the project root"
+            fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init (this repository) or ft init --user (every repository you work in)'
+            ;;
+    esac
     bootstrap=yes
     unset FT_CONFIG
 fi
@@ -82,6 +93,10 @@ validate_hash() {
         fail 2 "invalid SHA-256 for target $target"
     expected=$(printf '%s' "$expected" | tr 'A-F' 'a-f')
 }
+
+# Tells the runner how it was started, so the commands it prints can be pasted back.
+FT_LAUNCHER=$0
+export FT_LAUNCHER
 
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
 if [ "$bootstrap" = no ]; then
