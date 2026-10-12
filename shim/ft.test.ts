@@ -646,7 +646,8 @@ describe('installer via sh', () => {
         expect(readFileSync(installed, 'utf8')).toBe(readFileSync(shim, 'utf8'))
         expect(result.stdout).toContain(`  export PATH='${env.FT_INSTALL_DIR}':"$PATH"`)
         expect(result.stdout).toMatch(/Setting up your personal config\.\.\. +done/)
-        expect(result.stdout).toContain('  arg=<init>\n  arg=<--user>\n  arg=<0.1.0>')
+        expect(result.stdout).not.toContain('arg=<init>')
+        expect(result.stdout).toContain('Get started: https://github.com/superbuilders/ft#readme')
         expect(ghCalls().slice(0, 3)).toEqual([
             'auth status',
             'release view -R superbuilders/ft --json tagName',

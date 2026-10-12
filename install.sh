@@ -189,12 +189,9 @@ case :${PATH:-}: in
         fi
         ;;
 esac
-case $setup in
-    done) sed 's/^/  /' "$stage/init.out" ;;
-    failed)
-        sed 's/^/  /' "$stage/init.out" >&2
-        printf '  Finish with: ft init --user\n'
-        ;;
-esac
-printf '\n'
+if [ "$setup" = failed ]; then
+    sed 's/^/  /' "$stage/init.out" >&2
+    printf '  Finish with: ft init --user\n'
+fi
+printf '  Get started: https://github.com/superbuilders/ft#readme\n\n'
 [ "$setup" != failed ] || exit 1
