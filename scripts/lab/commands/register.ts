@@ -99,7 +99,7 @@ export function register(program: Command): void {
         .option('--all', 'run every non-real scenario; never includes real checks')
         .option(
             '--artifacts <dir>',
-            'test this release-shaped folder (ft-<target>, ft-shim, install.sh, SHA256SUMS) instead of compiling; local host only',
+            'test the ft-<target> binary in this folder instead of compiling; local host only',
         )
         .option(
             '--project <dir>',

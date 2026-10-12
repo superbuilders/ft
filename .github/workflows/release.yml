@@ -67,9 +67,6 @@ jobs:
               run: |
                   mkdir smoke
                   cp "ft-$TARGET" smoke/
-                  cp shim/ft smoke/ft-shim
-                  cp install.sh smoke/install.sh
-                  (cd smoke && shasum -a 256 "ft-$TARGET" ft-shim install.sh > SHA256SUMS)
                   bun scripts/lab run distribution --artifacts smoke
 
             - uses: actions/upload-artifact@v4

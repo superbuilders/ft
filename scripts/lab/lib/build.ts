@@ -22,6 +22,34 @@ export async function digest(path: string): Promise<string> {
 }
 
 /**
+ * Fill a folder holding only ft-<target> with the rest of a release: the shim, installer, skill,
+ * config schema and SHA256SUMS. A lock needs every target's checksum, but the lab builds and runs
+ * only this host's, so the others are placeholders.
+ * @param directory - folder holding the runner binary
+ * @param target - the binary's platform target
+ * @returns completion once SHA256SUMS is written
+ */
+async function completeRelease(directory: string, target: string): Promise<void> {
+    await copyFile('shim/ft', join(directory, 'ft-shim'))
+    await copyFile('install.sh', join(directory, 'install.sh'))
+    await copyFile('.agents/skills/ft/SKILL.md', join(directory, 'SKILL.md'))
+
+    const schema = await command([join(directory, `ft-${target}`), 'schema'])
+
+    await writeFile(join(directory, 'schema.json'), schema.stdout)
+
+    const assets = [`ft-${target}`, 'ft-shim', 'install.sh', 'schema.json', 'SKILL.md']
+    const sums = await Promise.all(
+        assets.map(async asset => `${await digest(join(directory, asset))}  ${asset}\n`),
+    )
+    const absent = TARGETS.filter(other => other !== target).map(
+        other => `${'0'.repeat(64)}  ft-${other}\n`,
+    )
+
+    await writeFile(join(directory, 'SHA256SUMS'), [...sums, ...absent].join(''))
+}
+
+/**
  * Compile natively and atomically cache a release-shaped bundle by its inputs.
  * @param cache - lab-owned cache root
  * @param salt - deterministic second-build discriminator for switch
@@ -75,24 +103,7 @@ export async function build(cache: string, salt = ''): Promise<Build> {
                 await command(['codesign', '--force', '--sign', '-', output])
             }
 
-            await copyFile('shim/ft', join(stage, 'ft-shim'))
-            await copyFile('install.sh', join(stage, 'install.sh'))
-            await copyFile('.agents/skills/ft/SKILL.md', join(stage, 'SKILL.md'))
-
-            const schema = await command([output, 'schema'])
-
-            await writeFile(join(stage, 'schema.json'), schema.stdout)
-
-            const assets = [`ft-${target}`, 'ft-shim', 'install.sh', 'schema.json', 'SKILL.md']
-            const sums = await Promise.all(
-                assets.map(async asset => `${await digest(join(stage, asset))}  ${asset}\n`),
-            )
-            /* A lock needs every target's checksum; the lab builds and runs only this one. */
-            const absent = TARGETS.filter(other => other !== target).map(
-                other => `${'0'.repeat(64)}  ft-${other}\n`,
-            )
-
-            await writeFile(join(stage, 'SHA256SUMS'), [...sums, ...absent].join(''))
+            await completeRelease(stage, target)
             await mkdir(join(cache, 'builds'), { recursive: true })
 
             try {
@@ -119,23 +130,26 @@ export async function build(cache: string, salt = ''): Promise<Build> {
 }
 
 /**
- * Use an existing release-shaped folder, such as the release workflow's freshly signed
- * binary, so the lab tests the exact bytes that will ship.
- * @param directory - folder holding ft-<target>, ft-shim, install.sh and SHA256SUMS
+ * Test a binary built elsewhere, such as the release workflow's freshly signed runner, so the lab
+ * tests the exact bytes that will ship. The folder needs only ft-<target>; the rest of the release
+ * is added from this checkout.
+ * @param directory - folder holding ft-<target>
  * @returns build metadata read from the binary itself
  */
 export async function prebuilt(directory: string): Promise<Build> {
     const target = platformTarget()
     const absolute = resolve(directory)
     const binary = join(absolute, `ft-${target}`)
-    const sha256 = await digest(binary)
-    const sums = await readFile(join(absolute, 'SHA256SUMS'), 'utf8')
 
-    if (!sums.includes(`${sha256}  ft-${target}\n`)) {
-        throw new Error(`SHA256SUMS in ${absolute} does not list ft-${target} with its actual hash`)
-    }
+    await completeRelease(absolute, target)
 
     const reported = await command([binary, '--version'])
 
-    return { version: reported.stdout.trim(), digest: sha256, directory: absolute, binary, target }
+    return {
+        version: reported.stdout.trim(),
+        digest: await digest(binary),
+        directory: absolute,
+        binary,
+        target,
+    }
 }
