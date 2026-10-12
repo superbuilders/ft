@@ -13,11 +13,14 @@ import { fetchRelease, writeRelease, writeStarterConfig } from '../../project/co
  * @returns completion of pin publication
  */
 export async function pin(version: string): Promise<void> {
-    const release = await fetchRelease(version)
     const found = findConfig(process.cwd(), process.env.FT_CONFIG)
     const root = found ? dirname(found) : process.cwd()
+    const release = await fetchRelease(
+        version,
+        existsSync(join(root, LAUNCHER_FILE)) ? ['launcher'] : [],
+    )
 
-    await writeRelease(root, release, existsSync(join(root, LAUNCHER_FILE)))
+    await writeRelease(root, release)
 
     const started = await writeStarterConfig(root)
 

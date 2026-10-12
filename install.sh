@@ -97,15 +97,14 @@ case $install_dir in
     "$HOME"/*) shown_dir="~${install_dir#"$HOME"}" ;;
 esac
 personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
-labels="Downloading ft $version|Verifying checksum|Installing to $shown_dir"
-[ -f "$personal" ] || labels="$labels|Setting up your personal config"
+download_label="Downloading ft $version"
+verify_label='Verifying checksum'
+install_label="Installing to $shown_dir"
+setup_label='Setting up your personal config'
 widest_status=unchanged
-old_ifs=$IFS
-IFS='|'
-for label in $labels; do
+for label in "$download_label" "$verify_label" "$install_label" "$setup_label"; do
     [ "${#label}" -le "$width" ] || width=${#label}
 done
-IFS=$old_ifs
 width=$((width + 3 + 1 + ${#widest_status}))
 
 printf '\n'
@@ -113,10 +112,10 @@ rule
 printf '  %sft %s%s%s\n' "$bold" "$green" "$version" "$reset"
 rule
 
-step "Downloading ft $version"
+step "$download_label"
 gh_call release download "v$version" -R superbuilders/ft -p ft-shim -p SHA256SUMS -D "$stage" >/dev/null
 step_end done "$green"
-step 'Verifying checksum'
+step "$verify_label"
 expected=$(sed -n 's/^\([0-9a-fA-F]*\)  ft-shim$/\1/p' "$stage/SHA256SUMS")
 [ "${#expected}" -eq 64 ] && printf '%s\n' "$expected" | grep -Eq '^[0-9a-fA-F]+$' ||
     fail 1 'missing or invalid ft-shim hash in release SHA256SUMS'
@@ -132,7 +131,7 @@ actual=${actual%% *}
 [ "$actual" = "$expected" ] || fail 1 'checksum mismatch for ft-shim'
 step_end done "$green"
 
-step "Installing to $shown_dir" "Installing to $cyan$shown_dir$dim"
+step "$install_label" "Installing to $cyan$shown_dir$dim"
 mkdir -p "$install_dir" || fail 1 'cannot create installation directory'
 install_dir=$(cd "$install_dir" && pwd -P) || fail 1 'cannot resolve installation directory'
 if [ -f "$install_dir/ft" ] && cmp -s "$stage/ft-shim" "$install_dir/ft"; then
@@ -149,7 +148,7 @@ fi
 
 setup=
 if [ ! -f "$personal" ]; then
-    step 'Setting up your personal config'
+    step "$setup_label"
     if "$install_dir/ft" init --user "$version" >"$stage/init.out" 2>&1; then
         step_end done "$green"
         setup=done

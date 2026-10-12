@@ -37,7 +37,7 @@ A lane whose model cannot use tools (such as a web-research model) runs without 
 - The answer is a claim, not a fact. Check it against the code. After a write run, read \`git diff\` before you accept it; ft never commits.
 - A failed run keeps the model's last message as a partial answer, and the report says what to try next.
 - \`ft show <id>\` tells the whole story of a run: every step, its timing, the answer. \`ft list\` shows every run, live. \`ft stop <id>\` cancels one. Ids accept any unambiguous prefix.
-- \`--json\` on run, start, wait, runs and show prints one JSON object per run, one per line: the stored status plus \`state\` (the outcome, or \`lost\` when its process died without one).
+- \`--json\` on run, start, watch, list and show prints one JSON object per run, one per line: the stored status plus \`state\` (the outcome, or \`lost\` when its process died without one).
 
 ## In your harness
 

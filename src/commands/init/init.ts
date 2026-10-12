@@ -9,6 +9,8 @@ import { atomicWrite } from '../../system/files/atomic-write'
 import { configRoot, homeDirectory } from '../../system/host/host'
 import { LOCKFILES, PACKAGE_SCRIPT } from './constants'
 
+import type { Placement } from './types'
+
 /**
  * Put the agent skill under a base directory, and link it where Claude Code looks.
  * @param base - repository or home directory
@@ -85,6 +87,27 @@ function configNote(written: boolean, from: string | undefined): string {
 }
 
 /**
+ * Decide where a setup goes: this repository, or this person's config directory and home.
+ * @param user - set ft up for this person rather than this repository
+ * @returns the config directory, where the skill goes, and whether to link it for Claude Code
+ */
+function placement(user: boolean): Placement {
+    if (user) {
+        return {
+            root: configRoot(),
+            skillBase: homeDirectory(),
+            linkClaude: existsSync(join(homeDirectory(), '.claude')),
+            launcher: false,
+        }
+    }
+
+    const found = findConfig(process.cwd(), process.env.FT_CONFIG)
+    const root = found && !isPersonal(found) ? dirname(found) : repositoryRoot(process.cwd())
+
+    return { root, skillBase: root, linkClaude: true, launcher: true }
+}
+
+/**
  * Set ft up, from one release. For a repository: its lock, schema and launcher, a config, the
  * agent skill and a package script, so everyone who clones it can use ft with only gh installed.
  * With `user`: the same config and skill in the personal config directory and home, so ft works
@@ -99,26 +122,23 @@ export async function init(
     version: string,
     options: { user?: boolean; from?: string },
 ): Promise<void> {
-    const release = await fetchRelease(version)
+    const { root, skillBase, linkClaude, launcher } = placement(options.user === true)
+    const release = await fetchRelease(version, launcher ? ['launcher', 'skill'] : ['skill'])
+
+    await writeRelease(root, release)
+
+    const written = await writeStarterConfig(root, options.from)
+    const skill = await placeSkill(skillBase, release.skill ?? '', linkClaude)
+    const config = configNote(written, options.from)
+    const fill = written && !options.from
 
     if (options.user) {
-        const root = configRoot()
-
-        await writeRelease(root, release, false)
-
-        const written = await writeStarterConfig(root, options.from)
-        const skill = await placeSkill(
-            homeDirectory(),
-            release.skill,
-            existsSync(join(homeDirectory(), '.claude')),
-        )
-
         process.stdout.write(
             [
-                `Set up ft ${version} for you in ${root}: ${configNote(written, options.from)}, .ft/lock.json, .ft/schema.json`,
+                `Set up ft ${version} for you in ${root}: ${config}, .ft/lock.json, .ft/schema.json`,
                 ...skill.map(path => `Wrote ~/${path}`),
                 'ft now works in any repository without its own .ft.json. Next:',
-                `  1. ${written && !options.from ? `Add a provider and a lane named code to ${join(root, CONFIG_FILE)}, then run` : 'Run'} ft doctor to check it`,
+                `  1. ${fill ? `Add a provider and a lane named code to ${join(root, CONFIG_FILE)}, then run` : 'Run'} ft doctor to check it`,
                 '  2. Let Claude Code run ft without asking: allow Bash(ft:*) in ~/.claude/settings.json',
             ]
                 .map(line => `${line}\n`)
@@ -128,24 +148,17 @@ export async function init(
         return
     }
 
-    const found = findConfig(process.cwd(), process.env.FT_CONFIG)
-    const root = found && !isPersonal(found) ? dirname(found) : repositoryRoot(process.cwd())
-
-    await writeRelease(root, release, true)
-
-    const written = await writeStarterConfig(root, options.from)
-    const skill = await placeSkill(root, release.skill, true)
     const script = await packageScript(root)
 
     process.stdout.write(
         [
-            `Set up ft ${version} in ${root}: ${configNote(written, options.from)}, .ft/lock.json, .ft/schema.json, ${LAUNCHER_FILE}`,
+            `Set up ft ${version} in ${root}: ${config}, .ft/lock.json, .ft/schema.json, ${LAUNCHER_FILE}`,
             ...[
                 ...skill,
                 ...(script.added ? [`package.json script ${PACKAGE_SCRIPT.name}`] : []),
             ].map(path => `Wrote ${path}`),
             `Agents here run ft as ${script.command}. Next:`,
-            `  1. ${written && !options.from ? `Add a provider and a lane named code to ${CONFIG_FILE}, then run` : 'Run'} ${script.command} doctor to check it`,
+            `  1. ${fill ? `Add a provider and a lane named code to ${CONFIG_FILE}, then run` : 'Run'} ${script.command} doctor to check it`,
             `  2. Let Claude Code run it without asking: allow Bash(${script.command}:*) in .claude/settings.json`,
             '  3. Commit these files. Anyone who clones the repository needs only gh, signed in',
         ]

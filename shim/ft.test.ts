@@ -98,11 +98,14 @@ function executable(path: string, content: string) {
     chmodSync(path, 0o755)
 }
 
-function configure(hashes: Record<string, string> = { [target]: digest(runner) }) {
-    writeFileSync(join(project, '.ft.json'), '{}')
-    mkdirSync(join(project, '.ft'), { recursive: true })
+function configure(
+    hashes: Record<string, string> = { [target]: digest(runner) },
+    directory = project,
+) {
+    mkdirSync(join(directory, '.ft'), { recursive: true })
+    writeFileSync(join(directory, '.ft.json'), '{}')
     writeFileSync(
-        join(project, '.ft/lock.json'),
+        join(directory, '.ft/lock.json'),
         JSON.stringify({ version, sha256: hashes }, null, 4),
     )
 }
@@ -401,12 +404,7 @@ describe.each(shells)('shim via %s', shell => {
     it('uses the personal config where the directory has none', async () => {
         const personal = join(root, 'xdg', 'ft')
 
-        mkdirSync(join(personal, '.ft'), { recursive: true })
-        writeFileSync(join(personal, '.ft.json'), '{}')
-        writeFileSync(
-            join(personal, '.ft/lock.json'),
-            JSON.stringify({ version, sha256: { [target]: digest(runner) } }, null, 4),
-        )
+        configure(undefined, personal)
 
         const result = await start(shell, ['doctor'], { XDG_CONFIG_HOME: join(root, 'xdg') }).result
 

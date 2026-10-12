@@ -43,8 +43,8 @@ export interface Release {
     lock: Lock
     /** The config JSON Schema. */
     schema: string
-    /** The shim, written as the repository launcher. */
-    launcher: string
-    /** The agent skill. */
-    skill: string
+    /** The shim, written as the repository launcher; fetched only when asked for. */
+    launcher?: string
+    /** The agent skill; fetched only when asked for. */
+    skill?: string
 }

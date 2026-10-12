@@ -59,53 +59,59 @@ function checksum(sums: string, asset: string): string {
 }
 
 /**
- * Fetch what a project needs from one release, each file checked against the release manifest:
- * the runner checksums for the lock, the config schema, the launcher and the agent skill.
+ * Fetch what a caller needs from one release, each file checked against the release manifest:
+ * always the runner checksums for the lock and the config schema, plus the launcher and the agent
+ * skill when asked for.
  * @param version - exact runner release version
+ * @param extras - the optional files to fetch
  * @returns the release's files
  */
-export async function fetchRelease(version: string): Promise<Release> {
+export async function fetchRelease(
+    version: string,
+    extras: readonly ('launcher' | 'skill')[],
+): Promise<Release> {
     if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) {
         throw new Error('Expected a release version such as 0.2.0')
     }
 
-    const sums = await releaseAsset(version, 'SHA256SUMS')
-    const sha256 = Object.fromEntries(
-        TARGETS.map(target => [target, checksum(sums, `ft-${target}`)]),
-    ) as Lock['sha256']
-    const [schema, launcher, skill] = (await Promise.all(
-        [RELEASE_ASSETS.schema, RELEASE_ASSETS.launcher, RELEASE_ASSETS.skill].map(async asset => {
-            const text = await releaseAsset(version, asset)
+    const names = ['schema' as const, ...extras]
+    const [sums, ...texts] = await Promise.all(
+        ['SHA256SUMS', ...names.map(name => RELEASE_ASSETS[name])].map(asset =>
+            releaseAsset(version, asset),
+        ),
+    )
+    const files = Object.fromEntries(
+        names.map((name, index) => {
+            const asset = RELEASE_ASSETS[name]
+            const text = texts[index] ?? ''
 
-            if (createHash('sha256').update(text).digest('hex') !== checksum(sums, asset)) {
+            if (createHash('sha256').update(text).digest('hex') !== checksum(sums ?? '', asset)) {
                 throw new Error(`Release ${asset} does not match its checksum`)
             }
 
-            return text
+            return [name, text]
         }),
-    )) as [string, string, string]
+    ) as Pick<Release, 'schema' | 'launcher' | 'skill'>
+    const sha256 = Object.fromEntries(
+        TARGETS.map(target => [target, checksum(sums ?? '', `ft-${target}`)]),
+    ) as Lock['sha256']
 
-    return { lock: { version, sha256 }, schema, launcher, skill }
+    return { lock: { version, sha256 }, ...files }
 }
 
 /**
- * Write a release's lock and schema into a config directory, and its launcher when asked.
+ * Write a release's lock and schema into a config directory, and its launcher when it has one.
  * @param root - directory holding `.ft.json`
  * @param release - the fetched release
- * @param withLauncher - also write the repository launcher
  * @returns completion
  */
-export async function writeRelease(
-    root: string,
-    release: Release,
-    withLauncher: boolean,
-): Promise<void> {
+export async function writeRelease(root: string, release: Release): Promise<void> {
     await Promise.all([
         atomicWrite(join(root, LOCK_FILE), `${JSON.stringify(release.lock, null, 4)}\n`),
         atomicWrite(join(root, SCHEMA_FILE), release.schema),
     ])
 
-    if (withLauncher) {
+    if (release.launcher !== undefined) {
         await atomicWrite(join(root, LAUNCHER_FILE), release.launcher)
         await chmod(join(root, LAUNCHER_FILE), 0o755)
     }
