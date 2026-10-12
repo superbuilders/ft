@@ -3,6 +3,16 @@ import type { Outcome } from '../../project/runs/types'
 import type { Adapter } from '../gateway/adapters/types'
 
 /**
+ * What one --profile gives the delegate.
+ */
+export interface RunProfile {
+    /** Pi tools the delegate may use. */
+    tools: readonly string[]
+    /** Standing instructions placed before the repository's own. */
+    preamble: string
+}
+
+/**
  * The run's resolved model and what follows from it.
  */
 export interface ModelChoice {

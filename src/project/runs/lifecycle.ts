@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 
+import { DEFAULT_LANE } from '../../models/constants'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { RUN_FILES, STATUS_INTERVAL_MS } from './constants'
 import { briefTitle, createRun, emptyProgress, writeRequest, writeStatus } from './store'
@@ -26,7 +27,7 @@ export async function openRun(root: string, input: OpenRun): Promise<Status> {
         title: briefTitle(brief),
         outcome: 'running',
         piVersion: input.piVersion,
-        lane: input.lane,
+        lane: request.model ? null : (request.lane ?? DEFAULT_LANE),
         provider: selected.provider,
         model: selected.model,
         thinking: selected.thinking ?? null,
@@ -50,8 +51,10 @@ export async function openRun(root: string, input: OpenRun): Promise<Status> {
         ...emptyProgress(),
     }
 
-    await writeFile(join(dir, RUN_FILES.brief), brief, { mode: 0o600 })
-    await writeRequest(dir, request)
+    await Promise.all([
+        writeFile(join(dir, RUN_FILES.brief), brief, { mode: 0o600 }),
+        writeRequest(dir, request),
+    ])
     await writeStatus(status)
 
     return status

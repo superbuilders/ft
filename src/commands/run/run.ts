@@ -1,6 +1,6 @@
 import { execute } from '../../pi/run/execute'
-import { displayPath, exitCode, jsonLine, renderReport } from '../../project/runs/render'
-import { readKept, readStatus, writeStatus } from '../../project/runs/store'
+import { displayPath, exitCode, jsonLine, settledOutput } from '../../project/runs/render'
+import { readStatus, writeStatus } from '../../project/runs/store'
 import { selfCommand } from '../../system/process/self'
 import { START_CONFIRM_MS, START_POLL_MS } from './constants'
 import { prepare } from './prepare'
@@ -29,20 +29,6 @@ function refuse(error: unknown, json: boolean | undefined): number {
 }
 
 /**
- * Print a settled run the way the caller asked for it.
- * @param status - settled status
- * @param json - print the status as JSON
- * @returns completion
- */
-async function printSettled(status: Status, json: boolean | undefined): Promise<void> {
-    process.stdout.write(
-        json
-            ? jsonLine(status, status.outcome)
-            : renderReport(status, status.outcome, await readKept(status)),
-    )
-}
-
-/**
  * Run one brief in the foreground and print its report.
  * @param options - caller options
  * @returns the run's exit code
@@ -58,7 +44,7 @@ export async function run(options: RunOptions): Promise<number> {
 
     const settled = await execute(status.dir)
 
-    await printSettled(settled, options.json)
+    process.stdout.write(await settledOutput(settled, settled.outcome, options.json))
 
     return exitCode(settled.outcome)
 }
@@ -134,7 +120,7 @@ export async function start(options: RunOptions): Promise<number> {
     }
 
     if (status.outcome !== 'running') {
-        await printSettled(status, options.json)
+        process.stdout.write(await settledOutput(status, status.outcome, options.json))
 
         return exitCode(status.outcome)
     }

@@ -142,8 +142,6 @@ export interface OpenRun {
     brief: string
     /** The validated request. */
     request: Request
-    /** Lane name, or null when the caller named a model. */
-    lane: string | null
     /** Provider, model and thinking level. */
     selected: Selection
     /** Pi version the run uses. */

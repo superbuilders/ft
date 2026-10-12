@@ -1,22 +1,9 @@
 import { projectRoot } from '../../project/config/config'
-import { exitCode, jsonLine, renderReport, renderTable } from '../../project/runs/render'
-import { findRuns, listRuns, readKept, readStatus, stateOf } from '../../project/runs/store'
+import { exitCode, jsonLine, renderTable, settledOutput } from '../../project/runs/render'
+import { findRuns, listRuns, readStatus, stateOf } from '../../project/runs/store'
 import { WAIT_POLL_MS } from './constants'
 
-import type { State, Status } from '../../project/runs/types'
-
-/**
- * Print one run that has settled.
- * @param status - its status
- * @param state - its state
- * @param json - print JSON instead of the report
- * @returns completion
- */
-async function printRun(status: Status, state: State, json: boolean | undefined): Promise<void> {
-    process.stdout.write(
-        json ? jsonLine(status, state) : `${renderReport(status, state, await readKept(status))}\n`,
-    )
-}
+import type { Status } from '../../project/runs/types'
 
 /**
  * Tell a person at the terminal what each run is doing now, once per change. Agents read only
@@ -98,7 +85,9 @@ export async function watch(
             const state = status ? stateOf(status) : 'lost'
 
             if (status && state !== 'running') {
-                await printRun(status, state, options.json)
+                process.stdout.write(
+                    `${await settledOutput(status, state, options.json)}${options.json ? '' : '\n'}`,
+                )
                 code = Math.max(code, exitCode(state))
             } else if (status) {
                 running.push(status)

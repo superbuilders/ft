@@ -2,6 +2,7 @@ import { isAbsolute, relative } from 'node:path'
 
 import { EXIT_CODES, INLINE_ANSWER_MAX, NEXT_STEPS } from './constants'
 import { CONTEXT_OVERFLOW } from './patterns'
+import { readKept } from './store'
 
 import type { State, Status } from './types'
 
@@ -235,19 +236,18 @@ export function renderReport(
         lines.push(`Next: ${next}`)
     }
 
-    if (text?.trim() && status.answer) {
-        lines.push('', inline(text, status.answer), '')
-    } else if (text?.trim() && status.partial) {
-        lines.push(
-            '',
-            "The model's last message before the run stopped:",
-            '',
-            inline(text, status.partial),
-            '',
-        )
+    const saved = status.answer ?? status.partial
+
+    if (text?.trim() && saved) {
+        lines.push('')
+
+        if (!status.answer) {
+            lines.push("The model's last message before the run stopped:", '')
+        }
+
+        lines.push(inline(text, saved), '')
     }
 
-    const saved = status.answer ?? status.partial
     const notes = [
         saved ? `${status.answer ? 'answer' : 'partial answer'} in ${displayPath(saved)}` : null,
         pointToShow && state !== 'configuration_error'
@@ -340,4 +340,20 @@ export function renderTable(runs: { status: Status; state: State }[]): string {
                 .join('  '),
         )
         .join('\n')}\n`
+}
+
+/**
+ * Render a settled run the way the caller asked for it: its JSON line, or its report with the
+ * kept answer inlined.
+ * @param status - settled status
+ * @param state - its state
+ * @param json - print the status as JSON
+ * @returns the text to print
+ */
+export async function settledOutput(
+    status: Status,
+    state: State,
+    json: boolean | undefined,
+): Promise<string> {
+    return json ? jsonLine(status, state) : renderReport(status, state, await readKept(status))
 }

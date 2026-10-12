@@ -1,5 +1,5 @@
 import { projectRoot } from '../../project/config/config'
-import { renderTable } from '../../project/runs/render'
+import { jsonLine, renderTable } from '../../project/runs/render'
 import { listRuns, stateOf } from '../../project/runs/store'
 import { RECENT_RUNS } from './constants'
 
@@ -21,9 +21,7 @@ export async function list(options: { all?: boolean; json?: boolean }): Promise<
         : listed.filter(({ state }, index) => state === 'running' || index < RECENT_RUNS)
 
     if (options.json) {
-        process.stdout.write(
-            shown.map(({ status, state }) => `${JSON.stringify({ ...status, state })}\n`).join(''),
-        )
+        process.stdout.write(shown.map(({ status, state }) => jsonLine(status, state)).join(''))
 
         return
     }

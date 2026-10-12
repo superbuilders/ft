@@ -1,4 +1,4 @@
-import { PROFILE_TOOLS } from '../../pi/process/constants'
+import { RUN_PROFILES } from '../../pi/run/constants'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
 import { GUIDE_BODY, LANE_FALLBACK_DESCRIPTION } from './constants'
@@ -43,8 +43,8 @@ export async function guide(runnerVersion: string): Promise<void> {
         '',
         ...(await lanes()),
         '',
-        `Profiles: ${Object.entries(PROFILE_TOOLS)
-            .map(([name, tools]) => `${name} (${tools.join(', ')})`)
+        `Profiles: ${Object.entries(RUN_PROFILES)
+            .map(([name, { tools }]) => `${name} (${tools.join(', ')})`)
             .join('; ')}.`,
         '',
         GUIDE_BODY,

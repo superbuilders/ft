@@ -18,7 +18,7 @@ import { serveGateway } from '../gateway/gateway'
 import { filterEnvironment } from '../process/environment'
 import { runPi } from '../process/spawn'
 import { installRuntime } from '../runtime/runtime'
-import { CANCEL_SIGNALS, DELEGATE_PREAMBLE } from './constants'
+import { CANCEL_SIGNALS, RUN_PROFILES } from './constants'
 import { chooseModel } from './model'
 
 import type { Outcome, Request, Status } from '../../project/runs/types'
@@ -53,7 +53,7 @@ async function drive(
         getKey(provider.key, config.root, signal),
         collectContext(config.root, request.cwd),
     ])
-    const context = `${DELEGATE_PREAMBLE[request.profile]}\n\n${repository}`
+    const context = `${RUN_PROFILES[request.profile].preamble}\n\n${repository}`
 
     phase.failure = 'runtime_error'
     signal.throwIfAborted()

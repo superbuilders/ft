@@ -69,10 +69,14 @@ export async function show(id: string, options: { json?: boolean }): Promise<voi
         return
     }
 
-    const text = await readKept(status)
-    const stderr = await readFile(join(status.dir, RUN_FILES.stderr), 'utf8').catch(() => '')
+    const [text, stderr] = await Promise.all([
+        readKept(status),
+        state === 'success'
+            ? ''
+            : readFile(join(status.dir, RUN_FILES.stderr), 'utf8').catch(() => ''),
+    ])
 
-    if (state !== 'success' && stderr.trim()) {
+    if (stderr.trim()) {
         lines.push(
             'Pi stderr (last lines):',
             ...stderr

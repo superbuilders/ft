@@ -2,7 +2,6 @@ import { existsSync, statSync } from 'node:fs'
 import { readFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-import { DEFAULT_LANE } from '../../models/constants'
 import { chooseModel } from '../../pi/run/model'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
@@ -96,7 +95,6 @@ export async function prepare(options: RunOptions): Promise<Status> {
         name: runName(options.name, options.brief),
         brief,
         request,
-        lane: request.model ? null : (request.lane ?? DEFAULT_LANE),
         selected,
         piVersion: PI_VERSION,
     })

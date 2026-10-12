@@ -1,7 +1,7 @@
 import { resolveLane } from '../../models/models'
 import { resolveBaseUrl } from '../../project/config/config'
 import { adapterNamed } from '../gateway/adapters'
-import { PROFILE_TOOLS } from '../process/constants'
+import { RUN_PROFILES } from './constants'
 
 import type { Config } from '../../project/config/types'
 import type { Request } from '../../project/runs/types'
@@ -14,10 +14,10 @@ import type { ModelChoice } from './types'
  * @returns everything the run needs to know about its model
  */
 export function chooseModel(request: Omit<Request, 'cwd'>, config: Config): ModelChoice {
-    const allowed = PROFILE_TOOLS[request.profile]
+    const profile = RUN_PROFILES[request.profile]
 
-    if (!allowed) {
-        throw new Error(`--profile must be one of ${Object.keys(PROFILE_TOOLS).join(', ')}`)
+    if (!profile) {
+        throw new Error(`--profile must be one of ${Object.keys(RUN_PROFILES).join(', ')}`)
     }
 
     if (request.lane && request.model) {
@@ -40,6 +40,6 @@ export function chooseModel(request: Omit<Request, 'cwd'>, config: Config): Mode
         provider,
         ...(baseUrl ? { baseUrl } : {}),
         ...(adapter ? { adapter } : {}),
-        tools: adapter?.tools === false ? [] : allowed,
+        tools: adapter?.tools === false ? [] : profile.tools,
     }
 }
