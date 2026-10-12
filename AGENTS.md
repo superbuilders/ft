@@ -133,10 +133,9 @@ personal config, `root` (where key commands run) is the config directory, and
 working directory. Release assets are the runners, `ft-shim`, `install.sh`,
 `schema.json` and `SKILL.md`, all listed in `SHA256SUMS`.
 
-Printed commands follow how ft was invoked (`src/system/process/self.ts`): a
-package script reads as `bun ft …` or `npm run ft …`, the launcher as
-`.ft/ft …` (the shim exports `FT_LAUNCHER`), otherwise `ft …`. Output meant
-for programs (`--json`, `schema`, `key`, `exec`) is never rewritten.
+ft always prints its commands as `ft …`. How a repository runs ft (a package
+script, `.ft/ft`) is the repository's fact, stated by its skill; only
+`ft init`, which writes the package script, names it in its own output.
 
 The schema in `src/project/config/schema.ts` is strict: every field, Pi's
 included, is named, so a typo fails in ft instead of being ignored by Pi. A type

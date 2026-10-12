@@ -94,10 +94,6 @@ validate_hash() {
     expected=$(printf '%s' "$expected" | tr 'A-F' 'a-f')
 }
 
-# Tells the runner how it was started, so the commands it prints can be pasted back.
-FT_LAUNCHER=$0
-export FT_LAUNCHER
-
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
 if [ "$bootstrap" = no ]; then
     validate_version

@@ -9,14 +9,11 @@ import { pin } from './commands/pin/pin'
 import { exec, run, start } from './commands/run/run'
 import { schema } from './commands/schema/schema'
 import { show } from './commands/show/show'
-import { speakTheCallersWay } from './commands/speak'
 import { stop } from './commands/stop/stop'
 import { watch } from './commands/watch/watch'
 import { RUNNER_VERSION } from './version'
 
 import type { RunOptions } from './commands/run/types'
-
-speakTheCallersWay()
 
 const program = new Command()
     .name('ft')
