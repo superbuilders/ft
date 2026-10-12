@@ -5,28 +5,27 @@ Instructions for coding agents working in this repository.
 ## What ft is
 
 `ft` is a pinned, isolated Pi runner that agent harnesses with native subagents
-can call to run one brief on one model, in parallel with other runs. It
-standardizes the team's personal `/pi-sub` workflow. This is a single-package
+can call to run one brief on one model, in parallel with other runs. This is a single-package
 Bun + TypeScript CLI. `docs/plan.md` records the original design.
 
 ## Commands
 
 ```bash
-bun install                         # Install dependencies and prepare Husky
-bun run typecheck                   # tsgo; allowed anywhere
-bun run test <files or dirs>         # Named tests while working
-bun run check                       # Hooks/CI only: typecheck, lint, format check
-bun run check --pre-push             # Also type-aware lint and knip
-bun run knip                        # Compact unused-code report; config hints fail
-bun src/cli.ts --version             # Package version
-bun src/cli.ts guide                 # The agent manual a consuming repo's skill points at
-bun run release <patch|minor|major|x.y.z>   # Bump, tag, push; release.yml builds and publishes
-bun run dogfood                     # Install the last commit's ft as ft on PATH
+bun install                                # Install dependencies and prepare Husky
+bun run typecheck                          # tsgo; allowed anywhere
+bun run test <files or dirs>               # Named tests while working
+bun run check                              # Hooks/CI only: typecheck, lint, format check
+bun run check --pre-push                   # Also type-aware lint and knip
+bun run knip                               # Compact unused-code report; config hints fail
+bun src/cli.ts --version                   # Package version
+bun src/cli.ts guide                       # The agent manual a consuming repo's skill points at
+bun run release <patch|minor|major|x.y.z>  # Bump, tag, push; release.yml builds and publishes
+bun run dogfood                            # Install the last commit's ft as ft on PATH
 ```
 
 ## Delegating
 
-Delegate reviews and scoped changes with `ft` (the `ft` skill), not pi-sub.
+Delegate reviews and scoped changes with `ft` (the `ft` skill).
 The `ft` on PATH is a build of the last commit, so uncommitted edits never
 break the tool reviewing them. After committing a change to ft, run
 `bun run dogfood` before the next delegation so it uses what you built.
