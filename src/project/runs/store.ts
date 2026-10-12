@@ -222,7 +222,7 @@ function pick(runs: Status[], ref: string, root: string): Status {
 
     throw new Error(
         runs.length > 0
-            ? `No run ${ref} in ${runsRoot(root)}; ft runs lists them`
+            ? `No run ${ref} in ${runsRoot(root)}; ft list shows them`
             : `No runs yet in ${runsRoot(root)}`,
     )
 }

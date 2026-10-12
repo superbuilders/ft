@@ -10,7 +10,7 @@ import { RECENT_RUNS } from './constants'
  * @param options.json - print one JSON object per run
  * @returns completion
  */
-export async function runs(options: { all?: boolean; json?: boolean }): Promise<void> {
+export async function list(options: { all?: boolean; json?: boolean }): Promise<void> {
     const statuses = await listRuns(projectRoot())
     const listed = statuses.map(status => ({
         status,
@@ -37,6 +37,6 @@ export async function runs(options: { all?: boolean; json?: boolean }): Promise<
     const hidden = listed.length - shown.length
 
     process.stdout.write(
-        `${renderTable(shown)}${hidden > 0 ? `(${hidden} older runs; ft runs --all lists them)\n` : ''}`,
+        `${renderTable(shown)}${hidden > 0 ? `(${hidden} older runs; ft list --all lists them)\n` : ''}`,
     )
 }

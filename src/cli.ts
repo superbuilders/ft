@@ -3,13 +3,13 @@ import { Command } from 'commander'
 import { doctor } from './commands/doctor/doctor'
 import { guide } from './commands/guide/guide'
 import { key } from './commands/key/key'
+import { list } from './commands/list/list'
 import { pin } from './commands/pin/pin'
 import { exec, run, start } from './commands/run/run'
-import { runs } from './commands/runs/runs'
 import { schema } from './commands/schema/schema'
 import { show } from './commands/show/show'
 import { stop } from './commands/stop/stop'
-import { wait } from './commands/wait/wait'
+import { watch } from './commands/watch/watch'
 import { RUNNER_VERSION } from './version'
 
 import type { RunOptions } from './commands/run/types'
@@ -48,25 +48,25 @@ runOptions(program.command('run').description('Run one brief and print its repor
     },
 )
 runOptions(
-    program.command('start').description('Start one brief detached; ft wait collects it'),
+    program.command('start').description('Start one brief detached; ft watch collects it'),
 ).action(async (options: RunOptions) => {
     process.exitCode = await start(options)
 })
 program
-    .command('wait')
-    .description('Wait for runs and print each report (default: every running run)')
+    .command('watch')
+    .description('Watch runs until they finish and print each report (default: every running run)')
     .argument('[ids...]', 'run ids or prefixes')
-    .option('--timeout <seconds>', 'stop waiting after this long and exit 75')
+    .option('--timeout <seconds>', 'stop watching after this long and exit 75')
     .option('--json', 'print one JSON status per run')
     .action(async (ids: string[], options: { timeout?: string; json?: boolean }) => {
-        process.exitCode = await wait(ids, options)
+        process.exitCode = await watch(ids, options)
     })
 program
-    .command('runs')
+    .command('list')
     .description("List this project's runs, newest first")
     .option('--all', 'include every finished run')
     .option('--json', 'print one JSON status per run')
-    .action(runs)
+    .action(list)
 program
     .command('show <id>')
     .description('Tell the story of one run: every step and the answer')

@@ -27,7 +27,7 @@ export const DEFAULT_RUN_NAME = 'run'
 /** Longest title kept from a brief's first line. */
 export const TITLE_MAX = 72
 
-/** Exit code for each state; `running` is what `ft wait` returns when its timeout ends first (EX_TEMPFAIL). */
+/** Exit code for each state; `running` is what `ft watch` returns when its timeout ends first (EX_TEMPFAIL). */
 export const EXIT_CODES = {
     success: 0,
     model_error: 1,

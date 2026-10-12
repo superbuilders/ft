@@ -64,7 +64,7 @@ export async function run(options: RunOptions): Promise<number> {
 }
 
 /**
- * Start one brief detached from this shell and return at once; `ft wait` collects it. The run
+ * Start one brief detached from this shell and return at once; `ft watch` collects it. The run
  * keeps going when the harness kills or backgrounds the command that started it.
  * @param options - caller options
  * @returns 0 once the run is started, or the configuration-error code
@@ -125,7 +125,7 @@ export async function start(options: RunOptions): Promise<number> {
 
         if (Date.now() > giveUp) {
             process.stderr.write(
-                `ft started ${status.id} but it has not reported in; ft wait ${status.id} will tell\n`,
+                `ft started ${status.id} but it has not reported in; ft watch ${status.id} will tell\n`,
             )
             break
         }
@@ -144,7 +144,7 @@ export async function start(options: RunOptions): Promise<number> {
     } else {
         process.stdout.write(
             `Started ${status.id} (${status.provider}/${status.model}, ${status.profile} profile): ${status.title}\n` +
-                `Its record is in ${displayPath(status.dir)}. Collect it with: ft wait ${status.id}\n`,
+                `Its record is in ${displayPath(status.dir)}. Collect it with: ft watch ${status.id}\n`,
         )
     }
 

@@ -18,7 +18,7 @@ It prints the manual for the exact version this repository pins: the lanes confi
 ## The loop
 
 1. Write the brief to a file (for example `tmp/ft/review.md`): the task, where to look, what done means, what to leave alone. One task per brief.
-2. One run: `ft run --brief tmp/ft/review.md`. Several, or anything that may run long: `ft start` each brief, then `ft wait` with every id it printed.
+2. One run: `ft run --brief tmp/ft/review.md`. Several, or anything that may run long: `ft start` each brief, then `ft watch` with every id it printed.
 3. Read the report. Its last line repeats the verdict; the exit code says the same.
 4. Treat the answer as a claim. Check it against the code. After a write run, read `git diff` before keeping anything; ft never commits.
 5. Tell the user what the delegate found and what you checked, with the run id so they can open it with `ft show <id>`.

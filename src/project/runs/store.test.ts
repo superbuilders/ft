@@ -72,7 +72,7 @@ describe('finding a run', () => {
     })
 
     it('says how to list runs when none matches', async () => {
-        await expect(findRuns(root, ['nope'])).rejects.toThrow(/ft runs lists them/)
+        await expect(findRuns(root, ['nope'])).rejects.toThrow(/ft list shows them/)
     })
 })
 

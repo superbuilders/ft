@@ -130,7 +130,7 @@ publish status, save the answer), `pi/run/` drives Pi (choose the model,
 launch, judge, handle signals and the deadline), and `commands/run/` only
 reads the command line and prints. `ft run` executes in the foreground; `ft start` spawns the hidden
 `ft exec <dir>` detached and returns, so the run survives a harness killing or
-backgrounding its shell. `wait`, `runs`, `show` and `stop` only read the
+backgrounding its shell. `watch`, `list`, `show` and `stop` only read the
 folder (a running status whose process is gone reads as `lost`; nothing
 rewrites it). Mistakes caught before a run exists print to stderr and leave no
 folder.
