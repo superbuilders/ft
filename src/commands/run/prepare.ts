@@ -99,17 +99,15 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
         await getKey(provider.key, config.root)
     }
 
-    const texts = await Promise.all(briefs.map(readBrief))
-
-    return Promise.all(
-        briefs.map((brief, index) =>
-            openRun(config.workspace, {
-                name: runName(options.name, brief),
-                brief: texts[index] ?? '',
-                request,
-                selected,
-                piVersion: PI_VERSION,
-            }),
-        ),
+    const runs = await Promise.all(
+        briefs.map(async brief => ({
+            name: runName(options.name, brief),
+            brief: await readBrief(brief),
+            request,
+            selected,
+            piVersion: PI_VERSION,
+        })),
     )
+
+    return Promise.all(runs.map(run => openRun(config.workspace, run)))
 }

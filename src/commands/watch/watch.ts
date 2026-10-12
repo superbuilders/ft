@@ -73,7 +73,6 @@ export async function watch(
     }
 
     let pending = targets.map(status => status.dir)
-    let code = 0
     const settled: { status: Status; state: State }[] = []
     const seen = new Map<string, string>()
     const narrating = !options.json && process.stderr.isTTY
@@ -89,7 +88,6 @@ export async function watch(
                 process.stdout.write(
                     `${await settledOutput(status, state, options.json)}${options.json ? '' : '\n'}`,
                 )
-                code = Math.max(code, exitCode(state))
                 settled.push({ status, state })
             } else if (status) {
                 running.push(status)
@@ -107,7 +105,7 @@ export async function watch(
                 process.stdout.write(`${tally(settled)}\n`)
             }
 
-            return code
+            return Math.max(0, ...settled.map(({ state }) => exitCode(state)))
         }
 
         if (Date.now() >= limit) {
