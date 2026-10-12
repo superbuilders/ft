@@ -88,5 +88,5 @@ export async function show(id: string, options: { json?: boolean }): Promise<voi
         )
     }
 
-    process.stdout.write(`${lines.join('\n')}\n${renderReport(status, state, text, false)}`)
+    process.stdout.write(`${lines.join('\n')}\n${renderReport(status, state, text, true)}`)
 }

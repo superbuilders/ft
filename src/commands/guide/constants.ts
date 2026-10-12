@@ -6,7 +6,7 @@ export const GUIDE_BODY = `## Run one brief
 
     ft run tmp/review.md
 
-A brief is the whole task as the other model sees it, written to a file anywhere (ft keeps a copy). \`ft run\` waits, then prints a report: the verdict, the tools used and files written, the answer, and what to do next if it failed. The report's last line repeats the verdict. Exit code 0 means success; the answer is also saved in the run's folder.
+A brief is the whole task as the other model sees it, written to a file anywhere (ft keeps a copy). \`ft run\` waits, then prints a report: the verdict, the tools used and files written, what to do next if it failed, and where the answer is saved with its length in lines. Read the answer file when you need it; \`ft show <id>\` prints it too. The report's last line repeats the verdict. Exit code 0 means success. To keep answers short, ask for that in the brief.
 
 Options: \`--name review\` (the start of the run id), \`--lane <lane>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--deadline <seconds>\`, \`--cwd <dir>\`, \`--out <path>\` (also write the answer there; removed if the run fails), \`--json\`.
 
@@ -17,6 +17,8 @@ Options: \`--name review\` (the start of the run id), \`--lane <lane>\` or \`--m
     ft watch review-k3x2 security-7d0e research-9f1c --timeout 540
 
 \`ft start\` takes one or more briefs and the same options, which apply to every run (\`--name\` and \`--out\` take a single brief). It checks every brief before starting any, starts the runs detached from your shell, and returns at once: one line per run, then the \`ft watch\` command for them. \`ft watch <ids>\` prints each run's report as it finishes, then one line counting the outcomes and naming every run that did not succeed, and exits with the worst run's code. If its timeout ends first, it lists what is still running and exits 75: call it again with the ids it names. Pass every id you started: a run that finished before you called \`ft watch\` is reported only when named (with no ids, \`ft watch\` waits for the runs that are running at that moment). Runs keep going when the shell that started them is killed or backgrounded, so start every run before you wait on any.
+
+Wait without blocking when your harness allows it: run the \`ft watch\` command as a background command that tells you when it exits, keep working, and read its output when you are told. Without that, run \`ft watch <ids> --timeout <seconds>\` and call it again while it exits 75.
 
 ## Write the brief
 
@@ -36,14 +38,16 @@ A lane whose model cannot use tools (such as a web-research model) runs without 
 - Exit codes: 0 success; 1 model or runtime error, or a lost run; 2 configuration error; 3 incomplete or unreadable output; 75 still running (\`ft watch\` timed out); 124 deadline reached; 130 cancelled.
 - The answer is a claim, not a fact. Check it against the code. After a write run, read \`git diff\` before you accept it; ft never commits.
 - A failed run keeps the model's last message as a partial answer, and the report says what to try next.
-- \`ft show <id>\` tells the whole story of a run: every step, its timing, the answer. \`ft list\` shows every run, live. \`ft stop <id>\` cancels one. Ids accept any unambiguous prefix.
+- \`ft show <id>\` tells the whole story of a run: every step, its timing, and the answer itself. \`ft list\` shows every run, live. \`ft stop <id>\` cancels one. Ids accept any unambiguous prefix.
 - \`--json\` on run, start, watch, list and show prints one JSON object per run, one per line: the stored status plus \`state\` (the outcome, or \`lost\` when its process died without one).
 
 ## In your harness
 
-- Claude Code: allow \`Bash(ft:*)\`. Make \`ft ...\` the whole command (no \`cd dir &&\`, no \`VAR=value ft\`, no redirects), or the allow rule stops matching. A foreground run longer than the tool's time limit moves to the background and still completes; for parallel runs use \`ft start\` and \`ft watch\`.
-- Codex: ft needs the network and writes under ~/.cache/ft, which the workspace-write sandbox blocks. Request escalated permissions with the prefix rule ["ft"] so one approval covers later calls. Keep polling \`ft watch\` until it exits.
-- Pi: the bash tool blocks until the command exits and keeps only the tail of its output. Use \`ft start\` and \`ft watch\`; every report ends with its verdict.
+- Claude Code: allow \`Bash(ft:*)\`. Make \`ft ...\` the whole command (no \`cd dir &&\`, no \`VAR=value ft\`, no redirects), or the allow rule stops matching. Run \`ft watch\` with the Bash tool's \`run_in_background\`: you are notified when it exits, and its output holds every report and the tally. No \`--timeout\` is needed then.
+- Codex: ft needs the network and writes under ~/.cache/ft, which the workspace-write sandbox blocks. Request escalated permissions with the prefix rule ["ft"] so one approval covers later calls. A background terminal does not tell you when a command exits, so call \`ft watch <ids> --timeout <seconds>\` until it exits with something other than 75.
+- Pi: the bash tool blocks until the command exits and keeps only the tail of its output. Use \`ft start\`, then \`ft watch <ids> --timeout <seconds>\` until it exits with something other than 75; every report ends with its verdict.
+- OpenCode: run \`ft watch\` with the shell tool's \`background: true\`; the session is notified when it finishes.
+- Gemini CLI: a background command reports back only when \`tools.shell.backgroundCompletionBehavior\` is \`inject\`; otherwise use \`ft watch --timeout\` as for Pi.
 
 ## A run's folder: .ft/runs/<id>/
 

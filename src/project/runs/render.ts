@@ -223,19 +223,21 @@ function inline(text: string, path: string): string {
 }
 
 /**
- * The report a caller reads when a run ends: verdict, what it did, the answer, what next. The last
- * line restates the verdict, because some harnesses keep only the tail of long output.
+ * The report a caller reads when a run ends: verdict, what it did, what next, and where the answer
+ * is. The answer stays in its file, so a caller watching many runs reads only the answers it
+ * needs; `ft show` prints it. The last line restates the verdict, because some harnesses keep only
+ * the tail of long output.
  * @param status - settled run status
  * @param state - stored outcome, or `lost`
  * @param text - the answer or partial answer, if any
- * @param pointToShow - end by pointing at `ft show`; false when the report is already inside it
+ * @param inShow - the report is inside `ft show`: print the answer and do not point at `ft show`
  * @returns report text ending in a newline
  */
 export function renderReport(
     status: Status,
     state: State,
     text: string | null,
-    pointToShow = true,
+    inShow = false,
 ): string {
     const lines = [headline(status, state)]
     const activity = activityLine(status)
@@ -254,22 +256,25 @@ export function renderReport(
     }
 
     const saved = status.answer ?? status.partial
+    const kept = text?.trim() ? text : null
 
-    if (text?.trim() && saved) {
+    if (inShow && kept && saved) {
         lines.push('')
 
         if (!status.answer) {
             lines.push("The model's last message before the run stopped:", '')
         }
 
-        lines.push(inline(text, saved), '')
+        lines.push(inline(kept, saved), '')
     }
 
+    const count = kept ? kept.trimEnd().split('\n').length : 0
+    const size = kept ? `, ${count} ${count === 1 ? 'line' : 'lines'}` : ''
     const notes = [
-        saved ? `${status.answer ? 'answer' : 'partial answer'} in ${displayPath(saved)}` : null,
-        pointToShow && state !== 'configuration_error'
-            ? `ft show ${status.id} for every step`
+        saved
+            ? `${status.answer ? 'answer' : 'partial answer'} in ${displayPath(saved)}${size}`
             : null,
+        !inShow && state !== 'configuration_error' ? `ft show ${status.id} for every step` : null,
     ].filter(Boolean)
 
     lines.push(`${status.id} ${verdict(state)}${notes.length > 0 ? ` (${notes.join('; ')})` : ''}`)
@@ -360,8 +365,7 @@ export function renderTable(runs: { status: Status; state: State }[]): string {
 }
 
 /**
- * Render a settled run the way the caller asked for it: its JSON line, or its report with the
- * kept answer inlined.
+ * Render a settled run the way the caller asked for it: its JSON line, or its report.
  * @param status - settled status
  * @param state - its state
  * @param json - print the status as JSON

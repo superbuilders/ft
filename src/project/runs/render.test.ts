@@ -66,9 +66,12 @@ describe('the report', () => {
             'review-k3x2 succeeded in 4m12s (gateway/gpt-6.1-sol, thinking high, 38.2k tokens, $0.12)',
         )
         expect(lines[1]).toBe('Tools: read 3, grep 1.')
-        expect(lines).toContain('One real problem.')
+        expect(lines).not.toContain('One real problem.')
         expect(lines.at(-1)).toMatch(
-            /^review-k3x2 succeeded \(answer in .*answer\.md; ft show review-k3x2 for every step\)$/,
+            /^review-k3x2 succeeded \(answer in .*answer\.md, 1 line; ft show review-k3x2 for every step\)$/,
+        )
+        expect(renderReport(status, 'success', 'One real problem.\n', true)).toContain(
+            '\nOne real problem.\n',
         )
     })
 
@@ -82,10 +85,10 @@ describe('the report', () => {
         const report = renderReport(status, 'model_error', 'Reading the refund path.')
 
         expect(report).toContain('Next: The brief and the files the model read did not fit')
-        expect(report).toContain(
+        expect(report.trimEnd().split('\n').at(-1)).toContain('partial answer in')
+        expect(renderReport(status, 'model_error', 'Reading the refund path.', true)).toContain(
             "The model's last message before the run stopped:\n\nReading the refund path.",
         )
-        expect(report.trimEnd().split('\n').at(-1)).toContain('partial answer in')
     })
 
     it('points nowhere for a run that never started', () => {

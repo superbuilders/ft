@@ -20,10 +20,11 @@ If `ft` is not on PATH, run it the way this repository does: through its package
 ## The loop
 
 1. Write the brief to a file (for example `tmp/ft/review.md`): the task, where to look, what done means, what to leave alone. One task per brief.
-2. One run: `ft run tmp/ft/review.md`. Several, or anything that may run long: `ft start` with every brief (`ft start tmp/ft/*.md`), then the `ft watch` command it prints.
-3. Read the report. Its last line repeats the verdict; the exit code says the same.
-4. Treat the answer as a claim. Check it against the code. After a write run, read `git diff` before keeping anything; ft never commits.
-5. Tell the user what the delegate found and what you checked, with the run id so they can open it with `ft show <id>`.
+2. Start every brief at once: `ft start tmp/ft/*.md` (or `ft run tmp/ft/review.md` for one short run you can wait on).
+3. Wait without blocking if your harness can: run the `ft watch` command that `ft start` prints as a background command that notifies you when it exits (Claude Code: `run_in_background`), and keep working meanwhile. Otherwise run it with `--timeout` and call it again while it exits 75. `ft guide` has the note for your harness.
+4. Read the reports and the closing tally. Each report names the answer's file and length; read the answers you need.
+5. Treat the answer as a claim. Check it against the code. After a write run, read `git diff` before keeping anything; ft never commits.
+6. Tell the user what the delegate found and what you checked, with the run id so they can open it with `ft show <id>`.
 
 ## When not to
 
