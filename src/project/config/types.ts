@@ -45,6 +45,4 @@ export interface Release {
     schema: string
     /** The shim, written as the repository launcher; fetched only when asked for. */
     launcher?: string
-    /** The agent skill; fetched only when asked for. */
-    skill?: string
 }

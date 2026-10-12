@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
-import { existsSync, lstatSync, statSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, readlink, rm, symlink, writeFile } from 'node:fs/promises'
+import { existsSync, statSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -10,7 +10,6 @@ import { TARGETS } from '../../system/host/constants'
 import { init } from './init'
 
 const SHIM = '#!/bin/sh\necho shim\n'
-const SKILL = '# ft skill\n'
 const SCHEMA = '{"title":".ft.json"}\n'
 const assets: Record<string, string> = {}
 let root: string
@@ -43,12 +42,10 @@ beforeEach(async () => {
     Object.assign(assets, {
         'schema.json': SCHEMA,
         'ft-shim': SHIM,
-        'SKILL.md': SKILL,
         SHA256SUMS: `${[
             ...TARGETS.map((target, index) => `${String(index).repeat(64)}  ft-${target}`),
             `${sha(SCHEMA)}  schema.json`,
             `${sha(SHIM)}  ft-shim`,
-            `${sha(SKILL)}  SKILL.md`,
         ].join('\n')}\n`,
     })
     await mkdir(join(root, 'repo', '.git'), { recursive: true })
@@ -80,33 +77,18 @@ it('sets a repository up so a clone needs only gh', async () => {
     expect(await readFile(join(repo, '.ft/ft'), 'utf8')).toBe(SHIM)
     expect(statSync(join(repo, '.ft/ft')).mode & 0o111).not.toBe(0)
     expect(JSON.parse(await readFile(join(repo, '.ft.json'), 'utf8')).providers).toEqual({})
-    expect(await readFile(join(repo, '.agents/skills/ft/SKILL.md'), 'utf8')).toBe(SKILL)
-    expect(await readlink(join(repo, '.claude/skills/ft'))).toBe('../../.agents/skills/ft')
+    expect(existsSync(join(repo, '.agents'))).toBe(false)
     expect(await readFile(join(repo, 'package.json'), 'utf8')).toBe(
         '{\n  "name": "app",\n  "scripts": {\n    "ft": "sh .ft/ft"\n  }\n}\n',
     )
-    expect(output).toContain('Agents here run ft as bun ft')
-})
-
-it('adds no Claude link where .claude/skills already is .agents/skills', async () => {
-    const repo = join(root, 'repo')
-
-    await mkdir(join(repo, '.agents/skills'), { recursive: true })
-    await mkdir(join(repo, '.claude'))
-    await symlink('../.agents/skills', join(repo, '.claude/skills'))
-    await init('0.2.0', {})
-
-    expect(lstatSync(join(repo, '.claude/skills')).isSymbolicLink()).toBe(true)
-    expect(existsSync(join(repo, '.agents/skills/ft/SKILL.md'))).toBe(true)
-    expect(output).not.toContain('Wrote .claude')
-    expect(output).toContain('Agents here run ft as .ft/ft')
+    expect(output).toMatch(/Run as +bun ft \(script added to package.json\)/)
+    expect(output).toContain('Optional: bun ft skill')
 })
 
 it('sets ft up for one person, copying a shared config', async () => {
     const shared = join(root, 'shared.json')
 
     await writeFile(shared, JSON.stringify({ providers: {}, lanes: {} }))
-    await mkdir(join(root, 'home', '.claude'), { recursive: true })
     await init('0.2.0', { user: true, from: shared })
 
     expect(existsSync(join(root, 'config/ft/.ft/lock.json'))).toBe(true)
@@ -114,8 +96,8 @@ it('sets ft up for one person, copying a shared config', async () => {
     expect(JSON.parse(await readFile(join(root, 'config/ft/.ft.json'), 'utf8')).$schema).toBe(
         './.ft/schema.json',
     )
-    expect(await readFile(join(root, 'home/.agents/skills/ft/SKILL.md'), 'utf8')).toBe(SKILL)
-    expect(existsSync(join(root, 'home/.claude/skills/ft'))).toBe(true)
+    expect(existsSync(join(root, 'home'))).toBe(false)
+    expect(output).toContain(`Config  ${join(root, 'config/ft/.ft.json')} (copied from ${shared})`)
     expect(existsSync(join(root, 'repo/.ft'))).toBe(false)
 })
 
@@ -128,5 +110,5 @@ it('spells the npm script with -- so ft keeps its own flags', async () => {
     await writeFile(join(root, 'repo', 'package.json'), '{}\n')
     await init('0.2.0', {})
 
-    expect(output).toContain('Agents here run ft as npm run ft --.')
+    expect(output).toMatch(/Run as +npm run ft --/)
 })

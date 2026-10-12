@@ -19,8 +19,7 @@ export const RELEASE_REPOSITORY = 'superbuilders/ft'
 export const RELEASE_ASSETS = {
     schema: 'schema.json',
     launcher: 'ft-shim',
-    skill: 'SKILL.md',
 } as const
 
-/** Where `ft init` puts the agent skill, relative to the repository or home directory. */
+/** Where `ft skill` puts the agent skill, relative to the repository or home directory. */
 export const SKILL_PATH = '.agents/skills/ft/SKILL.md'

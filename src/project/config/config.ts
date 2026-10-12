@@ -70,7 +70,7 @@ function workspaceOf(path: string, cwd: string): string {
  * @param cwd - any directory
  * @returns the repository's top directory, or cwd outside a repository
  */
-export function repositoryRoot(cwd: string): string {
+function repositoryRoot(cwd: string): string {
     for (let dir = resolve(cwd); ; dir = dirname(dir)) {
         if (existsSync(join(dir, '.git'))) {
             return dir
@@ -80,6 +80,22 @@ export function repositoryRoot(cwd: string): string {
             return resolve(cwd)
         }
     }
+}
+
+/**
+ * The directory one scope's setup lives in: this person's config directory, or this repository,
+ * meaning the directory of its own config, else the git repository around cwd.
+ * @param user - the personal scope rather than the repository
+ * @returns absolute directory
+ */
+export function scopeRoot(user: boolean): string {
+    if (user) {
+        return configRoot()
+    }
+
+    const found = findConfig(process.cwd(), process.env.FT_CONFIG)
+
+    return found && !isPersonal(found) ? dirname(found) : repositoryRoot(process.cwd())
 }
 
 /**

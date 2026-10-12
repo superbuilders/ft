@@ -19,7 +19,8 @@ bun run check --pre-push                   # Also type-aware lint and knip
 bun run knip                               # Compact unused-code report; config hints fail
 bun src/cli.ts --version                   # Package version
 bun src/cli.ts guide                       # The agent manual a consuming repo's skill points at
-bun src/cli.ts init [--user]               # Set ft up in a repository, or for one person
+bun src/cli.ts init [--user]               # Set ft up in this repository, or for one person
+bun src/cli.ts skill [--user]              # Add the agent skill to this repository, or one person's home
 bun run release <patch|minor|major|x.y.z>  # Bump, tag, push; release.yml builds and publishes
 bun run dogfood                            # Install the last commit's ft as ft on PATH
 ```
@@ -121,17 +122,24 @@ endpoint. `.ft/lock.json` (version and checksums) and `.ft/schema.json` (the
 config's JSON Schema) come from the pinned release; only `ft pin` and `ft init`
 write them, and the shim reads the lock. `ft schema` prints the same schema.
 
-`ft init` sets a repository up from one release: the lock, schema, launcher
-`.ft/ft` (the shim, so cloners need only gh), a starter `.ft.json`, the skill
-at `.agents/skills/ft/SKILL.md` with a `.claude/skills/ft` link, and an `ft`
-package script when there is a package.json. `ft init --user` writes the same
-config, lock and schema under `${XDG_CONFIG_HOME:-~/.config}/ft/` and the skill
-under `~/.agents/skills`. That personal config is the fallback when no
-`.ft.json` is found walking up; a repository's own config always wins. With the
-personal config, `root` (where key commands run) is the config directory, and
-`workspace` (where runs and context live) is the git repository around the
-working directory. Release assets are the runners, `ft-shim`, `install.sh`,
-`schema.json` and `SKILL.md`, all listed in `SHA256SUMS`.
+Setup has two scopes with the same commands, `--user` choosing the personal one:
+`ft init`, `ft pin <version>` and `ft skill`. The repository scope is the
+directory of its own `.ft.json`, else the git repository around the working
+directory; the personal scope is `${XDG_CONFIG_HOME:-~/.config}/ft/`, and for
+the skill, the home directory. `ft init` sets a repository up from one release:
+the lock, schema, launcher `.ft/ft` (the shim, so cloners need only gh), a
+starter `.ft.json`, and an `ft` package script when there is a package.json.
+`ft init --user` writes the config, lock and schema only; the installer runs
+it and touches nothing else. `ft pin` refuses a scope that is not set up.
+`ft skill` writes the skill built into the runner (from `.agents/skills/ft/`)
+at `.agents/skills/ft/SKILL.md` with a `.claude/skills/ft` link, so rerunning
+it after an upgrade refreshes it; nothing writes the skill unasked. The
+personal config is the fallback when no `.ft.json` is found walking up; a
+repository's own config always wins. With the personal config, `root` (where
+key commands run) is the config directory, and `workspace` (where runs and
+context live) is the git repository around the working directory. Release
+assets are the runners, `ft-shim`, `install.sh` and `schema.json`, all listed
+in `SHA256SUMS`.
 
 ft always prints its commands as `ft …`. How a repository runs ft (a package
 script, `.ft/ft`) is the repository's fact, stated by its skill; only

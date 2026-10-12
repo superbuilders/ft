@@ -60,15 +60,14 @@ function checksum(sums: string, asset: string): string {
 
 /**
  * Fetch what a caller needs from one release, each file checked against the release manifest:
- * always the runner checksums for the lock and the config schema, plus the launcher and the agent
- * skill when asked for.
+ * always the runner checksums for the lock and the config schema, plus the launcher when asked for.
  * @param version - exact runner release version
  * @param extras - the optional files to fetch
  * @returns the release's files
  */
 export async function fetchRelease(
     version: string,
-    extras: readonly ('launcher' | 'skill')[],
+    extras: readonly 'launcher'[],
 ): Promise<Release> {
     if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) {
         throw new Error('Expected a release version such as 0.2.0')
@@ -91,7 +90,7 @@ export async function fetchRelease(
 
             return [name, text]
         }),
-    ) as Pick<Release, 'schema' | 'launcher' | 'skill'>
+    ) as Pick<Release, 'schema' | 'launcher'>
     const sha256 = Object.fromEntries(
         TARGETS.map(target => [target, checksum(sums ?? '', `ft-${target}`)]),
     ) as Lock['sha256']

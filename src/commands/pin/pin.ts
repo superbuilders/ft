@@ -1,35 +1,37 @@
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 
-import { findConfig } from '../../project/config/config'
+import { scopeRoot } from '../../project/config/config'
 import { CONFIG_FILE, LAUNCHER_FILE, LOCK_FILE } from '../../project/config/constants'
-import {
-    fetchRelease,
-    starterConfig,
-    writeRelease,
-    writeStarterConfig,
-} from '../../project/config/release'
+import { fetchRelease, writeRelease } from '../../project/config/release'
 
 /**
- * Pin a release: write its checksums to the lock and its config schema beside it, and update the
- * repository launcher when there is one. All come from the pinned release, so they always match
- * the runner the launcher will start. A directory with no config also gets an empty one.
+ * Pin a release for one scope: write its checksums to the lock and its config schema beside it,
+ * and update the repository launcher when there is one. All come from the pinned release, so they
+ * always match the runner the launcher will start. A scope that is not set up is refused, since
+ * setting one up is `ft init`'s job.
  * @param version - exact runner release version
+ * @param options - command options
+ * @param options.user - pin this person's config rather than this repository's
  * @returns completion of pin publication
  */
-export async function pin(version: string): Promise<void> {
-    const found = findConfig(process.cwd(), process.env.FT_CONFIG)
-    const root = found ? dirname(found) : process.cwd()
+export async function pin(version: string, options: { user?: boolean }): Promise<void> {
+    const user = options.user === true
+    const root = scopeRoot(user)
+
+    if (!existsSync(join(root, CONFIG_FILE))) {
+        throw new Error(
+            user
+                ? `No personal config in ${root}; set it up with ft init --user`
+                : `No ${CONFIG_FILE} in ${root}; set this repository up with ft init`,
+        )
+    }
+
     const release = await fetchRelease(
         version,
         existsSync(join(root, LAUNCHER_FILE)) ? ['launcher'] : [],
     )
 
     await writeRelease(root, release)
-
-    const started = await writeStarterConfig(root, await starterConfig())
-
-    process.stderr.write(
-        `Pinned ft ${version} in ${join(root, LOCK_FILE)}${started ? `; add a provider and a code lane to ${CONFIG_FILE}` : ''}\n`,
-    )
+    process.stderr.write(`Pinned ft ${version} in ${join(root, LOCK_FILE)}\n`)
 }

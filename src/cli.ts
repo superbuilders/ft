@@ -9,6 +9,7 @@ import { pin } from './commands/pin/pin'
 import { exec, run, start } from './commands/run/run'
 import { schema } from './commands/schema/schema'
 import { show } from './commands/show/show'
+import { skill } from './commands/skill/skill'
 import { stop } from './commands/stop/stop'
 import { watch } from './commands/watch/watch'
 import { RUNNER_VERSION } from './version'
@@ -99,7 +100,16 @@ program
     .action((version: string | undefined, options: { user?: boolean; from?: string }) =>
         init(version ?? RUNNER_VERSION, options),
     )
-program.command('pin <version>').description('Pin a runner release in .ft/lock.json').action(pin)
+program
+    .command('pin <version>')
+    .description('Pin a runner release for this repository, or with --user for you')
+    .option('--user', "pin your personal config rather than this repository's")
+    .action(pin)
+program
+    .command('skill')
+    .description('Add the agent skill to this repository, or with --user for you')
+    .option('--user', 'put it in your home directory, for every repository')
+    .action(skill)
 program.command('schema').description('Print the JSON Schema for .ft.json').action(schema)
 program
     .command('doctor')

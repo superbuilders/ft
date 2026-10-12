@@ -22,8 +22,8 @@ export async function digest(path: string): Promise<string> {
 }
 
 /**
- * Fill a folder holding only ft-<target> with the rest of a release: the shim, installer, skill,
- * config schema and SHA256SUMS. A lock needs every target's checksum, but the lab builds and runs
+ * Fill a folder holding only ft-<target> with the rest of a release: the shim, installer, config
+ * schema and SHA256SUMS. A lock needs every target's checksum, but the lab builds and runs
  * only this host's, so the others are placeholders.
  * @param directory - folder holding the runner binary
  * @param target - the binary's platform target
@@ -32,13 +32,12 @@ export async function digest(path: string): Promise<string> {
 async function completeRelease(directory: string, target: string): Promise<void> {
     await copyFile('shim/ft', join(directory, 'ft-shim'))
     await copyFile('install.sh', join(directory, 'install.sh'))
-    await copyFile('.agents/skills/ft/SKILL.md', join(directory, 'SKILL.md'))
 
     const schema = await command([join(directory, `ft-${target}`), 'schema'])
 
     await writeFile(join(directory, 'schema.json'), schema.stdout)
 
-    const assets = [`ft-${target}`, 'ft-shim', 'install.sh', 'schema.json', 'SKILL.md']
+    const assets = [`ft-${target}`, 'ft-shim', 'install.sh', 'schema.json']
     const sums = await Promise.all(
         assets.map(async asset => `${await digest(join(directory, asset))}  ${asset}\n`),
     )
