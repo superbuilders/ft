@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "check": "bun scripts/check",
+        "dogfood": "bun scripts/dogfood",
         "knip": "knip --reporter compact --treat-config-hints-as-errors",
         "prepare": "husky",
         "release": "bun scripts/release",

@@ -13,7 +13,7 @@ Start every session that uses ft with:
 ft guide
 ```
 
-It prints the manual for the exact version this repository pins: the lanes configured here, how to write a brief, the run and wait commands, exit codes, and notes for your harness. Follow it over anything you remember about ft.
+It prints the manual for the exact version this repository pins: the lanes configured here, how to write a brief, the run and watch commands, exit codes, and notes for your harness. Follow it over anything you remember about ft.
 
 ## The loop
 

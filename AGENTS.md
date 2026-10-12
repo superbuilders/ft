@@ -21,7 +21,15 @@ bun run knip                        # Compact unused-code report; config hints f
 bun src/cli.ts --version             # Package version
 bun src/cli.ts guide                 # The agent manual a consuming repo's skill points at
 bun run release <patch|minor|major|x.y.z>   # Bump, tag, push; release.yml builds and publishes
+bun run dogfood                     # Install the last commit's ft as ft on PATH
 ```
+
+## Delegating
+
+Delegate reviews and scoped changes with `ft` (the `ft` skill), not pi-sub.
+The `ft` on PATH is a build of the last commit, so uncommitted edits never
+break the tool reviewing them. After committing a change to ft, run
+`bun run dogfood` before the next delegation so it uses what you built.
 
 ## Validation Workflow
 
@@ -138,8 +146,8 @@ folder.
 Callers read stdout, and some harnesses keep only its tail, so every report
 ends with a line restating the verdict. The agent-facing manual is
 `ft guide` (`src/commands/guide/`); change it with the behavior it describes.
-`skill/ft/SKILL.md` is the reference skill for consuming repositories: it
-points at `ft guide` rather than restating flags.
+`.agents/skills/ft/SKILL.md` is the reference skill for consuming repositories, and
+this repository's own: it points at `ft guide` rather than restating flags.
 
 ## Model adapters
 
