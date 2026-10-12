@@ -6,7 +6,7 @@ Instructions for coding agents working in this repository.
 
 `ft` is a pinned, isolated Pi runner that agent harnesses with native subagents
 can call to run one brief on one model, in parallel with other runs. This is a single-package
-Bun + TypeScript CLI. `docs/plan.md` records the original design.
+Bun + TypeScript CLI.
 
 ## Commands
 
@@ -188,4 +188,3 @@ kind-files, and JSDoc on exported functions.
 
 - The commit hook rejects any staged `.env*` file except `.example` templates.
   Never print secret values.
-- `docs/plan.md` is excluded from formatting so the handoff stays unchanged.
