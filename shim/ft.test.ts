@@ -27,6 +27,7 @@ if [ "\${1:-}" = --version ]; then
     exit "\${FAKE_SMOKE_EXIT:-0}"
 fi
 printf 'runner=0.1.0\\nFT_CONFIG=%s\\n' "\${FT_CONFIG:-unset}"
+printf 'PATH=%s\\n' "$PATH"
 printf 'arg=<%s>\\n' "$@"
 `
 
@@ -253,7 +254,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(first.code).toBe(0)
         expect(first.stdout).toBe(
-            `runner=0.1.0\nFT_CONFIG=${join(project, '.ft.json')}\narg=<run>\narg=<two words>\narg=<*>\narg=<>\n`,
+            `runner=0.1.0\nFT_CONFIG=${join(project, '.ft.json')}\nPATH=${env.PATH}\narg=<run>\narg=<two words>\narg=<*>\narg=<>\n`,
         )
         expect(ghCalls()).toEqual([
             expect.stringContaining(
@@ -297,6 +298,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code, result.stderr).toBe(0)
         expect(result.stdout).toContain('arg=<pin>')
+        expect(result.stdout).toContain(`PATH=${fallback}:`)
         expect(ghCalls()).toEqual([
             'release view -R superbuilders/ft --json tagName',
             expect.stringContaining('-p SHA256SUMS -D '),

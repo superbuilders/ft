@@ -3,7 +3,12 @@ import { dirname, join } from 'node:path'
 
 import { findConfig } from '../../project/config/config'
 import { CONFIG_FILE, LAUNCHER_FILE, LOCK_FILE } from '../../project/config/constants'
-import { fetchRelease, writeRelease, writeStarterConfig } from '../../project/config/release'
+import {
+    fetchRelease,
+    starterConfig,
+    writeRelease,
+    writeStarterConfig,
+} from '../../project/config/release'
 
 /**
  * Pin a release: write its checksums to the lock and its config schema beside it, and update the
@@ -22,7 +27,7 @@ export async function pin(version: string): Promise<void> {
 
     await writeRelease(root, release)
 
-    const started = await writeStarterConfig(root)
+    const started = await writeStarterConfig(root, await starterConfig())
 
     process.stderr.write(
         `Pinned ft ${version} in ${join(root, LOCK_FILE)}${started ? `; add a provider and a code lane to ${CONFIG_FILE}` : ''}\n`,

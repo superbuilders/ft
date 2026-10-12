@@ -159,7 +159,11 @@ if [ ! -f "$personal" ]; then
 fi
 
 rule
-printf '  %s✔ Installed ft %s%s\n' "$green" "$version" "$reset"
+if [ "$setup" = failed ]; then
+    printf '  %s✔ Installed ft %s%s (your personal config is not set up yet)\n' "$green" "$version" "$reset"
+else
+    printf '  %s✔ Installed ft %s%s\n' "$green" "$version" "$reset"
+fi
 rule
 
 case :${PATH:-}: in
@@ -169,7 +173,11 @@ case :${PATH:-}: in
         shell=${SHELL:-}
         case ${shell##*/} in
             zsh) rc='~/.zshrc' ;;
-            bash) rc='~/.bashrc' ;;
+            bash)
+                # macOS terminals start login shells, which read ~/.bash_profile, not ~/.bashrc.
+                rc='~/.bashrc'
+                [ "$(uname -s)" != Darwin ] || rc='~/.bash_profile'
+                ;;
             fish) rc='~/.config/fish/config.fish' ;;
             *) rc='~/.profile' ;;
         esac
@@ -189,3 +197,4 @@ case $setup in
         ;;
 esac
 printf '\n'
+[ "$setup" != failed ] || exit 1

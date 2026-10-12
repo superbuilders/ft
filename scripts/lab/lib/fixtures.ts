@@ -246,6 +246,7 @@ while [ "$#" -gt 0 ]; do
     case $1 in
         -p) patterns="$patterns $2"; shift 2 ;;
         -D) destination=$2; shift 2 ;;
+        -O) [ "$2" = - ] || exit 9; destination=-; shift 2 ;;
         -R) [ "$2" = superbuilders/ft ] || exit 9; shift 2 ;;
         "v$FAKE_VERSION") shift ;;
         *) exit 9 ;;
@@ -257,7 +258,11 @@ for asset in $patterns; do
         printf '%s\\n' "$$" > "$LAB_DOWNLOAD_CHECKPOINT"
         while :; do :; done
     fi
-    cat "$FAKE_FIXTURES/$asset" > "$destination/$asset" || exit 1
+    if [ "$destination" = - ]; then
+        cat "$FAKE_FIXTURES/$asset" || exit 1
+    else
+        cat "$FAKE_FIXTURES/$asset" > "$destination/$asset" || exit 1
+    fi
 done
 `,
         { mode: 0o755 },

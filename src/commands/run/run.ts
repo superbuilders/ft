@@ -56,12 +56,26 @@ export async function run(brief: string, options: RunOptions): Promise<number> {
  * @returns its status once started, or settled when it could not start
  */
 async function launch(prepared: Status): Promise<Status> {
-    const child = Bun.spawn([...selfCommand(), 'exec', prepared.dir], {
-        cwd: process.cwd(),
-        env: process.env,
-        detached: true,
-        stdio: ['ignore', 'ignore', 'ignore'],
-    })
+    let child: Bun.Subprocess
+
+    try {
+        child = Bun.spawn([...selfCommand(), 'exec', prepared.dir], {
+            cwd: process.cwd(),
+            env: process.env,
+            detached: true,
+            stdio: ['ignore', 'ignore', 'ignore'],
+        })
+    } catch (error) {
+        const failed: Status = {
+            ...prepared,
+            outcome: 'runtime_error',
+            error: `ft could not start the run's process: ${error instanceof Error ? error.message : String(error)}`,
+        }
+
+        await writeStatus(failed)
+
+        return failed
+    }
 
     let exited: number | null = null
 

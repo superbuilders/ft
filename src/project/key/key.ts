@@ -1,6 +1,23 @@
 import { runCommand } from '../../system/process/subprocess'
+import { NOT_HEADER_SAFE } from './patterns'
 
 import type { KeySource } from '../../models/types'
+
+/**
+ * Refuse a credential no HTTP header can carry, without echoing it: a header error would print it.
+ * @param key - trimmed credential
+ * @param origin - where it came from, for the message
+ * @returns the credential
+ */
+function checked(key: string, origin: string): string {
+    if (NOT_HEADER_SAFE.test(key)) {
+        throw new Error(
+            `${origin} contains a line break or another character a request header cannot carry`,
+        )
+    }
+
+    return key
+}
 
 /**
  * Resolve a credential without ever writing it to diagnostic output.
@@ -21,7 +38,7 @@ export async function getKey(
             throw new Error(`Key environment variable ${source.env} is empty or unset`)
         }
 
-        return key
+        return checked(key, `Key environment variable ${source.env}`)
     }
 
     const result = await runCommand(source.command, root, signal)
@@ -37,5 +54,5 @@ export async function getKey(
         throw new Error('Key command returned empty stdout')
     }
 
-    return key
+    return checked(key, 'Key command output')
 }

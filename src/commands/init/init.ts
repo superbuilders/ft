@@ -4,7 +4,12 @@ import { dirname, join, relative } from 'node:path'
 
 import { findConfig, isPersonal, repositoryRoot } from '../../project/config/config'
 import { CONFIG_FILE, LAUNCHER_FILE, SKILL_PATH } from '../../project/config/constants'
-import { fetchRelease, writeRelease, writeStarterConfig } from '../../project/config/release'
+import {
+    fetchRelease,
+    starterConfig,
+    writeRelease,
+    writeStarterConfig,
+} from '../../project/config/release'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { configRoot, homeDirectory } from '../../system/host/host'
 import { LOCKFILES, PACKAGE_SCRIPT } from './constants'
@@ -56,7 +61,9 @@ async function packageScript(root: string): Promise<{ command: string; added: bo
 
     const manager = LOCKFILES.find(([file]) => existsSync(join(root, file)))?.[1] ?? 'npm'
     const command =
-        manager === 'npm' ? `npm run ${PACKAGE_SCRIPT.name}` : `${manager} ${PACKAGE_SCRIPT.name}`
+        manager === 'npm'
+            ? `npm run ${PACKAGE_SCRIPT.name} --`
+            : `${manager} ${PACKAGE_SCRIPT.name}`
     const text = await readFile(path, 'utf8')
     const manifest = JSON.parse(text) as { scripts?: Record<string, string> }
 
@@ -123,11 +130,14 @@ export async function init(
     options: { user?: boolean; from?: string },
 ): Promise<void> {
     const { root, skillBase, linkClaude, launcher } = placement(options.user === true)
-    const release = await fetchRelease(version, launcher ? ['launcher', 'skill'] : ['skill'])
+    const [starter, release] = await Promise.all([
+        starterConfig(options.from),
+        fetchRelease(version, launcher ? ['launcher', 'skill'] : ['skill']),
+    ])
 
     await writeRelease(root, release)
 
-    const written = await writeStarterConfig(root, options.from)
+    const written = await writeStarterConfig(root, starter)
     const skill = await placeSkill(skillBase, release.skill ?? '', linkClaude)
     const config = configNote(written, options.from)
     const fill = written && !options.from

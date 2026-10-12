@@ -39,7 +39,7 @@ export async function guide(runnerVersion: string): Promise<void> {
         '',
         `ft runs one brief on one model through a pinned Pi coding agent (Pi ${PI_VERSION}), isolated from your own session, and records the run under .ft/runs/<id>/. Use it to get a second opinion, a parallel review, web research, or a scoped change you will review yourself.`,
         '',
-        'Commands here are written `ft ...`. If this repository runs ft through a package script (such as `bun ft`) or `.ft/ft`, write every command that way.',
+        'Commands here are written `ft ...`. If this repository runs ft through a package script (such as `bun ft`, or `npm run ft --` with npm) or `.ft/ft`, write every command that way.',
         '',
         '## Lanes in this project',
         '',

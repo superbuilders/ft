@@ -4,6 +4,7 @@ import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promis
 import { join, resolve } from 'node:path'
 
 import { version as packageVersion } from '../../../package.json'
+import { TARGETS } from '../../../src/system/host/constants'
 import { platformTarget } from '../../../src/system/host/host'
 import { command } from './processes'
 
@@ -36,6 +37,8 @@ export async function build(cache: string, salt = ''): Promise<Build> {
         'bun.lock',
         'shim/ft',
         'install.sh',
+        '.agents/skills/ft/SKILL.md',
+        'scripts/lab/lib/build.ts',
         ...(await Array.fromAsync(new Bun.Glob('src/**/*.ts').scan('.'))),
     ].toSorted()
 
@@ -74,13 +77,22 @@ export async function build(cache: string, salt = ''): Promise<Build> {
 
             await copyFile('shim/ft', join(stage, 'ft-shim'))
             await copyFile('install.sh', join(stage, 'install.sh'))
+            await copyFile('.agents/skills/ft/SKILL.md', join(stage, 'SKILL.md'))
 
-            const assets = [`ft-${target}`, 'ft-shim', 'install.sh']
+            const schema = await command([output, 'schema'])
+
+            await writeFile(join(stage, 'schema.json'), schema.stdout)
+
+            const assets = [`ft-${target}`, 'ft-shim', 'install.sh', 'schema.json', 'SKILL.md']
             const sums = await Promise.all(
                 assets.map(async asset => `${await digest(join(stage, asset))}  ${asset}\n`),
             )
+            /* A lock needs every target's checksum; the lab builds and runs only this one. */
+            const absent = TARGETS.filter(other => other !== target).map(
+                other => `${'0'.repeat(64)}  ft-${other}\n`,
+            )
 
-            await writeFile(join(stage, 'SHA256SUMS'), sums.join(''))
+            await writeFile(join(stage, 'SHA256SUMS'), [...sums, ...absent].join(''))
             await mkdir(join(cache, 'builds'), { recursive: true })
 
             try {

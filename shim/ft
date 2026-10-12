@@ -94,23 +94,7 @@ validate_hash() {
     expected=$(printf '%s' "$expected" | tr 'A-F' 'a-f')
 }
 
-cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
-if [ "$bootstrap" = no ]; then
-    validate_version
-    validate_hash
-    if [ -f "$cache/runner/$version/ft" ]; then
-        exec "$cache/runner/$version/ft" "$@"
-    fi
-fi
-
-mkdir -p "$cache/runner" "$cache/staging" "$cache/locks" || fail 1 'cannot create cache directories'
-cache=$(cd "$cache" && pwd -P) || fail 1 'cannot resolve cache directory'
-
-new_stage() {
-    stage=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
-}
-require_gh() {
-    [ -n "$gh_bin" ] && return 0
+find_gh() {
     gh_bin=$(command -v gh 2>/dev/null) && return 0
     # FT_GH_FALLBACK_DIRS is a test-only, colon-separated override of the search directories.
     gh_dirs=${FT_GH_FALLBACK_DIRS-/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin}
@@ -125,7 +109,32 @@ require_gh() {
             return 0
         fi
     done
-    fail 2 'gh is required; install GitHub CLI and run gh auth login'
+    gh_bin=
+    return 1
+}
+# The runner calls gh too (ft init, ft pin), so it gets the gh found here when PATH lacks one.
+if ! command -v gh >/dev/null 2>&1 && find_gh; then
+    PATH=${gh_bin%/*}:$PATH
+    export PATH
+fi
+
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
+if [ "$bootstrap" = no ]; then
+    validate_version
+    validate_hash
+    if [ -f "$cache/runner/$version/ft" ]; then
+        exec "$cache/runner/$version/ft" "$@"
+    fi
+fi
+
+(umask 077 && mkdir -p "$cache/runner" "$cache/staging" "$cache/locks") || fail 1 'cannot create cache directories'
+cache=$(cd "$cache" && pwd -P) || fail 1 'cannot resolve cache directory'
+
+new_stage() {
+    stage=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
+}
+require_gh() {
+    [ -n "$gh_bin" ] || find_gh || fail 2 'gh is required; install GitHub CLI and run gh auth login'
 }
 gh_call() {
     # wait is interruptible by traps, unlike a foreground external command.

@@ -118,24 +118,34 @@ export async function writeRelease(root: string, release: Release): Promise<void
 }
 
 /**
- * Write a config to fill in, unless the directory has one: a copy of an existing config, or an
- * empty one.
- * @param root - directory to hold `.ft.json`
+ * Build the config a setup starts from, checked before anything is written: a copy of an existing
+ * config, or an empty one.
  * @param from - a config file to copy, such as a teammate's project's
+ * @returns the starter config
+ */
+export async function starterConfig(from?: string): Promise<object> {
+    const config = from
+        ? { ...(JSON.parse(await readFile(from, 'utf8')) as object), $schema: `./${SCHEMA_FILE}` }
+        : { $schema: `./${SCHEMA_FILE}`, providers: {}, lanes: {} }
+
+    validateConfig(config)
+
+    return config
+}
+
+/**
+ * Write a starter config, unless the directory has a config already.
+ * @param root - directory to hold `.ft.json`
+ * @param config - from `starterConfig`
  * @returns whether a config was written
  */
-export async function writeStarterConfig(root: string, from?: string): Promise<boolean> {
+export async function writeStarterConfig(root: string, config: object): Promise<boolean> {
     const path = join(root, CONFIG_FILE)
 
     if (existsSync(path)) {
         return false
     }
 
-    const config = from
-        ? { ...(JSON.parse(await readFile(from, 'utf8')) as object), $schema: `./${SCHEMA_FILE}` }
-        : { $schema: `./${SCHEMA_FILE}`, providers: {}, lanes: {} }
-
-    validateConfig(config)
     await atomicWrite(path, `${JSON.stringify(config, null, 4)}\n`)
 
     return true

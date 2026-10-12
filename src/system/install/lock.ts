@@ -89,6 +89,8 @@ export async function acquireLock(
 ): Promise<() => Promise<void>> {
     const locks = join(root, 'locks')
 
+    /* Owner-only: anything another user can write here, ft would later execute. */
+    await mkdir(root, { recursive: true, mode: 0o700 })
     await mkdir(locks, { recursive: true })
 
     const candidate = await mkdtemp(join(locks, '.owner-'))

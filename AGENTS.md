@@ -137,11 +137,13 @@ ft always prints its commands as `ft …`. How a repository runs ft (a package
 script, `.ft/ft`) is the repository's fact, stated by its skill; only
 `ft init`, which writes the package script, names it in its own output.
 
-The schema in `src/project/config/schema.ts` is strict: every field, Pi's
-included, is named, so a typo fails in ft instead of being ignored by Pi. A type
+The schema in `src/project/config/schema.ts` is strict about the config,
+provider, lane and model fields, so a typo there fails in ft instead of being
+ignored by Pi; nested Pi objects such as `compat` pass through as given. A type
 test ties the model field names to pi-ai's `Model`, and pi-ai is pinned to
 exactly `PI_VERSION`. A run writes only its own provider into Pi's models.json,
-with `!ft key <provider>` as the key; Pi accepts a key there for every provider.
+with a `!` command that runs this same runner's `key <provider>` as the key; Pi
+accepts a key there for every provider.
 
 ## Runs
 
@@ -154,9 +156,9 @@ publish status, save the answer), `pi/run/` drives Pi (choose the model,
 launch, judge, handle signals and the deadline), and `commands/run/` only
 reads the command line and prints. `ft run` executes in the foreground; `ft start` spawns the hidden
 `ft exec <dir>` detached and returns, so the run survives a harness killing or
-backgrounding its shell. `watch`, `list`, `show` and `stop` only read the
-folder (a running status whose process is gone reads as `lost`; nothing
-rewrites it). Mistakes caught before a run exists print to stderr and leave no
+backgrounding its shell. `watch`, `list` and `show` only read the
+folder, and `stop` signals the run's process (a running status whose local
+process is gone reads as `lost`; nothing rewrites it). Mistakes caught before a run exists print to stderr and leave no
 folder.
 
 Callers read stdout, and some harnesses keep only its tail, so every report

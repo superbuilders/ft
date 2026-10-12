@@ -51,6 +51,10 @@ it("resolves a key command at the project root and brokers only the run provider
         expect(await getKey(source, root)).toBe('unit-test-env')
         vi.stubEnv('TEST_FT_KEY', '')
         await expect(getKey(source, root)).rejects.toThrow('empty or unset')
+        vi.stubEnv('TEST_FT_KEY', 'unit-test-env\nsecond-line')
+        await expect(getKey(source, root)).rejects.toThrow(
+            'Key environment variable TEST_FT_KEY contains a line break',
+        )
         source = { command: ['bun', '-e', 'process.exit(7)'] }
         await expect(getKey(source, root)).rejects.toThrow('exit 7')
 

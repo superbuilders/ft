@@ -118,3 +118,15 @@ it('sets ft up for one person, copying a shared config', async () => {
     expect(existsSync(join(root, 'home/.claude/skills/ft'))).toBe(true)
     expect(existsSync(join(root, 'repo/.ft'))).toBe(false)
 })
+
+it('writes nothing when the config to copy cannot be read', async () => {
+    await expect(init('0.2.0', { from: join(root, 'missing.json') })).rejects.toThrow('ENOENT')
+    expect(existsSync(join(root, 'repo', '.ft'))).toBe(false)
+})
+
+it('spells the npm script with -- so ft keeps its own flags', async () => {
+    await writeFile(join(root, 'repo', 'package.json'), '{}\n')
+    await init('0.2.0', {})
+
+    expect(output).toContain('Agents here run ft as npm run ft --.')
+})
