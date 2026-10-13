@@ -53,6 +53,8 @@ export const NEXT_STEPS = {
         'Fix the problem the error names, then start the run again. ft doctor checks the config, keys and runtime.',
     model_error:
         'The model provider returned an error. If it looks transient, start the run again; otherwise <ft> show <id> has the details.',
+    auth_rejected:
+        'The provider rejected the key. Check providers.<provider>.key in the config that applies here; <ft> doctor names that config and tries each key.',
     context_overflow:
         "The brief and the files the model read did not fit the model's context window. Narrow the brief or point it at fewer files, or use a role whose model has a larger window.",
     incomplete: 'Pi stopped without a final answer. <ft> show <id> shows how far it got.',

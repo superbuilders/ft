@@ -4,6 +4,8 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { EXAMPLE_CONFIG } from '../../models/constants'
+import { resolveRole } from '../../models/models'
 import { findConfig, loadConfig, resolveBaseUrl, scopeRoot, validateConfig } from './config'
 
 const directories: string[] = []
@@ -101,6 +103,14 @@ describe('config', () => {
         }
 
         expect(validateConfig(envUrl)).toEqual(envUrl)
+    })
+
+    it('accepts the example ft shows when no roles are configured, and resolves its default role', () => {
+        const example = validateConfig(JSON.parse(EXAMPLE_CONFIG))
+
+        expect(resolveRole(example.providers, example.roles)).toMatchObject({
+            provider: 'anthropic',
+        })
     })
 
     it('reads an env base URL at use time and checks it', () => {

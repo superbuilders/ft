@@ -1,4 +1,4 @@
-import { DEFAULT_ROLE } from '../../models/constants'
+import { DEFAULT_ROLE, EXAMPLE_CONFIG } from '../../models/constants'
 import { RUN_PROFILES } from '../../pi/run/constants'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
@@ -14,7 +14,13 @@ async function roles(): Promise<string[]> {
         const entries = Object.entries(config.roles)
 
         if (entries.length === 0) {
-            return [`${path} defines no roles yet; add one named code.`]
+            return [
+                `${path} defines no roles yet. Add one named ${DEFAULT_ROLE}, as in this minimal config:`,
+                '',
+                '```json',
+                EXAMPLE_CONFIG,
+                '```',
+            ]
         }
 
         return entries.map(

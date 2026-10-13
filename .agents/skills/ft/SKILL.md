@@ -11,7 +11,7 @@ Run `ft guide` once per session, before your first ft command. Skip it if you al
 
 To check which roles are configured here without rereading the manual, run `ft roles`.
 
-If `ft` is not on PATH, run it the way this repository does: through its package script (`bun ft guide`, `npm run ft -- guide`) or the launcher (`sh .ft/ft guide`). Write every ft command that way, including the ones in the manual.
+Try plain `ft guide` first. Only if the shell says `ft` is not found, run it the way this repository does: through its package script (`bun ft guide`, `npm run ft -- guide`) or the launcher (`sh .ft/ft guide`). Then write every ft command that way, including the ones in the manual.
 
 ## Talking to the user
 

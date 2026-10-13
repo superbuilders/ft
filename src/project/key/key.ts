@@ -4,7 +4,8 @@ import { NOT_HEADER_SAFE } from './patterns'
 import type { KeySource } from '../../models/types'
 
 /**
- * Refuse a credential no HTTP header can carry, without echoing it: a header error would print it.
+ * Refuse a credential no HTTP header can carry, or one that is really a pi `!command`, without
+ * echoing it: a header error would print it.
  * @param key - trimmed credential
  * @param origin - where it came from, for the message
  * @returns the credential
@@ -13,6 +14,12 @@ function checked(key: string, origin: string): string {
     if (NOT_HEADER_SAFE.test(key)) {
         throw new Error(
             `${origin} contains a line break or another character a request header cannot carry`,
+        )
+    }
+
+    if (key.startsWith('!')) {
+        throw new Error(
+            `${origin} looks like a pi shell command (use {"command": ["sh", "-c", "…"]} as the key instead)`,
         )
     }
 

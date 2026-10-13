@@ -3,7 +3,7 @@ import { isAbsolute, relative } from 'node:path'
 import { commandName } from '../../system/process/self'
 import { PLAIN } from '../../system/terminal/style'
 import { EXIT_CODES, INLINE_ANSWER_MAX, NEXT_STEPS } from './constants'
-import { CONTEXT_OVERFLOW } from './patterns'
+import { AUTH_REJECTED, CONTEXT_OVERFLOW } from './patterns'
 import { readKept } from './store'
 
 import type { Style } from '../../system/terminal/types'
@@ -226,12 +226,31 @@ function nextStep(status: Status, state: State): string | null {
         return null
     }
 
-    const key =
-        state === 'model_error' && CONTEXT_OVERFLOW.test(status.error ?? '')
-            ? 'context_overflow'
-            : state
+    return NEXT_STEPS[stepKey(status, state)]
+        .replaceAll('<id>', status.id)
+        .replaceAll('<provider>', status.provider ?? '<provider>')
+        .replaceAll('<ft>', commandName())
+}
 
-    return NEXT_STEPS[key].replaceAll('<id>', status.id).replaceAll('<ft>', commandName())
+/**
+ * Which hint fits a failed run: a model error is told apart by what the provider said.
+ * @param status - run status
+ * @param state - a failed state
+ * @returns the NEXT_STEPS key
+ */
+function stepKey(
+    status: Status,
+    state: Exclude<State, 'success' | 'running'>,
+): keyof typeof NEXT_STEPS {
+    if (state !== 'model_error') {
+        return state
+    }
+
+    if (CONTEXT_OVERFLOW.test(status.error ?? '')) {
+        return 'context_overflow'
+    }
+
+    return AUTH_REJECTED.test(status.error ?? '') ? 'auth_rejected' : state
 }
 
 /**

@@ -42,7 +42,7 @@ Set `ANTHROPIC_API_KEY` in the environment ft runs in, then check the setup:
 ft doctor
 ```
 
-It ends with `Ready`, or with what to fix.
+It asks each provider whether it accepts the key, then ends with `Ready` or with what to fix.
 
 ## Run a brief
 

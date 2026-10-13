@@ -71,6 +71,6 @@ it('prints one JSON object per role', async () => {
 
 it('refuses a config with no roles, naming the one to add', async () => {
     await expect(listRoles({ providers: {}, roles: {} })).rejects.toThrow(
-        /^no roles in .+ yet \(add one named code\)$/,
+        /^no roles in .+ yet \(add one named code, as in this minimal config\)\n\n\{/,
     )
 })

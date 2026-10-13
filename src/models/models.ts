@@ -1,5 +1,5 @@
 import { isBuiltinModel, isBuiltinProvider } from './catalog'
-import { DEFAULT_ROLE, THINKING_LEVELS } from './constants'
+import { DEFAULT_ROLE, EXAMPLE_CONFIG, THINKING_LEVELS } from './constants'
 
 import type { Role, Provider, Selection, Thinking } from './types'
 
@@ -81,7 +81,7 @@ export function resolveRole(
         throw new Error(
             known.length > 0
                 ? `.ft.json has no role named ${name} (its roles are ${known.join(', ')})`
-                : `.ft.json defines no roles (add one named ${name} under "roles")`,
+                : `.ft.json defines no roles (add one named ${name} under "roles", as in this minimal config)\n\n${EXAMPLE_CONFIG}`,
         )
     }
 

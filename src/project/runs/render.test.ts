@@ -91,6 +91,25 @@ describe('the report', () => {
         )
     })
 
+    it('names the key to check when the provider rejects it', () => {
+        const status = statusWith({
+            outcome: 'model_error',
+            error: '401 Unauthorized: invalid x-api-key',
+            answer: null,
+        })
+
+        expect(renderReport(status, 'model_error', null)).toContain(
+            'Next: The provider rejected the key. Check providers.gateway.key in the config',
+        )
+        expect(
+            renderReport(
+                statusWith({ outcome: 'model_error', error: '529 overloaded', answer: null }),
+                'model_error',
+                null,
+            ),
+        ).toContain('If it looks transient')
+    })
+
     it('points nowhere for a run that never started', () => {
         const status = statusWith({ outcome: 'configuration_error', error: 'no key', answer: null })
 

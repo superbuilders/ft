@@ -2,13 +2,21 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { doctor } from './doctor'
+
+/** Stands in for the provider's model list, so the key check never leaves the machine. */
+const providerAnswers = vi.fn(async () => new Response('{}', { status: 200 }))
+
+beforeEach(() => {
+    vi.stubGlobal('fetch', providerAnswers)
+})
 
 afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
 })
 
 /**
@@ -74,8 +82,41 @@ it('is ready when every check passes', async () => {
     })
 
     expect(code).toBe(0)
-    expect(output).toMatch(/  anthropic +Pi's built-in endpoint +key loaded/)
+    expect(output).toMatch(/  anthropic +Pi's built-in endpoint +key accepted/)
     expect(output).toMatch(/Ready\n$/)
+    expect(providerAnswers).toHaveBeenCalledWith(
+        'https://api.anthropic.com/v1/models',
+        expect.objectContaining({ headers: expect.objectContaining({ 'x-api-key': 'test-key' }) }),
+    )
+})
+
+it('fails a key the provider rejects, naming the field to fix', async () => {
+    vi.stubEnv('FT_DOCTOR_TEST_KEY', 'test-key')
+    providerAnswers.mockResolvedValueOnce(new Response('{}', { status: 401 }))
+
+    const { code, output } = await diagnose({
+        providers: { anthropic: { key: { env: 'FT_DOCTOR_TEST_KEY' } } },
+        roles: { code: { model: 'anthropic/claude-opus-5-5' } },
+    })
+
+    expect(code).toBe(2)
+    expect(output).toMatch(
+        /the provider rejected the key \(HTTP 401; check providers\.anthropic\.key in .*\.ft\.json\)/,
+    )
+    expect(output).not.toContain('test-key')
+})
+
+it('does not fail a key whose check could not run', async () => {
+    vi.stubEnv('FT_DOCTOR_TEST_KEY', 'test-key')
+    providerAnswers.mockRejectedValueOnce(new Error('offline'))
+
+    const { code, output } = await diagnose({
+        providers: { anthropic: { key: { env: 'FT_DOCTOR_TEST_KEY' } } },
+        roles: { code: { model: 'anthropic/claude-opus-5-5' } },
+    })
+
+    expect(code).toBe(0)
+    expect(output).toContain('key loaded (not checked: the provider did not answer)')
 })
 
 it('says the personal config is not used where a repository config replaces it', async () => {

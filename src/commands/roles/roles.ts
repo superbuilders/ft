@@ -1,4 +1,4 @@
-import { DEFAULT_ROLE } from '../../models/constants'
+import { DEFAULT_ROLE, EXAMPLE_CONFIG } from '../../models/constants'
 import { loadConfig } from '../../project/config/config'
 import { tildePath } from '../../system/host/host'
 import { aligned } from '../../system/terminal/columns'
@@ -16,7 +16,9 @@ export async function roles(options: { json?: boolean }): Promise<void> {
     const entries = Object.entries(config.roles)
 
     if (entries.length === 0) {
-        throw new Error(`no roles in ${tildePath(path)} yet (add one named ${DEFAULT_ROLE})`)
+        throw new Error(
+            `no roles in ${tildePath(path)} yet (add one named ${DEFAULT_ROLE}, as in this minimal config)\n\n${EXAMPLE_CONFIG}`,
+        )
     }
 
     if (options.json) {
