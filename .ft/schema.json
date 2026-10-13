@@ -52,7 +52,7 @@
                                     "additionalProperties": false
                                 }
                             ],
-                            "description": "Where ft reads the credential: {\"env\": \"NAME\"} or {\"command\": [\"argv\", ...]} run at the project root. Never the credential itself."
+                            "description": "Where ft reads the credential: {\"env\": \"NAME\"}, or {\"command\": [\"argv\", ...]} run in the folder that holds this .ft.json. Never the credential itself."
                         },
                         "baseUrl": {
                             "anyOf": [
@@ -267,6 +267,11 @@
                                 "max"
                             ],
                             "description": "Pi thinking level."
+                        },
+                        "description": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "When to use this lane, in a sentence; ft guide shows it to agents."
                         }
                     },
                     "additionalProperties": false
