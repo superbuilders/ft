@@ -3,7 +3,7 @@ import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
 import { isBuiltinProvider } from '../../models/catalog'
 import { ANTHROPIC_VERSION, PROBE_TIMEOUT_MS, REJECTED_STATUSES } from './constants'
 
-import type { Provider, ProviderApi } from '../../models/types'
+import type { Provider } from '../../models/types'
 import type { ListRequest, ProbeResult } from './types'
 
 /**
@@ -14,7 +14,7 @@ import type { ListRequest, ProbeResult } from './types'
  * @param key - credential
  * @returns the request to send, or null for an API ft does not check
  */
-function listRequest(api: ProviderApi | undefined, base: string, key: string): ListRequest | null {
+function listRequest(api: string | undefined, base: string, key: string): ListRequest | null {
     const root = base.replace(/\/+$/, '')
 
     if (api === 'openai-completions' || api === 'openai-responses') {
@@ -47,7 +47,7 @@ export async function probeKey(
     key: string,
 ): Promise<ProbeResult> {
     const builtin = isBuiltinProvider(id) ? getBuiltinModels(id)[0] : undefined
-    const api = provider.api ?? (builtin?.api as ProviderApi | undefined)
+    const api = provider.api ?? builtin?.api
     const base = baseUrl ?? builtin?.baseUrl
 
     /* A built-in endpoint with {placeholders} is filled in by Pi from more settings than ft reads. */
