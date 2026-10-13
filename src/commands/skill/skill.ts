@@ -78,7 +78,7 @@ export async function skill(options: { user?: boolean }): Promise<void> {
         [
             `Skill  ${shown} (${notes})`,
             options.user
-                ? 'Let Claude Code run ft without asking: allow Bash(ft:*) in ~/.claude/settings.json'
+                ? 'To let agents run ft without asking each time, allow ft commands in their settings'
                 : 'Commit it, so agents in every clone use ft',
         ]
             .map(line => `${line}\n`)

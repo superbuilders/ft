@@ -13,7 +13,7 @@ Start every session that uses ft with:
 ft guide
 ```
 
-It prints the manual for the exact version this repository pins: the lanes configured here, how to write a brief, the run and watch commands, exit codes, and notes for your harness. Follow it over anything you remember about ft.
+It prints the manual for the exact version this repository pins: the lanes configured here, how to write a brief, the run and watch commands, and exit codes. Follow it over anything you remember about ft.
 
 If `ft` is not on PATH, run it the way this repository does: through its package script (`bun ft guide`, `npm run ft -- guide`) or the launcher (`sh .ft/ft guide`). Write every ft command that way, including the ones in the manual.
 
@@ -21,7 +21,7 @@ If `ft` is not on PATH, run it the way this repository does: through its package
 
 1. Write the brief to a file (for example `tmp/ft/review.md`): the task, where to look, what done means, what to leave alone. One task per brief.
 2. Start every brief at once: `ft start tmp/ft/*.md` (or `ft run tmp/ft/review.md` for one short run you can wait on).
-3. Wait without blocking if your harness can: run the `ft watch` command that `ft start` prints as a background command that notifies you when it exits (Claude Code: `run_in_background`), and keep working meanwhile. Otherwise run it with `--timeout` and call it again while it exits 75. `ft guide` has the note for your harness.
+3. Wait without blocking if you can: run the `ft watch` command that `ft start` prints in the background, in a way that tells you when it exits, and keep working meanwhile. If you cannot, run it with `--timeout` and call it again while it exits 75.
 4. Read the reports and the closing tally. Each report names the answer's file and length; read the answers you need.
 5. Treat the answer as a claim. Check it against the code. After a write run, read `git diff` before keeping anything; ft never commits.
 6. Tell the user what the delegate found and what you checked, with the run id so they can open it with `ft show <id>`.

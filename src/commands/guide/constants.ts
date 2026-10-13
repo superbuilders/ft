@@ -18,7 +18,7 @@ Options: \`--name review\` (the start of the run id), \`--lane <lane>\` or \`--m
 
 \`ft start\` takes one or more briefs and the same options, which apply to every run (\`--name\` and \`--out\` take a single brief). It checks every brief before starting any, starts the runs detached from your shell, and returns as soon as each has started (a few seconds at most): one line per run, then the \`ft watch\` command for them. Use the ids it prints. \`ft watch <ids>\` prints each run's report as it finishes, then one line counting the outcomes and naming every run that did not succeed, and exits with the worst run's code. If its timeout ends first, it lists what is still running and exits 75, even when some runs already failed: call it again with the ids it names, and keep the reports from earlier calls, since a later call reports only the runs it names. Pass every id you started: a run that finished before you called \`ft watch\` is reported only when named (with no ids, \`ft watch\` waits for the runs that are running at that moment). Runs keep going when the shell that started them is killed or backgrounded, so start every run before you wait on any.
 
-Wait without blocking when your harness allows it: run the \`ft watch\` command as a background command that tells you when it exits, keep working, and read its output when you are told. Without that, run \`ft watch <ids> --timeout <seconds>\` and call it again while it exits 75.
+Wait without blocking if you can. If you can run a command in the background and be told when it exits, run the \`ft watch\` command that way, keep working, and read its output when you are told: it holds every report and the tally, so no \`--timeout\` is needed. To hear about each run as soon as it finishes, run one background \`ft watch <id>\` per run, or watch \`ft watch\`'s output as it arrives: it prints each report whole when its run finishes. If every command you run blocks until it exits, or has a time limit, run \`ft watch <ids> --timeout <seconds>\` and call it again while it exits 75. Every report ends with a line restating its verdict, so output cut to its last lines still says how each run ended.
 
 ## Write the brief
 
@@ -41,13 +41,9 @@ A lane whose model is configured as tool-free (such as a web-research model) run
 - \`ft show <id>\` tells the whole story of a run: every step, its timing, and the answer itself (cut at 20,000 characters; the file holds all of it). \`ft list\` shows the running runs and the 15 newest, \`ft list --all\` every run. \`ft stop <id>\` cancels one. Ids accept any unambiguous prefix.
 - \`--json\` on run, start, watch, list and show prints one JSON object per run, one per line: the stored status plus \`state\` (the outcome, or \`lost\` when its process died without one). When ft refuses to start a run, it prints \`{"outcome":"configuration_error","error":...}\` instead.
 
-## In your harness
+## Running ft from a sandboxed or permission-checked shell
 
-- Claude Code: allow \`Bash(ft:*)\`, and make \`ft ...\` the whole command so the rule matches without extra prompts. Run \`ft watch\` with the Bash tool's \`run_in_background\`: you are notified when it exits, and its output holds every report and the tally. No \`--timeout\` is needed then. To hear about each run as soon as it finishes, run \`ft watch\` under the Monitor tool instead (each report arrives as an event), or start one background \`ft watch <id>\` per run.
-- Codex: ft needs the network and writes under ~/.cache/ft, which the workspace-write sandbox blocks. Request escalated permissions with the prefix rule ["ft"] so one approval covers later calls. A background terminal does not tell you when a command exits, so call \`ft watch <ids> --timeout <seconds>\` until it exits with something other than 75.
-- Pi: the bash tool blocks until the command exits and keeps only the tail of its output. Use \`ft start\`, then \`ft watch <ids> --timeout <seconds>\` until it exits with something other than 75; every report ends with its verdict.
-- OpenCode: run \`ft watch\` with the shell tool's \`background: true\`; the session is notified when it finishes.
-- Gemini CLI: a background command reports back only when \`tools.shell.backgroundCompletionBehavior\` is \`inject\`; otherwise use \`ft watch --timeout\` as for Pi.
+ft needs the network, and writes under ~/.cache/ft and this repository's .ft/. If your shell blocks either, ask once for ft to run outside those limits, for every ft command rather than one call. Make \`ft ...\` the whole command (no \`cd\`, pipes or \`&&\` around it), so a permission granted for ft covers every call.
 
 ## A run's folder: .ft/runs/<id>/
 

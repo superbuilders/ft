@@ -64,7 +64,7 @@ ft skill --user     # for you, in every repository
 ft skill            # for everyone working in this repository (commit it)
 ```
 
-Running it again after an update refreshes the skill. To let Claude Code run ft without asking each time, allow `Bash(ft:*)` in its settings. Agents read the full manual with `ft guide`.
+Running it again after an update refreshes the skill. To let agents run ft without asking each time, allow ft commands in their permission settings. Agents read the full manual with `ft guide`.
 
 ## Set a repository up for your team
 
