@@ -1,8 +1,10 @@
 # ft
 
-ft lets your coding agent hand a task to another model. The agent writes the task in a file (a brief), ft runs it on the model you chose, and the answer comes back to the agent to check and explain to you. Several briefs can run at once.
+ft gives a team's coding agents one shared way to hand work to other models.
 
-Under the hood each run is a separate, pinned [Pi](https://github.com/badlogic/pi-mono) session that works in your working tree. ft downloads and verifies everything it runs.
+Every person on a team uses their own agent harness, and each harness sets up subagents its own way. So "have a second model review this" means something different for each person, and nobody can improve it for everyone. ft moves that setup into the repository. The repository's `.ft.json` names the models for each kind of work, a pinned version fixes exactly which ft runs, and every agent, in any harness, delegates through the same `ft` command. Change the config once, and every teammate's agent picks it up.
+
+A run works like this. The agent writes the task in a file (a brief), ft runs it on the model the config picks, and the answer comes back for the agent to check and explain to you. Several briefs can run at once. Each run is a separate, pinned [Pi](https://github.com/badlogic/pi-mono) session that works in your working tree, and ft downloads and verifies everything it runs.
 
 ## Install
 
@@ -31,7 +33,7 @@ ft starts with an empty config. Add a provider and a lane named `code` to `~/.co
 ```
 
 - A **provider** says where a model lives and where its key comes from. The key comes from an environment variable (`{ "env": "NAME" }`) or from a command that prints it (`{ "command": ["op", "read", "op://vault/item/key"] }`). ft never writes the key to disk, and only `ft key <provider>` prints it.
-- A **lane** names a model for a kind of work. `code` is the default. Add others, such as `research`, and pick one with `--lane`.
+- A **lane** names a model for a kind of work. `code` is the default. A repository can add others and pick one with `--lane`: for example a `research` lane on a model that searches the web, such as Perplexity's Sonar, so agents can look up prior art before a big design decision.
 - Any of Pi's built-in providers works with just a `key`. For your own endpoint, add `baseUrl`, `api` and `models`. This repository's `.ft.json` is a full example, and `ft schema` prints every field.
 
 Set `ANTHROPIC_API_KEY` in the environment ft runs in, then check the setup:
