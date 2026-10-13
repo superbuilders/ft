@@ -1,6 +1,7 @@
 import { projectRoot } from '../../project/config/config'
 import { jsonLine, renderTable } from '../../project/runs/render'
 import { listRuns, stateOf } from '../../project/runs/store'
+import { commandName } from '../../system/process/self'
 import { styleFor } from '../../system/terminal/style'
 import { RECENT_RUNS } from './constants'
 
@@ -29,7 +30,7 @@ export async function list(options: { all?: boolean; json?: boolean }): Promise<
 
     if (shown.length === 0) {
         process.stdout.write(
-            'No runs yet in this project. Start one with ft run <brief> or ft start <briefs>.\n',
+            `No runs yet in this project. Start one with ${commandName()} run <brief> or ${commandName()} start <briefs>.\n`,
         )
 
         return
@@ -38,7 +39,9 @@ export async function list(options: { all?: boolean; json?: boolean }): Promise<
     const hidden = listed.length - shown.length
     const style = styleFor(process.stdout)
     const older =
-        hidden > 0 ? `${style.dim(`(${hidden} older runs; ft list --all lists them)`)}\n` : ''
+        hidden > 0
+            ? `${style.dim(`(${hidden} older runs; ${commandName()} list --all lists them)`)}\n`
+            : ''
 
     process.stdout.write(`${renderTable(shown, style)}${older}`)
 }

@@ -104,7 +104,7 @@ Plain commands use the config of the folder you are in: the repository's when it
 ft upgrade    # or ft update
 ```
 
-This moves ft on your machine to the newest release: the `ft` command and your personal setup. Repositories keep the version they pinned, because changing it is a change everyone who clones them gets. To move one, run `ft pin` inside it (the newest release, or name a version) and commit the result.
+This moves ft on your machine to the newest release: the `ft` command and your personal setup.
 
 ## Uninstall
 

@@ -2,6 +2,7 @@ import { hostname } from 'node:os'
 
 import { projectRoot } from '../../project/config/config'
 import { findRuns, stateOf } from '../../project/runs/store'
+import { commandName } from '../../system/process/self'
 import { styleFor } from '../../system/terminal/style'
 
 /**
@@ -28,7 +29,7 @@ export async function stop(ids: string[]): Promise<number> {
         } else {
             process.kill(status.pid, 'SIGTERM')
             process.stdout.write(
-                `${style.mark(true)}Stopping ${style.bold(status.id)}; run ${style.cyan(`ft watch ${status.id}`)} to wait for its report\n`,
+                `${style.mark(true)}Stopping ${style.bold(status.id)}; run ${style.cyan(`${commandName()} watch ${status.id}`)} to wait for its report\n`,
             )
         }
     }

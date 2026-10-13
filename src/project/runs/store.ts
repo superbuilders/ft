@@ -4,6 +4,7 @@ import { hostname } from 'node:os'
 import { basename, extname, join } from 'node:path'
 
 import { atomicWrite } from '../../system/files/atomic-write'
+import { commandName } from '../../system/process/self'
 import {
     DEFAULT_RUN_NAME,
     ID_NAME_MAX,
@@ -222,7 +223,7 @@ function pick(runs: Status[], ref: string, root: string): Status {
 
     throw new Error(
         runs.length > 0
-            ? `No run ${ref} in ${runsRoot(root)}; ft list shows them`
+            ? `No run ${ref} in ${runsRoot(root)}; ${commandName()} list shows them`
             : `No runs yet in ${runsRoot(root)}`,
     )
 }

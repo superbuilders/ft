@@ -1,5 +1,6 @@
 import { isAbsolute, relative } from 'node:path'
 
+import { commandName } from '../../system/process/self'
 import { PLAIN } from '../../system/terminal/style'
 import { EXIT_CODES, INLINE_ANSWER_MAX, NEXT_STEPS } from './constants'
 import { CONTEXT_OVERFLOW } from './patterns'
@@ -218,7 +219,7 @@ function activityLine(status: Status): string | null {
  * Say what to do about a failed run.
  * @param status - run status
  * @param state - stored outcome, or `lost`
- * @returns the hint with the run's id filled in, or null on success or while running
+ * @returns the hint with the run's id and ft's command name filled in, or null on success or while running
  */
 function nextStep(status: Status, state: State): string | null {
     if (state === 'success' || state === 'running') {
@@ -230,7 +231,7 @@ function nextStep(status: Status, state: State): string | null {
             ? 'context_overflow'
             : state
 
-    return NEXT_STEPS[key].replaceAll('<id>', status.id)
+    return NEXT_STEPS[key].replaceAll('<id>', status.id).replaceAll('<ft>', commandName())
 }
 
 /**
@@ -304,7 +305,7 @@ export function renderReport(
               )
             : null,
         !inShow && state !== 'configuration_error'
-            ? `${style.cyan(`ft show ${status.id}`)}${style.dim(' for every step and the answer')}`
+            ? `${style.cyan(`${commandName()} show ${status.id}`)}${style.dim(' for every step and the answer')}`
             : null,
     ].filter(Boolean)
     const said = stateColor(state, style)(verdict(state))

@@ -1,6 +1,7 @@
 import { projectRoot } from '../../project/config/config'
 import { exitCode, jsonLine, renderTable, settledOutput, tally } from '../../project/runs/render'
 import { findRuns, listRuns, readStatus, stateOf } from '../../project/runs/store'
+import { commandName } from '../../system/process/self'
 import { styleFor } from '../../system/terminal/style'
 import { WAIT_POLL_MS } from './constants'
 
@@ -68,7 +69,7 @@ export async function watch(
     if (targets.length === 0) {
         if (!options.json) {
             process.stdout.write(
-                'No runs are running in this project. To watch a finished run, pass its id (ft list shows ids).\n',
+                `No runs are running in this project. To watch a finished run, pass its id (${commandName()} list shows ids).\n`,
             )
         }
 
@@ -124,7 +125,7 @@ export async function watch(
                 const finished = settled.length > 0 ? `${tally(settled, style)}\n` : ''
 
                 process.stdout.write(
-                    `${finished}${table}Still running. Run ${style.cyan(`ft watch ${waiting}`)} again to keep watching.\n`,
+                    `${finished}${table}Still running. Run ${style.cyan(`${commandName()} watch ${waiting}`)} again to keep watching.\n`,
                 )
             }
 

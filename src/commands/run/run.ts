@@ -2,7 +2,7 @@ import { THINKING_LEVELS } from '../../models/constants'
 import { execute } from '../../pi/run/execute'
 import { exitCode, jsonLine, settledOutput } from '../../project/runs/render'
 import { readStatus, writeStatus } from '../../project/runs/store'
-import { selfCommand } from '../../system/process/self'
+import { commandName, selfCommand } from '../../system/process/self'
 import { styleFor } from '../../system/terminal/style'
 import { START_CONFIRM_MS, START_POLL_MS } from './constants'
 import { prepare } from './prepare'
@@ -131,7 +131,7 @@ async function launch(prepared: Status): Promise<Status> {
 
         if (Date.now() > giveUp) {
             process.stderr.write(
-                `ft: started ${current.id}, but the run has not confirmed it is running; run ft watch ${current.id} to wait for its report\n`,
+                `ft: started ${current.id}, but the run has not confirmed it is running; run ${commandName()} watch ${current.id} to wait for its report\n`,
             )
 
             return current
@@ -178,7 +178,7 @@ export async function start(briefs: string[], options: RunOptions): Promise<numb
 
     if (running.length > 0 && !options.json) {
         process.stdout.write(
-            `Watch with: ${style.cyan(`ft watch ${running.map(status => status.id).join(' ')}`)}\n`,
+            `Watch with: ${style.cyan(`${commandName()} watch ${running.map(status => status.id).join(' ')}`)}\n`,
         )
     }
 

@@ -1,4 +1,4 @@
-import { styleText } from 'node:util'
+import { createColors } from 'colorette'
 
 import type { Style } from './types'
 
@@ -32,28 +32,17 @@ function wantsColor(stream: { isTTY?: boolean }): boolean {
  */
 export function styleFor(stream: { isTTY?: boolean }): Style {
     const on = wantsColor(stream)
-
-    /**
-     * Make one style.
-     * @param format - a node:util style name
-     * @returns the style
-     */
-    function make(format: Parameters<typeof styleText>[0]): (text: string) => string {
-        /* Bun's styleText does not check the stream itself; wantsColor already has. */
-        return on ? text => styleText(format, text, { validateStream: false }) : text => text
-    }
-
-    const green = make('green')
-    const red = make('red')
+    /* colorette decides color for stdout alone; ft decides per stream, so it passes the answer. */
+    const { bold, dim, green, red, yellow, cyan } = createColors({ useColor: on })
 
     return {
         on,
-        bold: make('bold'),
-        dim: make('dim'),
+        bold,
+        dim,
         green,
         red,
-        yellow: make('yellow'),
-        cyan: make('cyan'),
+        yellow,
+        cyan,
         mark: ok => {
             if (!on) {
                 return ''

@@ -13,6 +13,7 @@ import {
     renderReport,
 } from '../../project/runs/render'
 import { findRuns, readKept, stateOf } from '../../project/runs/store'
+import { commandName } from '../../system/process/self'
 import { styleFor } from '../../system/terminal/style'
 
 import type { Step } from '../../pi/events/story'
@@ -77,7 +78,7 @@ export async function show(id: string, options: { json?: boolean }): Promise<voi
         lines.push(
             headline(status, state, style),
             `Now: ${status.activity ?? 'starting'}`,
-            `Run ${style.cyan(`ft watch ${status.id}`)} to wait for its report`,
+            `Run ${style.cyan(`${commandName()} watch ${status.id}`)} to wait for its report`,
         )
         process.stdout.write(`${lines.join('\n')}\n`)
 
