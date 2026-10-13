@@ -24,3 +24,6 @@ export const RELEASE_ASSETS = {
 
 /** Where `ft skill` puts the agent skill, relative to the repository or home directory. */
 export const SKILL_PATH = '.agents/skills/ft/SKILL.md'
+
+/** A line only the ft launcher has, so ft never mistakes some other program named ft for it. */
+export const LAUNCHER_MARKER = 'SHIM_VERSION='

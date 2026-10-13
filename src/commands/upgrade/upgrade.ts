@@ -1,9 +1,7 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
 
+import { installedLauncher } from '../../project/config/launcher'
 import { fetchInstaller, latestVersion } from '../../project/config/release'
-import { installedLauncher } from '../../system/host/host'
 
 /**
  * Bring this machine to the newest release by running that release's own installer, so there is
@@ -15,24 +13,15 @@ import { installedLauncher } from '../../system/host/host'
 export async function upgrade(): Promise<void> {
     const version = await latestVersion()
     const [installer, launcher] = await Promise.all([fetchInstaller(version), installedLauncher()])
-    const folder = await mkdtemp(join(tmpdir(), 'ft-upgrade-'))
+    /* The installer runs from its verified text; it never reads files beside itself. */
+    const child = Bun.spawn(['sh', '-c', installer, 'install.sh', version], {
+        stdio: ['inherit', 'inherit', 'inherit'],
+        env: { ...process.env, ...(launcher ? { FT_INSTALL_DIR: dirname(launcher) } : {}) },
+    })
+    const code = await child.exited
 
-    try {
-        await writeFile(join(folder, 'install.sh'), installer)
-
-        const child = Bun.spawn(['sh', join(folder, 'install.sh'), version], {
-            stdio: ['inherit', 'inherit', 'inherit'],
-            env: { ...process.env, ...(launcher ? { FT_INSTALL_DIR: dirname(launcher) } : {}) },
-        })
-        const code = await child.exited
-
-        if (code !== 0) {
-            throw new Error(
-                `The ft ${version} installer failed (exit ${code}); see its output above`,
-            )
-        }
-    } finally {
-        await rm(folder, { recursive: true, force: true })
+    if (code !== 0) {
+        throw new Error(`The ft ${version} installer failed (exit ${code}); see its output above`)
     }
 
     process.stdout.write(

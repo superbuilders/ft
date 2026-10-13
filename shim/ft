@@ -45,11 +45,14 @@ case $(uname -m) in
 esac
 target=$os-$arch
 
-# The personal setup's commands, and the machine-wide upgrade and uninstall, use the personal pin
-# wherever they run: a repository's pin and config do not apply to them.
+# Classify the command once. The machine-wide upgrade and uninstall, and any --user command, use
+# the personal pin wherever they run: a repository's pin and config do not apply to them. Commands
+# that set a scope up, or work without one, may start the newest runner when nothing is pinned.
 personal_only=no
+bootstrap_allowed=no
 case ${1:-} in
-    upgrade|update|uninstall) personal_only=yes ;;
+    upgrade|update|uninstall) personal_only=yes bootstrap_allowed=yes ;;
+    init|pin) bootstrap_allowed=yes ;;
 esac
 for arg; do
     [ "$arg" != --user ] || personal_only=yes
@@ -86,16 +89,13 @@ if [ -n "$config" ] && [ -f "$pinned" ]; then
     FT_CONFIG=$config
     export FT_CONFIG
 else
-    case ${1:-} in
-        pin|init|upgrade|update|uninstall) ;;
-        *)
-            [ -z "$config" ] ||
-                fail 2 "no $pinned found; run ft pin$scope <version>"
-            [ "$personal_only" = no ] ||
-                fail 2 'no personal config; set it up with ft init --user'
-            fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init for this repository, or ft init --user for your personal setup'
-            ;;
-    esac
+    if [ "$bootstrap_allowed" = no ]; then
+        [ -z "$config" ] ||
+            fail 2 "no $pinned found; run ft pin$scope <version>"
+        [ "$personal_only" = no ] ||
+            fail 2 'no personal config; set it up with ft init --user'
+        fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init for this repository, or ft init --user for your personal setup'
+    fi
     bootstrap=yes
     unset FT_CONFIG
 fi

@@ -3,13 +3,8 @@ import { readlink, rm } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 import { SKILL_PATH } from '../../project/config/constants'
-import {
-    cacheRoot,
-    configRoot,
-    homeDirectory,
-    installedLauncher,
-    tildePath,
-} from '../../system/host/host'
+import { installedLauncher } from '../../project/config/launcher'
+import { cacheRoot, configRoot, homeDirectory, tildePath } from '../../system/host/host'
 
 /**
  * Remove what the installer and `ft skill --user` put on this machine: the launcher, the cache of

@@ -7,40 +7,30 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { upgrade } from './upgrade'
 
-const assets: Record<string, string> = {}
 let root: string
 let output: string
 
 vi.mock('../../system/process/subprocess', () => ({
     /**
-     * Act as gh: the newest tag for release view, else every -p asset into the -D folder.
-     * @param argv - the gh command line
-     * @returns gh's stdout
+     * Act as gh release view, the one gh call left once FT_RELEASE_DIR serves the files.
+     * @returns the newest tag
      */
-    commandOutput: async (argv: string[]) => {
-        if (argv.includes('view')) {
-            return 'v0.3.0\n'
-        }
-
-        const { writeFile: write } = await import('node:fs/promises')
-        const folder = argv[argv.indexOf('-D') + 1] ?? ''
-        const names = argv.flatMap((arg, index) => (arg === '-p' ? [argv[index + 1] ?? ''] : []))
-
-        await Promise.all(names.map(name => write(join(folder, name), assets[name] ?? '')))
-
-        return ''
-    },
+    commandOutput: async () => 'v0.3.0\n',
 }))
 
 /**
- * Publish an installer that records how it was run.
+ * Publish an installer that records how it was run, in the folder FT_RELEASE_DIR names.
  * @param listed - the checksum SHA256SUMS lists for it, by default its real one
+ * @returns completion
  */
-function release(listed?: string): void {
+async function release(listed?: string): Promise<void> {
     const installer = `printf '%s %s\\n' "$1" "\${FT_INSTALL_DIR:-}" >"${join(root, 'ran')}"\n`
+    const sum = listed ?? createHash('sha256').update(installer).digest('hex')
 
-    assets['install.sh'] = installer
-    assets.SHA256SUMS = `${listed ?? createHash('sha256').update(installer).digest('hex')}  install.sh\n`
+    await mkdir(join(root, 'release'))
+    await writeFile(join(root, 'release/install.sh'), installer)
+    await writeFile(join(root, 'release/SHA256SUMS'), `${sum}  install.sh\n`)
+    vi.stubEnv('FT_RELEASE_DIR', join(root, 'release'))
 }
 
 beforeEach(async () => {
@@ -51,7 +41,6 @@ beforeEach(async () => {
 
         return true
     })
-    vi.stubEnv('FT_RELEASE_DIR', '')
 })
 
 afterEach(async () => {
@@ -66,7 +55,7 @@ it('runs the newest release installer where the launcher already is, and leaves 
     await mkdir(bin)
     await writeFile(join(bin, 'ft'), '#!/bin/sh\nSHIM_VERSION=0.1.0\n')
     vi.stubEnv('PATH', `${bin}:${process.env.PATH ?? ''}`)
-    release()
+    await release()
     await upgrade()
 
     expect(await readFile(join(root, 'ran'), 'utf8')).toBe(`0.3.0 ${bin}\n`)
@@ -74,6 +63,6 @@ it('runs the newest release installer where the launcher already is, and leaves 
 })
 
 it('refuses an installer that does not match the release manifest', async () => {
-    release('f'.repeat(64))
+    await release('f'.repeat(64))
     await expect(upgrade()).rejects.toThrow('install.sh does not match its checksum')
 })
