@@ -118,6 +118,8 @@ for label in "$download_label" "$verify_label" "$install_label" "$setup_label"; 
     [ "${#label}" -le "$width" ] || width=${#label}
 done
 width=$((width + 3 + 1 + ${#widest_status}))
+readme=https://github.com/superbuilders/ft#readme
+[ "${#readme}" -le "$width" ] || width=${#readme}
 
 printf '\n'
 rule
@@ -205,6 +207,7 @@ if [ "$setup" = failed ]; then
 else
     printf '  %s✔ Installed ft %s%s\n' "$green" "$version" "$reset"
 fi
+printf '  %s%s%s\n' "$cyan" "$readme" "$reset"
 rule
 
 case :${PATH:-}: in
@@ -234,5 +237,5 @@ if [ "$setup" = failed ]; then
     sed 's/^/  /' "$stage/init.out" >&2
     printf '  Finish with: ft init --user\n'
 fi
-printf '  Get started: https://github.com/superbuilders/ft#readme\n\n'
+printf '\n'
 [ "$setup" != failed ] || exit 1
