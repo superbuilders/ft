@@ -113,9 +113,7 @@ export function scopeRoot(user: boolean): string {
     const repository = gitRoot(process.cwd())
 
     if (!repository) {
-        throw new Error(
-            'This is not inside a git repository; run this in one, or add --user for your personal setup',
-        )
+        throw new Error('not a git repository (use --user for your personal setup)')
     }
 
     return repository

@@ -83,7 +83,9 @@ describe('config', () => {
         cwd.mockReturnValue(join(root, 'project'))
         expect(scopeRoot(false)).toBe(join(root, 'project'))
         cwd.mockReturnValue(root)
-        expect(() => scopeRoot(false)).toThrow('add --user for your personal setup')
+        expect(() => scopeRoot(false)).toThrow(
+            'not a git repository (use --user for your personal setup)',
+        )
         expect(scopeRoot(true)).toBe(join(root, 'config', 'ft'))
         cwd.mockRestore()
     })
