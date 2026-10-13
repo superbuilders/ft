@@ -210,7 +210,7 @@ export async function writeRelease(root: string, release: Release): Promise<void
 export async function starterConfig(from?: string): Promise<object> {
     const config = from
         ? { ...(JSON.parse(await readFile(from, 'utf8')) as object), $schema: `./${SCHEMA_FILE}` }
-        : { $schema: `./${SCHEMA_FILE}`, providers: {}, lanes: {} }
+        : { $schema: `./${SCHEMA_FILE}`, providers: {}, roles: {} }
 
     validateConfig(config)
 

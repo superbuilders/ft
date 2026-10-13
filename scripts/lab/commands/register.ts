@@ -87,7 +87,7 @@ export function register(program: Command): void {
         .option('--json', 'print the catalog as JSON')
         .action(() => {
             process.stdout.write(
-                `${JSON.stringify({ schemaVersion: 1, scenarios: Object.entries(SCENARIOS).map(([name, assertions]) => ({ name, assertions, explicitOnly: name.startsWith('real-'), prerequisites: ({ 'real-gateway': 'Linux, --project with real .ft.json providers; paid code-lane tool turn and research question', 'real-release': '--version, authenticated real gh; contacts GitHub' } as Record<string, string>)[name] ?? 'native Bun, tar, offline pinned runtime archives where needed', scope: 'Scratch environment, not a security sandbox' })) })}\n`,
+                `${JSON.stringify({ schemaVersion: 1, scenarios: Object.entries(SCENARIOS).map(([name, assertions]) => ({ name, assertions, explicitOnly: name.startsWith('real-'), prerequisites: ({ 'real-gateway': 'Linux, --project with real .ft.json providers; paid code-role tool turn and research question', 'real-release': '--version, authenticated real gh; contacts GitHub' } as Record<string, string>)[name] ?? 'native Bun, tar, offline pinned runtime archives where needed', scope: 'Scratch environment, not a security sandbox' })) })}\n`,
             )
         })
     scratchOptions(
@@ -105,7 +105,7 @@ export function register(program: Command): void {
         )
         .option(
             '--project <dir>',
-            'real-gateway ONLY: a project whose .ft.json has real code and research lanes (Linux only; two paid runs, 90s each)',
+            'real-gateway ONLY: a project whose .ft.json has real code and research roles (Linux only; two paid runs, 90s each)',
         )
         .option(
             '--version <version>',

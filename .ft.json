@@ -44,7 +44,7 @@
             ]
         }
     },
-    "lanes": {
+    "roles": {
         "code": {
             "model": "truefoundry/gpt-6.1-sol",
             "thinking": "high",

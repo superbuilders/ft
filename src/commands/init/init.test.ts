@@ -97,7 +97,7 @@ it('sets a repository up so a clone needs only gh', async () => {
 it('sets ft up for one person, copying a shared config', async () => {
     const shared = join(root, 'shared.json')
 
-    await writeFile(shared, JSON.stringify({ providers: {}, lanes: {} }))
+    await writeFile(shared, JSON.stringify({ providers: {}, roles: {} }))
     await init('0.2.0', { user: true, from: shared })
 
     expect(existsSync(join(root, 'config/ft/.ft/lock.json'))).toBe(true)

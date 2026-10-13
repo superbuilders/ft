@@ -54,7 +54,7 @@ export const NEXT_STEPS = {
     model_error:
         'The model provider returned an error. If it looks transient, start the run again; otherwise <ft> show <id> has the details.',
     context_overflow:
-        "The brief and the files the model read did not fit the model's context window. Narrow the brief or point it at fewer files, or use a lane whose model has a larger window.",
+        "The brief and the files the model read did not fit the model's context window. Narrow the brief or point it at fewer files, or use a role whose model has a larger window.",
     incomplete: 'Pi stopped without a final answer. <ft> show <id> shows how far it got.',
     protocol_error:
         "Pi's output could not be read. See <ft> show <id> and the run's stderr.log for details.",

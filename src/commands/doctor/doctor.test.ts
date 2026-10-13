@@ -44,8 +44,8 @@ async function diagnose(
     }
 }
 
-it('fails a config with no lanes', async () => {
-    const { code, output } = await diagnose({ providers: {}, lanes: {} })
+it('fails a config with no roles', async () => {
+    const { code, output } = await diagnose({ providers: {}, roles: {} })
 
     expect(code).toBe(2)
     expect(output).toContain('  none yet; add one named code')
@@ -57,7 +57,7 @@ it('fails a key it cannot load, without exposing anything', async () => {
 
     const { code, output } = await diagnose({
         providers: { anthropic: { key: { env: 'FT_DOCTOR_TEST_KEY' } } },
-        lanes: { code: { model: 'anthropic/claude-opus-5-5' } },
+        roles: { code: { model: 'anthropic/claude-opus-5-5' } },
     })
 
     expect(code).toBe(2)
@@ -70,7 +70,7 @@ it('is ready when every check passes', async () => {
 
     const { code, output } = await diagnose({
         providers: { anthropic: { key: { env: 'FT_DOCTOR_TEST_KEY' } } },
-        lanes: { code: { model: 'anthropic/claude-opus-5-5' } },
+        roles: { code: { model: 'anthropic/claude-opus-5-5' } },
     })
 
     expect(code).toBe(0)
@@ -80,8 +80,8 @@ it('is ready when every check passes', async () => {
 
 it('says the personal config is not used where a repository config replaces it', async () => {
     const { output } = await diagnose(
-        { providers: {}, lanes: {} },
-        { personal: { providers: {}, lanes: {} } },
+        { providers: {}, roles: {} },
+        { personal: { providers: {}, roles: {} } },
     )
 
     expect(output).toMatch(/\(your personal config, .*xdg\/ft\/\.ft\.json, is not used here\)/)
@@ -91,11 +91,11 @@ it('checks the personal config with --user, even where a repository config appli
     vi.stubEnv('FT_DOCTOR_TEST_KEY', 'test-key')
 
     const { code, output } = await diagnose(
-        { providers: {}, lanes: {} },
+        { providers: {}, roles: {} },
         {
             personal: {
                 providers: { anthropic: { key: { env: 'FT_DOCTOR_TEST_KEY' } } },
-                lanes: { code: { model: 'anthropic/claude-opus-5-5' } },
+                roles: { code: { model: 'anthropic/claude-opus-5-5' } },
             },
             user: true,
         },

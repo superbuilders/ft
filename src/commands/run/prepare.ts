@@ -77,7 +77,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
     const request: Request = {
         profile: options.profile ?? 'read',
         cwd: process.cwd(),
-        ...(options.lane ? { lane: options.lane } : {}),
+        ...(options.role ? { role: options.role } : {}),
         ...(options.model ? { model: options.model } : {}),
         ...(options.thinking ? { thinking: options.thinking } : {}),
         ...(deadline === undefined ? {} : { deadline }),

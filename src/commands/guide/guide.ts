@@ -1,24 +1,25 @@
+import { DEFAULT_ROLE } from '../../models/constants'
 import { RUN_PROFILES } from '../../pi/run/constants'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
-import { GUIDE_BODY, LANE_FALLBACK_DESCRIPTION } from './constants'
+import { GUIDE_BODY, ROLE_FALLBACK_DESCRIPTION } from './constants'
 
 /**
- * Describe this project's lanes, or why they could not be read.
+ * Describe this project's roles, or why they could not be read.
  * @returns markdown lines
  */
-async function lanes(): Promise<string[]> {
+async function roles(): Promise<string[]> {
     try {
         const { config, path } = await loadConfig(process.cwd())
-        const entries = Object.entries(config.lanes)
+        const entries = Object.entries(config.roles)
 
         if (entries.length === 0) {
-            return [`${path} defines no lanes yet; add one named code.`]
+            return [`${path} defines no roles yet; add one named code.`]
         }
 
         return entries.map(
-            ([name, lane]) =>
-                `- ${name}${name === 'code' ? ' (default)' : ''}: ${lane.model}${lane.thinking ? `, thinking ${lane.thinking}` : ''}. ${lane.description ?? LANE_FALLBACK_DESCRIPTION}`,
+            ([name, role]) =>
+                `- ${name}${name === DEFAULT_ROLE ? ' (default)' : ''}: ${role.model}${role.thinking ? `, thinking ${role.thinking}` : ''}. ${role.description ?? ROLE_FALLBACK_DESCRIPTION}`,
         )
     } catch (error) {
         return [
@@ -41,7 +42,7 @@ function listed(tools: readonly string[]): string {
 }
 
 /**
- * Print the agent-facing manual for exactly this runner: what it does, this project's lanes, and
+ * Print the agent-facing manual for exactly this runner: what it does, this project's roles, and
  * how to run, wait for and read runs. A skill points here instead of restating flags that drift.
  * @param runnerVersion - this runner's version
  * @returns completion
@@ -56,11 +57,11 @@ export async function guide(runnerVersion: string): Promise<void> {
         '',
         'Commands here are written `ft ...`. If this repository runs ft through a package script (such as `bun ft`, or `npm run ft --` with npm) or `.ft/ft`, write every command that way.',
         '',
-        '## Available lanes',
+        '## Available roles',
         '',
-        'A lane is a named model choice in the active .ft.json, with an optional thinking level. Runs use `code` unless you pass `--lane <name>`, or `--model provider/model` to pick a model directly.',
+        'A role is a named model choice in the active .ft.json, with an optional thinking level. Runs use `code` unless you pass `--role <name>`, or `--model provider/model` to pick a model directly.',
         '',
-        ...(await lanes()),
+        ...(await roles()),
         '',
         GUIDE_BODY.replace('{read tools}', listed(read)).replace(
             '{write tools}',

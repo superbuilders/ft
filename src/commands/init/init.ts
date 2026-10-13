@@ -78,7 +78,7 @@ export async function init(
 
     const config = user ? tildePath(join(root, CONFIG_FILE)) : CONFIG_FILE
     const fill =
-        written && !options.from ? [`Add a provider and a lane named code to ${config}`] : []
+        written && !options.from ? [`Add a provider and a role named code to ${config}`] : []
     const style = styleFor(process.stdout)
 
     if (user) {

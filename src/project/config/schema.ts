@@ -87,7 +87,7 @@ const ProviderSchema = Type.Object(
     { additionalProperties: false },
 )
 
-const LaneSchema = Type.Object(
+const RoleSchema = Type.Object(
     {
         model: Type.String({
             minLength: 1,
@@ -97,7 +97,7 @@ const LaneSchema = Type.Object(
         description: Type.Optional(
             Type.String({
                 minLength: 1,
-                description: 'When to use this lane, in a sentence; ft guide shows it to agents.',
+                description: 'When to use this role, in a sentence; ft guide shows it to agents.',
             }),
         ),
     },
@@ -111,8 +111,8 @@ export const ConfigSchema = Type.Object(
             description:
                 'Providers by id. A Pi built-in id (anthropic, openai, openrouter, groq, ...) needs only key; any other id is a custom endpoint and needs key, baseUrl, api and models.',
         }),
-        lanes: Type.Record(Type.String({ minLength: 1 }), LaneSchema, {
-            description: 'Named model choices for ft run --lane. code is the default lane.',
+        roles: Type.Record(Type.String({ minLength: 1 }), RoleSchema, {
+            description: 'Named model choices for ft run --role. code is the default role.',
         }),
     },
     { additionalProperties: false },

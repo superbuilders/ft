@@ -6,9 +6,9 @@ export interface RunOptions {
     name?: string
     /** For a single brief: a path that receives the answer on success, removed when the run fails. */
     out?: string
-    /** Requested lane name. */
-    lane?: string
-    /** `provider/model` reference, chosen instead of a lane. */
+    /** Requested role name. */
+    role?: string
+    /** `provider/model` reference, chosen instead of a role. */
     model?: string
     /** Tool allowlist profile, read by default. */
     profile?: string

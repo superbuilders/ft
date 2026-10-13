@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { findModel, resolveLane } from './models'
+import { findModel, resolveRole } from './models'
 
 import type { Provider } from './types'
 
@@ -38,29 +38,29 @@ describe('findModel', () => {
     )
 })
 
-describe('resolveLane', () => {
-    const lanes = { code: { model: 'gateway/org/model-a', thinking: 'high' as const } }
+describe('resolveRole', () => {
+    const roles = { code: { model: 'gateway/org/model-a', thinking: 'high' as const } }
 
-    it('uses the code lane by default and lets --thinking override it', () => {
-        expect(resolveLane(providers, lanes)).toMatchObject({
+    it('uses the code role by default and lets --thinking override it', () => {
+        expect(resolveRole(providers, roles)).toMatchObject({
             model: 'org/model-a',
             thinking: 'high',
         })
-        expect(resolveLane(providers, lanes, 'code', undefined, 'off')).toMatchObject({
+        expect(resolveRole(providers, roles, 'code', undefined, 'off')).toMatchObject({
             thinking: 'off',
         })
     })
 
-    it('takes an explicit model instead of a lane', () => {
-        expect(resolveLane(providers, lanes, undefined, 'gateway/search')).toEqual({
+    it('takes an explicit model instead of a role', () => {
+        expect(resolveRole(providers, roles, undefined, 'gateway/search')).toEqual({
             provider: 'gateway',
             model: 'search',
             entry: { id: 'search', adapter: 'sonar' },
         })
     })
 
-    it('rejects unknown lanes and thinking levels', () => {
-        expect(() => resolveLane(providers, lanes, 'missing')).toThrow('no lane named missing')
-        expect(() => resolveLane(providers, lanes, 'code', undefined, 'huge')).toThrow()
+    it('rejects unknown roles and thinking levels', () => {
+        expect(() => resolveRole(providers, roles, 'missing')).toThrow('no role named missing')
+        expect(() => resolveRole(providers, roles, 'code', undefined, 'huge')).toThrow()
     })
 })

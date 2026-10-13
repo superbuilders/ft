@@ -40,12 +40,12 @@ export interface Provider {
 /**
  * A named model choice; `model` is a `provider/model` reference.
  */
-export interface Lane {
+export interface Role {
     /** Provider id and that provider's model id, joined by the first slash. */
     model: string
     /** Requested Pi thinking level, absent when not explicitly selected. */
     thinking?: Thinking
-    /** When to use this lane, shown to agents by `ft guide`. */
+    /** When to use this role, shown to agents by `ft guide`. */
     description?: string
 }
 

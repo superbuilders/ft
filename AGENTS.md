@@ -110,7 +110,7 @@ the tags and where fakes live.
 `src/` is layered, and each layer imports only from the layers below it:
 `cli.ts`, then `commands/` (one folder per command), `pi/` (driving Pi),
 `project/` (reading the caller's project), `models/` (providers, Pi's
-built-in catalog and lanes), and `system/` (helpers with no ft knowledge). Sibling folders do not
+built-in catalog and roles), and `system/` (helpers with no ft knowledge). Sibling folders do not
 import each other unless `.oxlint/boundaries/layers.json` names the edge. The
 `boundaries/layer-imports` rule enforces that map. A new folder inherits the
 edges of its mapped ancestors; give it its own entry only when it needs an edge
@@ -121,8 +121,8 @@ upward edge.
 
 A project has `.ft.json` and a `.ft/` folder at its root. `.ft.json` is written
 by people and agents: `providers` (a Pi built-in provider id with a `key`, or a custom endpoint
-with `baseUrl`, `api`, `key` and Pi-format `models`) and `lanes`
-(`provider/model` plus optional thinking; `code` is the default lane). A
+with `baseUrl`, `api`, `key` and Pi-format `models`) and `roles`
+(`provider/model` plus optional thinking; `code` is the default role). A
 `baseUrl` may be `{"env": "NAME"}` so a public repo need not name a private
 endpoint. `.ft/lock.json` (version and checksums) and `.ft/schema.json` (the
 config's JSON Schema) come from the pinned release; only `ft pin` and `ft init`
@@ -165,7 +165,7 @@ script, `.ft/ft`) is the repository's fact, stated by its skill; only
 `ft init`, which writes the package script, names it in its own output.
 
 The schema in `src/project/config/schema.ts` is strict about the config,
-provider, lane and model fields, so a typo there fails in ft instead of being
+provider, role and model fields, so a typo there fails in ft instead of being
 ignored by Pi; nested Pi objects such as `compat` pass through as given. A type
 test ties the model field names to pi-ai's `Model`, and pi-ai is pinned to
 exactly `PI_VERSION`. A run writes only its own provider into Pi's models.json,

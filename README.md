@@ -18,7 +18,7 @@ This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder)
 
 ## Choose a model
 
-ft starts with an empty config. Add a provider and a lane named `code` to `~/.config/ft/.ft.json`:
+ft starts with an empty config. Add a provider and a role named `code` to `~/.config/ft/.ft.json`:
 
 ```json
 {
@@ -26,14 +26,14 @@ ft starts with an empty config. Add a provider and a lane named `code` to `~/.co
     "providers": {
         "anthropic": { "key": { "env": "ANTHROPIC_API_KEY" } }
     },
-    "lanes": {
+    "roles": {
         "code": { "model": "anthropic/claude-opus-5-5", "thinking": "high" }
     }
 }
 ```
 
 - A **provider** says where a model lives and where its key comes from. The key comes from an environment variable (`{ "env": "NAME" }`) or from a command that prints it (`{ "command": ["op", "read", "op://vault/item/key"] }`). ft never writes the key to disk, and only `ft key <provider>` prints it.
-- A **lane** names a model for a kind of work. `code` is the default. A repository can add others and pick one with `--lane`: for example a `research` lane on a model that searches the web, such as Perplexity's Sonar, so agents can look up prior art before a big design decision.
+- A **role** names a model for a kind of work. `code` is the default. A repository can add others and pick one with `--role`: for example a `research` role on a model that searches the web, such as Perplexity's Sonar, so agents can look up prior art before a big design decision.
 - Any of Pi's built-in providers works with just a `key`. For your own endpoint, add `baseUrl`, `api` and `models`. This repository's `.ft.json` is a full example, and `ft schema` prints every field.
 
 Set `ANTHROPIC_API_KEY` in the environment ft runs in, then check the setup:
@@ -59,6 +59,7 @@ ft start a.md b.md c.md          # start several and return at once
 ft watch <id> <id> <id>          # print each report as its run finishes
 ft show <id>                     # every step of one run, and its answer
 ft list                          # recent runs
+ft roles                         # the roles configured here
 ft stop <id>                     # cancel a run
 ```
 
@@ -86,7 +87,7 @@ ft init --from ~/.config/ft/.ft.json       # or copy your personal one
 
 This writes the files a teammate needs: `.ft.json`, the pinned version in `.ft/lock.json` with the schema beside it, and a launcher at `.ft/ft`. In a JavaScript repository it also adds an `ft` package script, so `bun ft` or `npm run ft --` works without installing anything. Commit these files. Anyone who clones the repository then needs only gh, signed in, and the provider keys the config names.
 
-Where a repository has its own `.ft.json`, ft uses only that file; it does not merge in your personal config. So a new empty repository config needs its own providers and lanes before runs work there.
+Where a repository has its own `.ft.json`, ft uses only that file; it does not merge in your personal config. So a new empty repository config needs its own providers and roles before runs work there.
 
 ## Two scopes, same commands
 

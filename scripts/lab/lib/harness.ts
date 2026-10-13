@@ -58,9 +58,9 @@ async function runFile(status: Status | null, file: string): Promise<string | nu
  * @param executable - compiled runner or installed shim
  * @param name - output basename
  * @param extra - additional ft arguments
- * @param selection - which brief file and lane to run
+ * @param selection - which brief file and role to run
  * @param selection.prompt - brief file in the project
- * @param selection.lane - lane to run it on
+ * @param selection.role - role to run it on
  * @returns captured process completion
  */
 function brief(
@@ -68,7 +68,7 @@ function brief(
     executable: string,
     name: string,
     extra: string[] = [],
-    { prompt = 'brief.md', lane = 'code' } = {},
+    { prompt = 'brief.md', role = 'code' } = {},
 ): Promise<Capture> {
     return start(
         context,
@@ -76,8 +76,8 @@ function brief(
             executable,
             'run',
             prompt,
-            '--lane',
-            lane,
+            '--role',
+            role,
             '--out',
             join(context.project, `${name}.out`),
             '--json',
@@ -134,7 +134,7 @@ export async function loopback(
             name === 'compiled-success'
                 ? [context.build.binary]
                 : [process.execPath, resolve('src/cli.ts')]
-        const lane =
+        const role =
             (
                 {
                     research: 'research',
@@ -148,8 +148,8 @@ export async function loopback(
                 ...argv,
                 'run',
                 'brief.md',
-                '--lane',
-                lane,
+                '--role',
+                role,
                 '--out',
                 out,
                 '--json',
@@ -519,7 +519,7 @@ export async function cancelGroup(context: Context): Promise<void> {
             const out = join(context.project, `${signal}.out`)
             const child = start(
                 context,
-                [context.build.binary, 'run', 'brief.md', '--lane', 'code', '--out', out, '--json'],
+                [context.build.binary, 'run', 'brief.md', '--role', 'code', '--out', out, '--json'],
                 context.project,
                 context.env,
             )
@@ -628,19 +628,19 @@ function liveError(status: Status | null): string | null {
 }
 
 /**
- * Assert a live-lane tool event without storing or printing credential-bearing pipes.
+ * Assert a live-role tool event without storing or printing credential-bearing pipes.
  * @param context - compiled runner and isolated environment
- * @param lane - explicit live lane
+ * @param role - explicit live role
  * @returns completion of real gateway assertion
  */
-export async function liveToolTurn(context: Context, lane: string): Promise<void> {
-    const capture = await brief(context, context.build.binary, lane, ['--deadline', '90'], { lane })
+export async function liveToolTurn(context: Context, role: string): Promise<void> {
+    const capture = await brief(context, context.build.binary, role, ['--deadline', '90'], { role })
     const status = recorded(capture)
     const events = (await runFile(status, RUN_FILES.events)) ?? ''
 
     check(
         context.result,
-        `${lane}-tool-round-trip`,
+        `${role}-tool-round-trip`,
         { code: 0, tool: true, error: null },
         {
             code: capture.code,
@@ -666,7 +666,7 @@ export async function liveResearch(context: Context): Promise<void> {
 
     const capture = await brief(context, context.build.binary, 'research', ['--deadline', '90'], {
         prompt: 'research.md',
-        lane: 'research',
+        role: 'research',
     })
     const answer = (await artifact(out)) ?? ''
 

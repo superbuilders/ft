@@ -1,4 +1,4 @@
-import { resolveLane } from '../../models/models'
+import { resolveRole } from '../../models/models'
 import { resolveBaseUrl } from '../../project/config/config'
 import { adapterNamed } from '../gateway/adapters'
 import { RUN_PROFILES } from './constants'
@@ -20,14 +20,14 @@ export function chooseModel(request: Omit<Request, 'cwd'>, config: Config): Mode
         throw new Error(`--profile must be one of ${Object.keys(RUN_PROFILES).join(', ')}`)
     }
 
-    if (request.lane && request.model) {
-        throw new Error('--lane and --model cannot be used together')
+    if (request.role && request.model) {
+        throw new Error('--role and --model cannot be used together')
     }
 
-    const selected = resolveLane(
+    const selected = resolveRole(
         config.providers,
-        config.lanes,
-        request.lane,
+        config.roles,
+        request.role,
         request.model,
         request.thinking,
     )

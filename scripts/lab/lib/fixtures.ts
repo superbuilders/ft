@@ -195,7 +195,7 @@ export async function configure(context: Context, build: Build, gateway?: string
             },
             groq: { key, baseUrl },
         },
-        lanes: {
+        roles: {
             code: { model: 'lab/gpt-6.1-sol', thinking: 'high' },
             research: { model: 'lab/sonar-pro' },
             builtin: { model: 'groq/llama-3.1-8b-instant' },

@@ -122,9 +122,9 @@ bun scripts/lab run real-gateway --project /path/to/project
 bun scripts/lab run real-release --version 0.1.0
 ```
 
-`real-gateway` is Linux-only and makes one code-lane tool round trip and one research question
-through the compiled runner (90-second per-lane deadlines). It uses the supplied
-project's real `.ft.json` providers and lanes, and their key references at that
+`real-gateway` is Linux-only and makes one code-role tool round trip and one research question
+through the compiled runner (90-second per-role deadlines). It uses the supplied
+project's real `.ft.json` providers and roles, and their key references at that
 project's root, never resolving or printing a key in the lab. Tools work in scratch. This is paid/live behavior.
 
 `real-release` uses the caller's real gh configuration or explicitly supplied

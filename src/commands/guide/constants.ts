@@ -1,8 +1,8 @@
-/** What a lane is for when .ft.json does not say. */
-export const LANE_FALLBACK_DESCRIPTION = 'No description in .ft.json.'
+/** What a role is for when .ft.json does not say. */
+export const ROLE_FALLBACK_DESCRIPTION = 'No description in .ft.json.'
 
-/** The guide's fixed body, after the version and the project's lanes. */
-/** The manual after the lanes; guide.ts fills `{read tools}` and `{write tools}` from RUN_PROFILES. */
+/** The guide's fixed body, after the version and the project's roles. */
+/** The manual after the roles; guide.ts fills `{read tools}` and `{write tools}` from RUN_PROFILES. */
 export const GUIDE_BODY = `## Write the brief
 
 A brief is the whole task as the other model sees it, written to a Markdown file anywhere (ft keeps a copy). Describe the task, where to work, what counts as done, and what to leave alone. Add only the constraints the repository's instructions do not already cover. Keep one task per brief. Its first line with text becomes the run's title in \`ft list\`, so make that line name the task. To keep answers short, ask for that in the brief.
@@ -17,12 +17,12 @@ ft also tells the delegate that it works for another agent, that nobody can answ
 
 \`ft run\` waits, then prints a report: the verdict, the tools used and files written, what to do next if it failed, and where the answer is saved with its length in lines. Read the answer file when you need it; \`ft show <id>\` prints it too. Exit code 0 means the model returned a final answer, not that the answer is right.
 
-Options: \`--name review\` (the run id's prefix), \`--lane <lane>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--deadline <seconds>\`, \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--json\`.
+Options: \`--name review\` (the run id's prefix), \`--role <role>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--deadline <seconds>\`, \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--json\`.
 
 ## Run several at once, or anything long
 
     ft start tmp/review.md tmp/security.md    # prints a Started line per run, then: Watch with: ft watch ...
-    ft start tmp/research.md --lane research
+    ft start tmp/research.md --role research
     ft watch review-a3c2 security-7d0e research-9f1c --timeout 540
 
 \`ft start\` takes one or more briefs and the same options as \`ft run\`, applied to every run. \`--name\` and \`--out\` work only with a single brief. ft checks every brief before starting any run, starts the runs detached from your shell, and waits up to 10 seconds for each to confirm it started. It prints a Started line for each running run, a report for any run that already ended, and then the \`ft watch\` command for the runs still going. Runs keep going when the shell that started them is killed or backgrounded, so start every run before you wait on any.
@@ -46,7 +46,7 @@ A profile is the delegate's tool set plus standing instructions. Neither profile
 - read (default): {read tools}. For reviews, research and investigation. The delegate is told not to change files, but bash can still change them.
 - write: adds {write tools}. The delegate is told to stay in scope, run the repository's checks, and never stage, commit or push. Write runs share your working tree, so parallel write runs need disjoint files. The report lists files that edit and write changed; changes made through bash are not listed, so check \`git status\`.
 
-A lane whose model is configured as tool-free (such as a web-research model) runs without tools whatever the profile.
+A role whose model is configured as tool-free (such as a web-research model) runs without tools whatever the profile.
 
 ## Reading results
 

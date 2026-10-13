@@ -7,6 +7,7 @@ import { isPersonal, loadConfig, resolveBaseUrl } from '../../project/config/con
 import { CONFIG_FILE } from '../../project/config/constants'
 import { getKey } from '../../project/key/key'
 import { cacheRoot, configRoot, platformTarget, tildePath } from '../../system/host/host'
+import { aligned } from '../../system/terminal/columns'
 import { styleFor } from '../../system/terminal/style'
 
 import type { Style } from '../../system/terminal/types'
@@ -36,25 +37,13 @@ function heading(text: string, style: Style): string {
 }
 
 /**
- * Pad labels to one column, so a block of label and value lines lines up.
- * @param rows - each line's label and value
- * @param indent - text before each label
- * @returns the lines
- */
-function aligned(rows: [string, string][], indent: string): string[] {
-    const width = Math.max(...rows.map(([label]) => label.length))
-
-    return rows.map(([label, value]) => `${indent}${label.padEnd(width)}  ${value}`)
-}
-
-/**
  * Print installation and credential health without exposing any credential. Tools that are not
  * installed yet are not problems: the next run installs them. The last line is always `Ready` or
  * `Not ready: ...`.
  * @param runnerVersion - this runner's version
  * @param options - command options
  * @param options.user - check the personal config rather than the one that applies here
- * @returns exit code: 0 when ready, 2 when a lane, endpoint or key check failed
+ * @returns exit code: 0 when ready, 2 when a role, endpoint or key check failed
  */
 export async function doctor(runnerVersion: string, options: { user?: boolean }): Promise<number> {
     platformTarget()
@@ -96,21 +85,21 @@ export async function doctor(runnerVersion: string, options: { user?: boolean })
     lines.push(
         `${heading('Runner', style)} ${runnerVersion}   ${tools.join('   ')}`,
         '',
-        style.bold('Lanes'),
+        style.bold('Roles'),
     )
 
     let problems = 0
-    const lanes = Object.entries(config.config.lanes)
+    const roles = Object.entries(config.config.roles)
 
-    if (lanes.length === 0) {
+    if (roles.length === 0) {
         problems++
         lines.push(style.red(`  none yet; add one named code to ${tildePath(config.path)}`))
     } else {
         lines.push(
             ...aligned(
-                lanes.map(([name, lane]) => [
+                roles.map(([name, role]) => [
                     name,
-                    `${lane.model}${lane.thinking ? style.dim(`, thinking ${lane.thinking}`) : ''}`,
+                    `${role.model}${role.thinking ? style.dim(`, thinking ${role.thinking}`) : ''}`,
                 ]),
                 '  ',
             ),

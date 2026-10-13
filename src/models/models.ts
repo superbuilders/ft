@@ -1,7 +1,7 @@
 import { isBuiltinModel, isBuiltinProvider } from './catalog'
-import { DEFAULT_LANE, THINKING_LEVELS } from './constants'
+import { DEFAULT_ROLE, THINKING_LEVELS } from './constants'
 
-import type { Lane, Provider, Selection, Thinking } from './types'
+import type { Role, Provider, Selection, Thinking } from './types'
 
 /**
  * Validate a thinking level before Pi can silently clamp an invalid value.
@@ -57,31 +57,31 @@ export function findModel(providers: Record<string, Provider>, ref: string): Sel
 }
 
 /**
- * Resolve one lane or one exact model, with an explicit thinking override.
+ * Resolve one role or one exact model, with an explicit thinking override.
  * @param providers - configured providers by id
- * @param lanes - configured lanes by name
- * @param lane - lane name; the default lane when neither lane nor model is given
- * @param model - `provider/model` reference, chosen instead of a lane
+ * @param roles - configured roles by name
+ * @param role - role name; the default role when neither role nor model is given
+ * @param model - `provider/model` reference, chosen instead of a role
  * @param thinking - optional override
  * @returns the selected model and level
  */
-export function resolveLane(
+export function resolveRole(
     providers: Record<string, Provider>,
-    lanes: Record<string, Lane>,
-    lane?: string,
+    roles: Record<string, Role>,
+    role?: string,
     model?: string,
     thinking?: string,
 ): Selection {
-    const name = lane ?? DEFAULT_LANE
-    const chosen = model ? { model } : lanes[name]
+    const name = role ?? DEFAULT_ROLE
+    const chosen = model ? { model } : roles[name]
 
     if (!chosen) {
-        const known = Object.keys(lanes)
+        const known = Object.keys(roles)
 
         throw new Error(
             known.length > 0
-                ? `.ft.json has no lane named ${name} (its lanes are ${known.join(', ')})`
-                : `.ft.json defines no lanes (add one named ${name} under "lanes")`,
+                ? `.ft.json has no role named ${name} (its roles are ${known.join(', ')})`
+                : `.ft.json defines no roles (add one named ${name} under "roles")`,
         )
     }
 

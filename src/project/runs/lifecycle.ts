@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 
-import { DEFAULT_LANE } from '../../models/constants'
+import { DEFAULT_ROLE } from '../../models/constants'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { RUN_FILES, STATUS_INTERVAL_MS } from './constants'
 import { briefTitle, createRun, emptyProgress, writeRequest, writeStatus } from './store'
@@ -27,7 +27,7 @@ export async function openRun(root: string, input: OpenRun): Promise<Status> {
         title: briefTitle(brief),
         outcome: 'running',
         piVersion: input.piVersion,
-        lane: request.model ? null : (request.lane ?? DEFAULT_LANE),
+        role: request.model ? null : (request.role ?? DEFAULT_ROLE),
         provider: selected.provider,
         model: selected.model,
         thinking: selected.thinking ?? null,

@@ -306,11 +306,11 @@ export function validateConfig(value: unknown): Config {
             providerProblems(id, provider),
         )
 
-        for (const [name, lane] of Object.entries(config.lanes)) {
+        for (const [name, role] of Object.entries(config.roles)) {
             try {
-                findModel(config.providers, lane.model)
+                findModel(config.providers, role.model)
             } catch (error) {
-                problems.push(`lanes.${name}.model: ${(error as Error).message}`)
+                problems.push(`roles.${name}.model: ${(error as Error).message}`)
             }
         }
     } else {

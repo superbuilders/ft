@@ -7,6 +7,7 @@ import { key } from './commands/key/key'
 import { list } from './commands/list/list'
 import { HELP_STYLES, printFailure } from './commands/output/output'
 import { pin } from './commands/pin/pin'
+import { roles } from './commands/roles/roles'
 import { exec, run, start, thinkingHelp } from './commands/run/run'
 import { schema } from './commands/schema/schema'
 import { show } from './commands/show/show'
@@ -33,8 +34,8 @@ const program = new Command()
 function runOptions(command: Command): Command {
     return command
         .option('--name <name>', 'run id prefix (default: the brief file name)')
-        .option('--lane <name>', 'configured lane (default: code)')
-        .option('--model <ref>', 'provider/model, instead of a lane')
+        .option('--role <name>', 'configured role (default: code)')
+        .option('--model <ref>', 'provider/model, instead of a role')
         .option('--profile <profile>', 'tool profile: read (default) or write')
         .option('--thinking <level>', thinkingHelp())
         .option('--deadline <seconds>', 'stop the run after this long')
@@ -80,6 +81,11 @@ program
     .option('--all', 'include every finished run')
     .option('--json', 'print one JSON status per run')
     .action(list)
+program
+    .command('roles')
+    .description('List the roles configured here, and which one is the default')
+    .option('--json', 'print one JSON object per role')
+    .action(roles)
 program
     .command('show <id>')
     .description("Show a run's steps and its answer")

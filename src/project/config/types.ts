@@ -1,14 +1,14 @@
-import type { Lane, Provider } from '../../models/types'
+import type { Role, Provider } from '../../models/types'
 import type { Target } from '../../system/host/types'
 
 /**
- * The project's `.ft.json`: which providers ft may reach and which model each lane uses.
+ * The project's `.ft.json`: which providers ft may reach and which model each role uses.
  */
 export interface Config {
     /** Providers by id: a Pi built-in id, or a custom endpoint. */
     providers: Record<string, Provider>
-    /** Named model choices; `code` is the default lane. */
-    lanes: Record<string, Lane>
+    /** Named model choices; `code` is the default role. */
+    roles: Record<string, Role>
 }
 
 /**

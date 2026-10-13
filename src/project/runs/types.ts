@@ -56,9 +56,9 @@ export interface Progress {
  * The caller's request, stored with the run so it can be executed detached and read back later.
  */
 export interface Request {
-    /** Lane name; absent for an explicit model. */
-    lane?: string
-    /** `provider/model` reference, chosen instead of a lane. */
+    /** Role name; absent for an explicit model. */
+    role?: string
+    /** `provider/model` reference, chosen instead of a role. */
     model?: string
     /** Tool profile. */
     profile: string
@@ -88,8 +88,8 @@ export interface Status extends Progress {
     outcome: Outcome
     /** Pinned Pi release this runner drives. */
     piVersion: string
-    /** Lane the run used; null for an explicit model. */
-    lane: string | null
+    /** Role the run used; null for an explicit model. */
+    role: string | null
     /** Configured provider id; null until the model is resolved. */
     provider: string | null
     /** The provider's model id; null until the model is resolved. */

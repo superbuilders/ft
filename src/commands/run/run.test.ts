@@ -64,7 +64,7 @@ it.each([
                 models: [{ id: 'model-a' }],
             },
         },
-        lanes: { code: { model: 'gateway/model-a' } },
+        roles: { code: { model: 'gateway/model-a' } },
     }
 
     vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))

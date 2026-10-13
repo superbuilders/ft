@@ -19,7 +19,7 @@ const gateway = {
 }
 const valid = {
     providers: { gateway, groq: { key: { command: ['pass', 'groq'] } } },
-    lanes: {
+    roles: {
         code: { model: 'gateway/model-a', thinking: 'high' },
         fast: { model: 'groq/llama-3.1-8b-instant' },
     },
@@ -97,7 +97,7 @@ describe('config', () => {
             ...valid,
             $schema: './.ft/schema.json',
             providers: { gateway: { ...gateway, baseUrl: { env: 'GATEWAY_URL' } } },
-            lanes: { code: valid.lanes.code },
+            roles: { code: valid.roles.code },
         }
 
         expect(validateConfig(envUrl)).toEqual(envUrl)
@@ -120,7 +120,7 @@ describe('config', () => {
     it.each([
         [{ ...valid, version: '0.1.0' }, 'belong in .ft/lock.json now'],
         [{ ...valid, extra: true }, 'extra: not a field ft or Pi reads'],
-        [{ providers: valid.providers }, 'lanes'],
+        [{ providers: valid.providers }, 'roles'],
         [{ ...valid, providers: { gateway: { ...gateway, key: { command: [] } } } }, 'key'],
         [{ ...valid, providers: { gateway: { ...gateway, key: { env: 'not a name' } } } }, 'key'],
         [{ ...valid, providers: { gateway: { ...gateway, apiKey: 'sk-raw' } } }, 'gateway.apiKey'],
@@ -150,11 +150,11 @@ describe('config', () => {
             },
             'more than once',
         ],
-        [{ ...valid, lanes: { code: { model: 'model-a' } } }, 'provider/model'],
-        [{ ...valid, lanes: { code: { model: 'gateway/missing' } } }, 'has no model missing'],
+        [{ ...valid, roles: { code: { model: 'model-a' } } }, 'provider/model'],
+        [{ ...valid, roles: { code: { model: 'gateway/missing' } } }, 'has no model missing'],
         [
-            { ...valid, lanes: { code: { model: 'gateway/model-a', thinking: 'huge' } } },
-            'lanes.code.thinking',
+            { ...valid, roles: { code: { model: 'gateway/model-a', thinking: 'huge' } } },
+            'roles.code.thinking',
         ],
     ])('rejects invalid config %#', (config, message) => {
         expect(() => validateConfig(config)).toThrow(message)

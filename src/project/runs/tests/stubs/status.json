@@ -5,7 +5,7 @@
     "title": "Review the refund retry change",
     "outcome": "success",
     "piVersion": "1.1.0",
-    "lane": "code",
+    "role": "code",
     "provider": "gateway",
     "model": "gpt-6.1-sol",
     "thinking": "high",

@@ -24,5 +24,5 @@ export const KNOWN_APIS = [
     'pi-messages',
 ] as const satisfies readonly KnownApi[]
 
-/** The lane a run uses when the caller names neither a lane nor a model. */
-export const DEFAULT_LANE = 'code'
+/** The role a run uses when the caller names neither a role nor a model. */
+export const DEFAULT_ROLE = 'code'
