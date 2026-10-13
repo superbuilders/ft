@@ -305,6 +305,7 @@ export async function distribution(context: Context): Promise<void> {
             'ft',
             'runner',
             context.build.version,
+            context.build.digest,
             'ft',
         )
 
@@ -575,7 +576,14 @@ export async function killDownload(context: Context): Promise<void> {
     signalGroup(child.pid, 'SIGKILL')
     await child.result
 
-    const final = join(join(context.directory, 'xdg'), 'ft', 'runner', context.build.version, 'ft')
+    const final = join(
+        join(context.directory, 'xdg'),
+        'ft',
+        'runner',
+        context.build.version,
+        context.build.digest,
+        'ft',
+    )
 
     check(context.result, 'not-published', false, existsSync(final))
 

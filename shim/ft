@@ -137,11 +137,13 @@ fi
 [ -n "${XDG_CACHE_HOME:-}" ] || [ -n "${HOME:-}" ] ||
     fail 2 'HOME is not set (set it, or set XDG_CACHE_HOME)'
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
+# A runner is cached under its version and checksum, so a different build of the same version is
+# never mistaken for the pinned one.
 if [ "$bootstrap" = no ]; then
     validate_version
     validate_hash
-    if [ -f "$cache/runner/$version/ft" ]; then
-        exec "$cache/runner/$version/ft" "$@"
+    if [ -f "$cache/runner/$version/$expected/ft" ]; then
+        exec "$cache/runner/$version/$expected/ft" "$@"
     fi
 fi
 
@@ -185,12 +187,17 @@ if [ "$bootstrap" = yes ]; then
         *) fail 2 'latest release has an invalid tag' ;;
     esac
     validate_version
-    if [ -f "$cache/runner/$version/ft" ]; then
+    gh_call release download "v$version" -R superbuilders/ft -p SHA256SUMS -D "$stage" >/dev/null
+    expected=$(sed -n "s/^\([0-9a-fA-F]*\)  ft-$target\$/\1/p" "$stage/SHA256SUMS")
+    [ -n "$expected" ] || fail 2 "missing hash for target $target in release SHA256SUMS"
+    validate_hash
+    if [ -f "$cache/runner/$version/$expected/ft" ]; then
         cleanup
         stage=
-        exec "$cache/runner/$version/ft" "$@"
+        exec "$cache/runner/$version/$expected/ft" "$@"
     fi
 fi
+runner=$cache/runner/$version/$expected
 
 lock=$cache/locks/runner-$version.lock
 host=$(hostname) || fail 1 'cannot resolve lock hostname'
@@ -202,7 +209,14 @@ while ! mkdir "$lock" 2>/dev/null; do
         read -r owner_pid owner_host <"$lock/owner" || :
     fi
     case $owner_pid in
-        ''|*[!0-9]*|0) ;;
+        ''|*[!0-9]*|0)
+            # An owner is written right after the lock is made, so a lock still without one a minute
+            # later was left by an install that was killed in between.
+            if [ -n "$(find "$lock" -prune -mmin +1 2>/dev/null)" ]; then
+                rm -rf "$lock" || fail 1 'cannot recover abandoned runner lock'
+                continue
+            fi
+            ;;
         *)
             if [ "$owner_host" = "$host" ] && ! kill -0 "$owner_pid" 2>/dev/null; then
                 rm -rf "$lock" || fail 1 'cannot recover stale runner lock'
@@ -219,15 +233,9 @@ done
 locked=yes
 printf '%s %s\n' "$$" "$host" >"$lock/owner" || fail 1 'cannot write runner lock owner'
 
-if [ ! -f "$cache/runner/$version/ft" ]; then
+if [ ! -f "$runner/ft" ]; then
     require_gh
     [ -n "$stage" ] || new_stage
-    if [ "$bootstrap" = yes ]; then
-        gh_call release download "v$version" -R superbuilders/ft -p SHA256SUMS -D "$stage" >/dev/null
-        expected=$(sed -n "s/^\([0-9a-fA-F]*\)  ft-$target\$/\1/p" "$stage/SHA256SUMS")
-        [ -n "$expected" ] || fail 2 "missing hash for target $target in release SHA256SUMS"
-        validate_hash
-    fi
     gh_call release download "v$version" -R superbuilders/ft -p "ft-$target" -D "$stage" >/dev/null
     if command -v sha256sum >/dev/null 2>&1; then
         actual=$(sha256sum <"$stage/ft-$target") || fail 1 'SHA-256 verification failed'
@@ -247,10 +255,11 @@ if [ ! -f "$cache/runner/$version/ft" ]; then
     [ "$smoke" = "$version" ] || fail 1 'runner version check failed (unexpected version)'
     mv "$stage/ft-$target" "$stage/ft" || fail 1 'cannot prepare runner'
     rm -f "$stage/gh.stderr" "$stage/smoke.stdout" "$stage/smoke.stderr" "$stage/SHA256SUMS" "$stage/release.json" || fail 1 'cannot clean staging metadata'
-    mv "$stage" "$cache/runner/$version" || fail 1 'cannot publish runner'
+    mkdir -p "$cache/runner/$version" || fail 1 'cannot create cache directories'
+    mv "$stage" "$runner" || fail 1 'cannot publish runner'
     stage=
 fi
 cleanup
 stage=
 locked=no
-exec "$cache/runner/$version/ft" "$@"
+exec "$runner/ft" "$@"

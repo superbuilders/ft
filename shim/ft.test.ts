@@ -9,6 +9,7 @@ import {
     readdirSync,
     rmSync,
     symlinkSync,
+    utimesSync,
     writeFileSync,
 } from 'node:fs'
 import { hostname, tmpdir } from 'node:os'
@@ -161,7 +162,7 @@ async function waitFor(predicate: () => boolean) {
 }
 
 function finalPath() {
-    return join(cache, 'ft', 'runner', version, 'ft')
+    return join(cache, 'ft', 'runner', version, digest(runner), 'ft')
 }
 
 function expectClean() {
@@ -197,6 +198,7 @@ beforeEach(() => {
         'mktemp',
         'chmod',
         'sleep',
+        'find',
         'tr',
         'sha256sum',
         'cmp',
@@ -366,6 +368,38 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(ghCalls()).toHaveLength(1)
         expectClean()
+    })
+
+    it('recovers a lock left without an owner for over a minute', async () => {
+        configure()
+
+        const lock = join(cache, 'ft', 'locks', `runner-${version}.lock`)
+        const old = new Date(Date.now() - 5 * 60 * 1000)
+
+        mkdirSync(lock, { recursive: true })
+        utimesSync(lock, old, old)
+
+        const result = await start(shell, ['doctor']).result
+
+        expect(result.code, result.stderr).toBe(0)
+        expect(ghCalls()).toHaveLength(1)
+        expectClean()
+    })
+
+    it('downloads the pinned build when another build of the same version is cached', async () => {
+        configure()
+
+        const other = join(cache, 'ft', 'runner', version, '0'.repeat(64), 'ft')
+
+        mkdirSync(join(other, '..'), { recursive: true })
+        writeFileSync(other, '#!/bin/sh\necho other build\n', { mode: 0o755 })
+
+        const result = await start(shell, ['doctor']).result
+
+        expect(result.code, result.stderr).toBe(0)
+        expect(result.stdout).not.toContain('other build')
+        expect(ghCalls()).toHaveLength(1)
+        expect(readFileSync(finalPath(), 'utf8')).toBe(runner)
     })
 
     it('recovers a lock held by a dead pid on this host', async () => {
@@ -711,7 +745,7 @@ describe('installer via sh', () => {
                 `release download v0.1.0 -R superbuilders/ft -p ft-shim -p SHA256SUMS -p ft-${target} -p schema.json -D `,
             ),
         ])
-        expect(readFileSync(join(cache, 'ft/runner/0.1.0/ft'), 'utf8')).toBe(runner)
+        expect(readFileSync(finalPath(), 'utf8')).toBe(runner)
 
         const rerun = await start(
             'sh',

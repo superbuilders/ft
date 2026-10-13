@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 
 import { validateConfig } from '../../../src/project/config/config'
 import { TARGETS } from '../../../src/system/host/constants'
+import { platformTarget } from '../../../src/system/host/host'
 import { labChecksums } from './build'
 import { liveResearch, liveToolTurn } from './harness'
 import { check, PrerequisiteError, start } from './processes'
@@ -188,6 +189,15 @@ export async function realRelease(context: Context, options: Options): Promise<v
         context.result,
         'cold-runner',
         true,
-        existsSync(join(join(context.directory, 'xdg'), 'ft', 'runner', options.version, 'ft')),
+        existsSync(
+            join(
+                join(context.directory, 'xdg'),
+                'ft',
+                'runner',
+                options.version,
+                hashes[platformTarget()],
+                'ft',
+            ),
+        ),
     )
 }

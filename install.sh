@@ -174,15 +174,15 @@ if ! { [ -f "$install_dir/ft" ] && cmp -s "$stage/ft-shim" "$install_dir/ft"; };
     changed=yes
 fi
 # Cache the runner where the shim looks for it, so ft never downloads it a second time.
-runner=$cache/runner/$version/ft
+runner=$cache/runner/$version/$runner_sha/ft
 if [ ! -f "$runner" ] || [ "$(sha256_of "$runner")" != "$runner_sha" ]; then
-    (umask 077 && mkdir -p "$cache/runner" "$cache/staging") || fail 1 'cannot create cache directories'
+    (umask 077 && mkdir -p "$cache/runner/$version" "$cache/staging") || fail 1 'cannot create cache directories'
     chmod +x "$stage/$runner_asset" || fail 1 'cannot make runner executable'
     [ "$("$stage/$runner_asset" --version 2>/dev/null)" = "$version" ] || fail 1 'runner version check failed'
     published=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
     mv "$stage/$runner_asset" "$published/ft" || fail 1 'cannot prepare runner'
-    rm -rf "$cache/runner/$version" || fail 1 'cannot replace cached runner'
-    mv "$published" "$cache/runner/$version" || fail 1 'cannot publish runner'
+    rm -rf "${runner%/ft}" || fail 1 'cannot replace cached runner'
+    mv "$published" "${runner%/ft}" || fail 1 'cannot publish runner'
     changed=yes
 fi
 if [ "$changed" = yes ]; then
