@@ -45,9 +45,19 @@ case $(uname -m) in
 esac
 target=$os-$arch
 
+# The personal setup's commands, and uninstall, use the personal pin wherever they run: a
+# repository's pin and config do not apply to them.
+personal_only=no
+[ "${1:-}" != uninstall ] || personal_only=yes
+for arg; do
+    [ "$arg" != --user ] || personal_only=yes
+done
+personal=${XDG_CONFIG_HOME:-${HOME:+$HOME/.config}}
+[ -z "$personal" ] || personal=$personal/ft/.ft.json
+
 project=$(pwd -P) || fail 2 'cannot resolve working directory'
 config=
-while :; do
+while [ "$personal_only" = no ]; do
     if [ -f "$project/.ft.json" ]; then
         config=$project/.ft.json
         break
@@ -57,11 +67,12 @@ while :; do
     [ -n "$project" ] || project=/
 done
 # A directory with no .ft.json of its own uses the personal config, if there is one.
-scope=
 if [ -z "$config" ]; then
-    personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
-    [ ! -f "$personal" ] || { config=$personal; scope=' --user'; }
+    [ -n "$personal" ] || fail 2 'HOME is not set; set it, or set XDG_CONFIG_HOME and XDG_CACHE_HOME'
+    [ ! -f "$personal" ] || config=$personal
 fi
+scope=
+[ -z "$config" ] || [ "$config" != "$personal" ] || scope=' --user'
 
 bootstrap=no
 pinned=${config%/*}/.ft/lock.json
@@ -74,10 +85,12 @@ if [ -n "$config" ] && [ -f "$pinned" ]; then
     export FT_CONFIG
 else
     case ${1:-} in
-        pin|init) ;;
+        pin|init|uninstall) ;;
         *)
             [ -z "$config" ] ||
                 fail 2 "no $pinned found; run ft pin$scope <version>"
+            [ "$personal_only" = no ] ||
+                fail 2 'no personal config; set it up with ft init --user'
             fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init for this repository, or ft init --user for your personal setup'
             ;;
     esac
@@ -98,7 +111,7 @@ validate_hash() {
 find_gh() {
     gh_bin=$(command -v gh 2>/dev/null) && return 0
     # FT_GH_FALLBACK_DIRS is a test-only, colon-separated override of the search directories.
-    gh_dirs=${FT_GH_FALLBACK_DIRS-/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin}
+    gh_dirs=${FT_GH_FALLBACK_DIRS-/opt/homebrew/bin:/usr/local/bin${HOME:+:$HOME/.local/bin}}
     while [ -n "$gh_dirs" ]; do
         gh_dir=${gh_dirs%%:*}
         case $gh_dirs in
@@ -119,6 +132,8 @@ if ! command -v gh >/dev/null 2>&1 && find_gh; then
     export PATH
 fi
 
+[ -n "${XDG_CACHE_HOME:-}" ] || [ -n "${HOME:-}" ] ||
+    fail 2 'HOME is not set; set it, or set XDG_CACHE_HOME'
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
 if [ "$bootstrap" = no ]; then
     validate_version

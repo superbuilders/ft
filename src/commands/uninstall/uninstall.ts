@@ -1,6 +1,6 @@
 import { existsSync, lstatSync } from 'node:fs'
 import { readlink, rm } from 'node:fs/promises'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 
 import { SKILL_PATH } from '../../project/config/constants'
 import { cacheRoot, configRoot, homeDirectory, tildePath } from '../../system/host/host'
@@ -14,7 +14,8 @@ async function installedLauncher(): Promise<string | undefined> {
     for (const directory of (process.env.PATH ?? '').split(delimiter).filter(Boolean)) {
         const path = join(directory, 'ft')
 
-        if (!existsSync(path)) {
+        /* A repository's .ft/ft carries the same marker, and repositories are never touched. */
+        if (basename(directory) === '.ft' || !existsSync(path)) {
             continue
         }
 

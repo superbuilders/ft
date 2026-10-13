@@ -20,11 +20,16 @@ export async function pin(version: string, options: { user?: boolean }): Promise
     const root = scopeRoot(user)
 
     if (!existsSync(join(root, CONFIG_FILE))) {
-        throw new Error(
-            user
-                ? `No personal config in ${root}; set it up with ft init --user`
-                : `No ${CONFIG_FILE} in ${root}; set this repository up with ft init`,
-        )
+        let hint = '; set this repository up with ft init'
+
+        if (user) {
+            hint = '; set it up with ft init --user'
+        } else if (existsSync(join(scopeRoot(true), CONFIG_FILE))) {
+            /* ft runs on the personal config here, so a bare pin most likely meant that one. */
+            hint = `; this directory uses your personal config, so pin that with ft pin --user ${version}, or set this repository up with ft init`
+        }
+
+        throw new Error(`No ${CONFIG_FILE} in ${root}${hint}`)
     }
 
     const release = await fetchRelease(

@@ -1,28 +1,49 @@
 import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { PI_VERSION, TOOL_RELEASES } from '../../pi/runtime/constants'
 import { runtimePaths } from '../../pi/runtime/runtime'
 import { isPersonal, loadConfig, resolveBaseUrl } from '../../project/config/config'
+import { CONFIG_FILE } from '../../project/config/constants'
 import { getKey } from '../../project/key/key'
-import { cacheRoot, platformTarget } from '../../system/host/host'
+import { cacheRoot, configRoot, platformTarget, tildePath } from '../../system/host/host'
 
 /**
  * Print installation and credential health without exposing any credential. Tools that are not
  * installed yet are not problems: the next run installs them.
  * @param runnerVersion - this runner's version
+ * @param options - command options
+ * @param options.user - check the personal config rather than the one that applies here
  * @returns exit code: 0 when ready, 2 when a lane, endpoint or key check failed
  */
-export async function doctor(runnerVersion: string): Promise<number> {
+export async function doctor(runnerVersion: string, options: { user?: boolean }): Promise<number> {
     platformTarget()
 
-    const config = await loadConfig(process.cwd())
+    const user = options.user === true
+    const config = await loadConfig(process.cwd(), user)
     const paths = runtimePaths(cacheRoot())
-    const lines = [
-        `Config: ${config.path}${isPersonal(config.path) ? ' (personal; this directory has no .ft.json)' : ''}`,
-        `Project: ${config.workspace}`,
+    const personal = join(configRoot(), CONFIG_FILE)
+    const lines = [`Config: ${config.path}`]
+
+    if (user) {
+        lines[0] += ' (personal)'
+    } else if (isPersonal(config.path)) {
+        lines[0] += ' (personal; this directory has no .ft.json)'
+    } else if (existsSync(personal)) {
+        /* The two never merge, so say which one is in play; doctor --user checks the other. */
+        lines.push(
+            `Personal config: ${tildePath(personal)} (not used here; this repository's .ft.json replaces it)`,
+        )
+    }
+
+    if (!user) {
+        lines.push(`Project: ${config.workspace}`)
+    }
+
+    lines.push(
         `Runner: ${runnerVersion}`,
         `Pi: ${PI_VERSION} (${existsSync(paths.pi) ? 'installed' : 'not installed'})`,
-    ]
+    )
 
     for (const name of ['rg', 'fd'] as const) {
         lines.push(

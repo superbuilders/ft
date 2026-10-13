@@ -54,6 +54,7 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 
 [ "$#" -le 1 ] || fail 2 'usage: install.sh [version]'
+[ -n "${HOME:-}" ] || fail 2 'HOME is not set; ft installs under your home directory'
 case $(uname -s) in
     Linux) os=linux ;;
     Darwin) os=darwin ;;

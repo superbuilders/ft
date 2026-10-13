@@ -83,3 +83,16 @@ it('leaves another program named ft alone', async () => {
     expect(existsSync(join(other, 'ft'))).toBe(true)
     expect(output).toContain('Nothing to remove')
 })
+
+it("skips a repository's launcher on PATH and removes the installed one", async () => {
+    const bin = await installed()
+    const repository = join(root, 'repo/.ft')
+
+    await mkdir(repository, { recursive: true })
+    await writeFile(join(repository, 'ft'), '#!/bin/sh\nSHIM_VERSION=0.1.0\n')
+    vi.stubEnv('PATH', `${repository}:${bin}`)
+    await uninstall({})
+
+    expect(existsSync(join(repository, 'ft'))).toBe(true)
+    expect(existsSync(join(bin, 'ft'))).toBe(false)
+})

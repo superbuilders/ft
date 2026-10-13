@@ -95,6 +95,14 @@ it.each([
     expect(existsSync(join(root, '.ft'))).toBe(false)
 })
 
+it('points a bare pin at --user where the personal config is the one in use', async () => {
+    release(sha(SCHEMA))
+    await mkdir(join(root, 'config/ft'), { recursive: true })
+    await writeFile(join(root, 'config/ft/.ft.json'), '{}\n')
+    await expect(pin('0.2.0', {})).rejects.toThrow('pin that with ft pin --user 0.2.0')
+    expect(existsSync(join(root, 'config/ft/.ft'))).toBe(false)
+})
+
 it('refuses a schema that does not match the release manifest', async () => {
     release('f'.repeat(64))
     await writeFile(join(root, '.ft.json'), '{}\n')

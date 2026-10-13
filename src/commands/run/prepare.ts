@@ -1,4 +1,3 @@
-import { existsSync, statSync } from 'node:fs'
 import { readFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
@@ -74,16 +73,10 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
     platformTarget()
 
     const config = await loadConfig(process.cwd())
-    const cwd = resolve(options.cwd ?? process.cwd())
-
-    if (!existsSync(cwd) || !statSync(cwd).isDirectory()) {
-        throw new Error(`--cwd ${cwd} is not a directory`)
-    }
-
     const deadline = deadlineSeconds(options.deadline)
     const request: Request = {
         profile: options.profile ?? 'read',
-        cwd,
+        cwd: process.cwd(),
         ...(options.lane ? { lane: options.lane } : {}),
         ...(options.model ? { model: options.model } : {}),
         ...(options.thinking ? { thinking: options.thinking } : {}),

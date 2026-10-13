@@ -10,8 +10,6 @@ export interface RunOptions {
     lane?: string
     /** `provider/model` reference, chosen instead of a lane. */
     model?: string
-    /** Directory the run's tools work in. */
-    cwd?: string
     /** Tool allowlist profile, read by default. */
     profile?: string
     /** Requested Pi thinking level. */

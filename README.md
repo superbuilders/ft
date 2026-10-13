@@ -93,9 +93,10 @@ Where a repository has its own `.ft.json`, ft uses only that file; it does not m
 | Set up                | `ft init`       | `ft init --user`                                     |
 | Change the ft version | `ft pin 0.2.0`  | `ft pin --user 0.2.0`                                |
 | Add the agent skill   | `ft skill`      | `ft skill --user`                                    |
+| Check the setup       | `ft doctor`     | `ft doctor --user`                                   |
 | Where the files live  | the repository  | `~/.config/ft`, and `~/.agents/skills` for the skill |
 
-`ft doctor` always says which config it used.
+Plain commands use the config of the folder you are in: the repository's when it has one, otherwise your personal one. A `--user` command always acts on your personal setup, with your personal pinned version, even inside a repository that pins another. `ft doctor` says which config it used.
 
 ## Uninstall
 

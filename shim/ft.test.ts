@@ -419,6 +419,33 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stdout).toContain(`FT_CONFIG=${join(personal, '.ft.json')}`)
     })
 
+    it.each([[['skill', '--user']], [['doctor', '--user']], [['uninstall']]])(
+        'uses the personal setup for %o, even inside a repository',
+        async args => {
+            const personal = join(root, 'xdg', 'ft')
+
+            configure()
+            configure(undefined, personal)
+
+            const result = await start(shell, args, { XDG_CONFIG_HOME: join(root, 'xdg') }).result
+
+            expect(result.code, result.stderr).toBe(0)
+            expect(result.stdout).toContain(`FT_CONFIG=${join(personal, '.ft.json')}`)
+        },
+    )
+
+    it('asks for a personal setup when --user has none, despite a repository config', async () => {
+        configure()
+
+        const result = await start(shell, ['skill', '--user'], {
+            XDG_CONFIG_HOME: join(root, 'xdg'),
+        }).result
+
+        expect(result.code).toBe(2)
+        expect(result.stderr).toContain('no personal config; set it up with ft init --user')
+        expect(ghCalls()).toEqual([])
+    })
+
     it('asks for ft init when no config exists', async () => {
         const result = await start(shell, ['doctor']).result
 
@@ -427,6 +454,16 @@ describe.each(shells)('shim via %s', shell => {
             'no .ft.json here or above, and no personal config; set ft up with ft init',
         )
         expect(ghCalls()).toEqual([])
+    })
+
+    it('names HOME, not a shell error, when HOME is unset too', async () => {
+        const result = await start(shell, ['doctor'], {
+            HOME: undefined,
+            XDG_CONFIG_HOME: undefined,
+        }).result
+
+        expect(result.code).toBe(2)
+        expect(result.stderr).toContain('HOME is not set; set it, or set XDG_CONFIG_HOME')
     })
 
     it('requires pin when the config has no lock beside it', async () => {

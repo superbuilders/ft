@@ -306,12 +306,17 @@ export function validateConfig(value: unknown): Config {
 }
 
 /**
- * Find, read and validate the project's configuration.
+ * Find, read and validate the project's configuration, or with `user` the personal one.
  * @param cwd - invocation directory
+ * @param user - read the personal config, wherever cwd is
  * @returns the config and its location
  */
-export async function loadConfig(cwd: string): Promise<ResolvedConfig> {
-    const path = findConfig(cwd, process.env.FT_CONFIG)
+export async function loadConfig(cwd: string, user = false): Promise<ResolvedConfig> {
+    const path = user ? join(configRoot(), CONFIG_FILE) : findConfig(cwd, process.env.FT_CONFIG)
+
+    if (user && !existsSync(path as string)) {
+        throw new Error(`No personal config in ${configRoot()}; set it up with ft init --user`)
+    }
 
     if (!path) {
         throw noConfig()

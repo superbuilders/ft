@@ -35,7 +35,6 @@ function runOptions(command: Command): Command {
         .option('--profile <profile>', 'tool profile: read (default) or write')
         .option('--thinking <level>', thinkingHelp())
         .option('--deadline <seconds>', 'stop the run after this long')
-        .option('--cwd <dir>', 'directory the run works in')
         .option(
             '--out <path>',
             'also save the answer here (an existing file is replaced, or deleted if the run fails)',
@@ -122,9 +121,10 @@ program
 program.command('schema').description('Print the JSON Schema for .ft.json').action(schema)
 program
     .command('doctor')
-    .description('Show config and runtime health')
-    .action(async () => {
-        process.exitCode = await doctor(RUNNER_VERSION)
+    .description('Check the config and runtime used here, or your personal setup with --user')
+    .option('--user', 'check your personal config instead of the one used here')
+    .action(async (options: { user?: boolean }) => {
+        process.exitCode = await doctor(RUNNER_VERSION, options)
     })
 
 try {

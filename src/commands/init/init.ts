@@ -103,7 +103,7 @@ export async function init(
                 [['Config', `${config} (${state})`]],
                 [
                     ...fill,
-                    'Check it with ft doctor',
+                    'Check it with ft doctor --user',
                     'Optional: ft skill --user, to teach agents in every repository how to delegate with ft',
                 ],
             ),

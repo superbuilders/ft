@@ -21,6 +21,7 @@ bun src/cli.ts --version                   # Package version
 bun src/cli.ts guide                       # The agent manual a consuming repo's skill points at
 bun src/cli.ts init [--user]               # Set ft up in this repository, or for one person
 bun src/cli.ts skill [--user]              # Add the agent skill to this repository, or one person's home
+bun src/cli.ts doctor [--user]             # Check the config used here, or the personal one
 bun src/cli.ts uninstall [--purge]         # Remove the launcher, cache and personal skill (and config)
 bun run release <patch|minor|major|x.y.z>  # Bump, tag, push; release.yml builds and publishes
 bun run dogfood                            # Install the last commit's ft as ft on PATH
@@ -126,7 +127,10 @@ config's JSON Schema) come from the pinned release; only `ft pin` and `ft init`
 write them, and the shim reads the lock. `ft schema` prints the same schema.
 
 Setup has two scopes with the same commands, `--user` choosing the personal one:
-`ft init`, `ft pin <version>` and `ft skill`. The repository scope is the
+`ft init`, `ft pin <version>`, `ft skill` and `ft doctor`. The shim runs any
+`--user` command, and `ft uninstall`, with the personal config and lock, skipping
+the walk for a repository config, so a repository's pin never acts on the personal
+setup. The repository scope is the
 directory of its own `.ft.json`, else the git repository around the working
 directory; the personal scope is `${XDG_CONFIG_HOME:-~/.config}/ft/`, and for
 the skill, the home directory. `ft init` sets a repository up from one release:
