@@ -25,11 +25,16 @@ function sha(text: string): string {
 
 vi.mock('../../system/process/subprocess', () => ({
     /**
-     * Act as gh release download: every -p asset into the -D folder, failing on a missing one.
+     * Act as gh: the newest tag for release view, else every -p asset into the -D folder,
+     * failing on a missing one.
      * @param argv - the gh command line
      * @returns gh's empty stdout
      */
     commandOutput: async (argv: string[]) => {
+        if (argv.includes('view')) {
+            return 'v0.3.0\n'
+        }
+
         const { writeFile: write } = await import('node:fs/promises')
         const folder = argv[argv.indexOf('-D') + 1] ?? ''
         const names = argv.flatMap((arg, index) => (arg === '-p' ? [argv[index + 1] ?? ''] : []))
@@ -110,6 +115,14 @@ it('points a bare pin at --user where the personal config is the one in use', as
     await writeFile(join(root, 'config/ft/.ft.json'), '{}\n')
     await expect(pin('0.2.0', {})).rejects.toThrow('pin that with ft pin --user 0.2.0')
     expect(existsSync(join(root, 'config/ft/.ft'))).toBe(false)
+})
+
+it('pins the newest release when no version is given', async () => {
+    release(sha(SCHEMA))
+    await writeFile(join(root, '.ft.json'), '{}\n')
+    await pin(undefined, {})
+
+    expect(JSON.parse(await readFile(join(root, '.ft/lock.json'), 'utf8')).version).toBe('0.3.0')
 })
 
 it('refuses a schema that does not match the release manifest', async () => {

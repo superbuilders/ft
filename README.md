@@ -12,7 +12,7 @@ ft runs on Linux and macOS, on x64 or arm64. You need the [GitHub CLI](https://c
 gh api repos/superbuilders/ft/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
 ```
 
-This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder) and creates your personal config in `~/.config/ft`. It changes nothing else. Run it again at any time to move to the latest release; repositories keep the version they pinned.
+This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder) and creates your personal config in `~/.config/ft`. It changes nothing else.
 
 ## Choose a model
 
@@ -97,6 +97,14 @@ Where a repository has its own `.ft.json`, ft uses only that file; it does not m
 | Where the files live  | the repository  | `~/.config/ft`, and `~/.agents/skills` for the skill |
 
 Plain commands use the config of the folder you are in: the repository's when it has one, otherwise your personal one. A `--user` command always acts on your personal setup, with your personal pinned version, even inside a repository that pins another. `ft doctor` says which config it used.
+
+## Upgrade
+
+```sh
+ft upgrade    # or ft update
+```
+
+This moves ft on your machine to the newest release: the `ft` command and your personal setup. Repositories keep the version they pinned, because changing it is a change everyone who clones them gets. To move one, run `ft pin` inside it (the newest release, or name a version) and commit the result.
 
 ## Uninstall
 

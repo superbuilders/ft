@@ -15,10 +15,11 @@ export const FORBIDDEN_PROVIDER_FIELDS = ['apiKey', 'oauth'] as const
 /** GitHub repository that publishes ft releases. */
 export const RELEASE_REPOSITORY = 'superbuilders/ft'
 
-/** Release assets a project takes besides the runner checksums. */
+/** Release assets ft reads besides the runner checksums. */
 export const RELEASE_ASSETS = {
     schema: 'schema.json',
     launcher: 'ft-shim',
+    installer: 'install.sh',
 } as const
 
 /** Where `ft skill` puts the agent skill, relative to the repository or home directory. */

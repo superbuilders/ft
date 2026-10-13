@@ -45,10 +45,12 @@ case $(uname -m) in
 esac
 target=$os-$arch
 
-# The personal setup's commands, and uninstall, use the personal pin wherever they run: a
-# repository's pin and config do not apply to them.
+# The personal setup's commands, and the machine-wide upgrade and uninstall, use the personal pin
+# wherever they run: a repository's pin and config do not apply to them.
 personal_only=no
-[ "${1:-}" != uninstall ] || personal_only=yes
+case ${1:-} in
+    upgrade|update|uninstall) personal_only=yes ;;
+esac
 for arg; do
     [ "$arg" != --user ] || personal_only=yes
 done
@@ -85,7 +87,7 @@ if [ -n "$config" ] && [ -f "$pinned" ]; then
     export FT_CONFIG
 else
     case ${1:-} in
-        pin|init|uninstall) ;;
+        pin|init|upgrade|update|uninstall) ;;
         *)
             [ -z "$config" ] ||
                 fail 2 "no $pinned found; run ft pin$scope <version>"

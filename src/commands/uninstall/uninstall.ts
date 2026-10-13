@@ -1,34 +1,15 @@
 import { existsSync, lstatSync } from 'node:fs'
 import { readlink, rm } from 'node:fs/promises'
-import { basename, delimiter, dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import { SKILL_PATH } from '../../project/config/constants'
-import { cacheRoot, configRoot, homeDirectory, tildePath } from '../../system/host/host'
-import { LAUNCHER_MARKER } from './constants'
-
-/**
- * Find the ft launcher the installer put on PATH, skipping anything else named ft.
- * @returns its path, or undefined when PATH has none
- */
-async function installedLauncher(): Promise<string | undefined> {
-    for (const directory of (process.env.PATH ?? '').split(delimiter).filter(Boolean)) {
-        const path = join(directory, 'ft')
-
-        /* A repository's .ft/ft carries the same marker, and repositories are never touched. */
-        if (basename(directory) === '.ft' || !existsSync(path)) {
-            continue
-        }
-
-        /* The marker is on the launcher's second line; a binary named ft is not read whole. */
-        const head = await Bun.file(path).slice(0, 64).text()
-
-        if (head.includes(LAUNCHER_MARKER)) {
-            return path
-        }
-    }
-
-    return undefined
-}
+import {
+    cacheRoot,
+    configRoot,
+    homeDirectory,
+    installedLauncher,
+    tildePath,
+} from '../../system/host/host'
 
 /**
  * Remove what the installer and `ft skill --user` put on this machine: the launcher, the cache of

@@ -66,6 +66,19 @@ async function releaseFiles(version: string, assets: string[]): Promise<string[]
 }
 
 /**
+ * Refuse anything that is not a release version, before it reaches gh.
+ * @param version - candidate version
+ * @returns the version
+ */
+function checkedVersion(version: string): string {
+    if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) {
+        throw new Error('Expected a release version such as 0.2.0')
+    }
+
+    return version
+}
+
+/**
  * Find the one checksum a release manifest lists for an asset.
  * @param sums - SHA256SUMS text
  * @param asset - release asset name
@@ -107,9 +120,7 @@ function verified(sums: string, asset: string, text: string): string {
  * @returns the release's files
  */
 export async function fetchRelease(version: string, withLauncher: boolean): Promise<Release> {
-    if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) {
-        throw new Error('Expected a release version such as 0.2.0')
-    }
+    checkedVersion(version)
 
     const { schema, launcher } = RELEASE_ASSETS
     const [sums = '', schemaText = '', launcherText] = await releaseFiles(version, [
@@ -126,6 +137,40 @@ export async function fetchRelease(version: string, withLauncher: boolean): Prom
         schema: verified(sums, schema, schemaText),
         ...(launcherText === undefined ? {} : { launcher: verified(sums, launcher, launcherText) }),
     }
+}
+
+/**
+ * The newest published release.
+ * @returns its version, such as 0.2.0
+ */
+export async function latestVersion(): Promise<string> {
+    const tag = await commandOutput([
+        'gh',
+        'release',
+        'view',
+        '-R',
+        RELEASE_REPOSITORY,
+        '--json',
+        'tagName',
+        '-q',
+        '.tagName',
+    ])
+
+    return checkedVersion(tag.trim().replace(/^v/, ''))
+}
+
+/**
+ * Fetch one release's installer, checked against the release manifest.
+ * @param version - exact runner release version
+ * @returns the installer script
+ */
+export async function fetchInstaller(version: string): Promise<string> {
+    const [sums = '', installer = ''] = await releaseFiles(checkedVersion(version), [
+        'SHA256SUMS',
+        RELEASE_ASSETS.installer,
+    ])
+
+    return verified(sums, RELEASE_ASSETS.installer, installer)
 }
 
 /**

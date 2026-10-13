@@ -12,6 +12,7 @@ import { show } from './commands/show/show'
 import { skill } from './commands/skill/skill'
 import { stop } from './commands/stop/stop'
 import { uninstall } from './commands/uninstall/uninstall'
+import { upgrade } from './commands/upgrade/upgrade'
 import { watch } from './commands/watch/watch'
 import { RUNNER_VERSION } from './version'
 
@@ -104,8 +105,10 @@ program
         init(version ?? RUNNER_VERSION, options),
     )
 program
-    .command('pin <version>')
-    .description('Pin the ft version for this repository, or your personal setup with --user')
+    .command('pin [version]')
+    .description(
+        'Pin an ft version (the newest by default) for this repository, or your personal setup with --user',
+    )
     .option('--user', 'pin the version for your personal setup instead of this repository')
     .action(pin)
 program
@@ -118,6 +121,11 @@ program
     .description('Remove ft from this machine; your config stays unless you pass --purge')
     .option('--purge', 'also remove your personal config')
     .action(uninstall)
+program
+    .command('upgrade')
+    .alias('update')
+    .description('Upgrade ft on this machine to the newest release; repositories keep their pins')
+    .action(upgrade)
 program.command('schema').description('Print the JSON Schema for .ft.json').action(schema)
 program
     .command('doctor')

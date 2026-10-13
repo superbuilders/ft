@@ -22,6 +22,7 @@ bun src/cli.ts guide                       # The agent manual a consuming repo's
 bun src/cli.ts init [--user]               # Set ft up in this repository, or for one person
 bun src/cli.ts skill [--user]              # Add the agent skill to this repository, or one person's home
 bun src/cli.ts doctor [--user]             # Check the config used here, or the personal one
+bun src/cli.ts upgrade                     # Run the newest release's installer (alias: update)
 bun src/cli.ts uninstall [--purge]         # Remove the launcher, cache and personal skill (and config)
 bun run release <patch|minor|major|x.y.z>  # Bump, tag, push; release.yml builds and publishes
 bun run dogfood [--remove]                 # Install the last commit's ft as ft-dev, beside ft
@@ -128,8 +129,9 @@ config's JSON Schema) come from the pinned release; only `ft pin` and `ft init`
 write them, and the shim reads the lock. `ft schema` prints the same schema.
 
 Setup has two scopes with the same commands, `--user` choosing the personal one:
-`ft init`, `ft pin <version>`, `ft skill` and `ft doctor`. The shim runs any
-`--user` command, and `ft uninstall`, with the personal config and lock, skipping
+`ft init`, `ft pin [version]` (the newest release by default), `ft skill` and
+`ft doctor`. The shim runs any `--user` command, and the machine-wide `ft upgrade`
+(alias `update`) and `ft uninstall`, with the personal config and lock, skipping
 the walk for a repository config, so a repository's pin never acts on the personal
 setup. The repository scope is the
 directory of its own `.ft.json`, else the git repository around the working
@@ -142,7 +144,10 @@ downloads the shim, runner, schema and `SHA256SUMS` in one gh call, installs
 the shim and caches the runner. Then, with `FT_RELEASE_DIR` naming that
 download so nothing is fetched twice, it runs `ft init --user` when there is no
 personal config, or `ft pin --user <version>` when the personal lock pins
-another version. Repository pins stay as they are, and it touches nothing else. `ft uninstall` removes the launcher,
+another version. Repository pins stay as they are, and it touches nothing else. `ft upgrade`
+downloads the newest release's `install.sh`, checks it against `SHA256SUMS`, and
+runs it with `FT_INSTALL_DIR` set to the installed launcher's folder, so there is
+one install path. `ft uninstall` removes the launcher,
 cache and personal skill, and the personal config only with `--purge`. `ft pin` refuses a scope that is not set up.
 `ft skill` writes the skill built into the runner (from `.agents/skills/ft/`)
 at `.agents/skills/ft/SKILL.md` with a `.claude/skills/ft` link (personal scope
