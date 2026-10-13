@@ -22,7 +22,7 @@ export async function stop(ids: string[]): Promise<number> {
         } else {
             process.kill(status.pid, 'SIGTERM')
             process.stdout.write(
-                `Stopping ${status.id}; ft watch ${status.id} reports when it has\n`,
+                `Stopping ${status.id}; run ft watch ${status.id} to wait for its report\n`,
             )
         }
     }

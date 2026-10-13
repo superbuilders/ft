@@ -60,7 +60,7 @@ function checksum(sums: string, asset: string): string {
         .filter(match => match?.[2] === asset)
 
     if (matches.length !== 1) {
-        throw new Error(`Release manifest requires exactly one ${asset} checksum`)
+        throw new Error(`SHA256SUMS must list exactly one checksum for ${asset}`)
     }
 
     return (matches[0]?.[1] ?? '').toLowerCase()
@@ -93,7 +93,7 @@ export async function fetchRelease(
             const text = texts[index] ?? ''
 
             if (createHash('sha256').update(text).digest('hex') !== checksum(sums ?? '', asset)) {
-                throw new Error(`Release ${asset} does not match its checksum`)
+                throw new Error(`${asset} does not match its checksum`)
             }
 
             return [name, text]

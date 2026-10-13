@@ -6,7 +6,7 @@ import { PrerequisiteError } from './lib/processes'
 
 const program = new Command()
     .name('lab')
-    .description('Native ft smoke tests in lab-owned scratch state; not a security sandbox')
+    .description('Run ft smoke tests in throwaway folders the lab manages (not a security sandbox)')
     .enablePositionalOptions()
     .exitOverride()
 

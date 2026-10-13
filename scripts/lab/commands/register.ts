@@ -84,7 +84,7 @@ export function register(program: Command): void {
     program
         .command('list')
         .description('List named scenarios and their assertions; real checks never run implicitly')
-        .option('--json', 'machine-readable scenario catalog')
+        .option('--json', 'print the catalog as JSON')
         .action(() => {
             process.stdout.write(
                 `${JSON.stringify({ schemaVersion: 1, scenarios: Object.entries(SCENARIOS).map(([name, assertions]) => ({ name, assertions, explicitOnly: name.startsWith('real-'), prerequisites: ({ 'real-gateway': 'Linux, --project with real .ft.json providers; paid code-lane tool turn and research question', 'real-release': '--version, authenticated real gh; contacts GitHub' } as Record<string, string>)[name] ?? 'native Bun, tar, offline pinned runtime archives where needed', scope: 'Scratch environment, not a security sandbox' })) })}\n`,
@@ -93,7 +93,9 @@ export function register(program: Command): void {
     scratchOptions(
         program
             .command('run [scenario...]')
-            .description('Run exact scenario names or --all (non-real scenarios only)'),
+            .description(
+                'Run the named scenarios, or --all for every scenario except the real checks',
+            ),
         ['local', 'air', 'both'],
     )
         .option('--all', 'run every non-real scenario; never includes real checks')
@@ -103,11 +105,11 @@ export function register(program: Command): void {
         )
         .option(
             '--project <dir>',
-            'real-gateway ONLY: Linux project whose .ft.json has real providers and key references; two paid runs, 90s per lane',
+            'real-gateway ONLY: a project whose .ft.json has real code and research lanes (Linux only; two paid runs, 90s each)',
         )
         .option(
             '--version <version>',
-            'real-release ONLY: exact published version, cold install.sh and actual authenticated gh; no model requests',
+            'real-release ONLY: install this published version fresh with install.sh and your signed-in gh (no model requests)',
         )
         .action(async (scenarios: string[], inputs: Options) => {
             await execute(selectScenarios(scenarios, inputs.all), inputs)
@@ -116,7 +118,7 @@ export function register(program: Command): void {
         program
             .command('exec [argv...]')
             .description(
-                'Run arbitrary ft argv in scratch HOME/cache/project; tools retain your permissions',
+                'Run any ft command in a throwaway home, cache and project (tools keep your permissions)',
             )
             .allowUnknownOption()
             .passThroughOptions(),

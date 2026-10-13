@@ -27,7 +27,9 @@ export async function list(options: { all?: boolean; json?: boolean }): Promise<
     }
 
     if (shown.length === 0) {
-        process.stdout.write('No runs yet in this project. Start one with ft run or ft start\n')
+        process.stdout.write(
+            'No runs yet in this project. Start one with ft run <brief> or ft start <briefs>.\n',
+        )
 
         return
     }

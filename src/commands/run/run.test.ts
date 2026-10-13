@@ -7,7 +7,7 @@ import { expect, it, vi } from 'vitest'
 
 import { run, start } from './run'
 
-it('refuses a run it cannot start before creating anything, and clears a stale --out', async () => {
+it('refuses a run it cannot start before creating or deleting anything', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ft-run-'))
     const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
 
@@ -18,10 +18,8 @@ it('refuses a run it cannot start before creating anything, and clears a stale -
 
         await writeFile(out, 'an answer from an earlier run')
         expect(await run(join(root, 'brief.md'), { out })).toBe(2)
-        expect(stderr).toHaveBeenCalledWith(
-            expect.stringContaining('could not start the run (configuration_error)'),
-        )
-        expect(existsSync(out)).toBe(false)
+        expect(stderr).toHaveBeenCalledWith(expect.stringContaining('could not start the run: '))
+        expect(existsSync(out)).toBe(true)
         expect(existsSync(join(root, '.ft'))).toBe(false)
     } finally {
         stderr.mockRestore()
@@ -52,7 +50,7 @@ it('prints the refusal as JSON when asked', async () => {
 })
 
 it.each([
-    ['--name', { name: 'review' }, '--name and --out take a single brief'],
+    ['--name', { name: 'review' }, '--name and --out work only with a single brief'],
     ['a missing brief', {}, 'gone.md'],
 ])('starts no run when one of several briefs fails (%s)', async (_case, options, error) => {
     const root = await mkdtemp(join(tmpdir(), 'ft-start-'))

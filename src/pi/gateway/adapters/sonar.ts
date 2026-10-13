@@ -43,7 +43,7 @@ function section(completion: Completion, field: 'citations' | 'search_results'):
             const url = entry.url || (field === 'citations' ? entry.href : entry.link) || ''
 
             lines.push(
-                `${index + 1}. ${name ? `${display(name)}${url ? ' — ' : ''}` : ''}${display(url)}`.trimEnd(),
+                `${index + 1}. ${name ? `${display(name)}${url ? ': ' : ''}` : ''}${display(url)}`.trimEnd(),
             )
 
             const snippet = entry.snippet || entry.content || entry.summary

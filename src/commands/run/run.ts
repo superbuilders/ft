@@ -1,3 +1,4 @@
+import { THINKING_LEVELS } from '../../models/constants'
 import { execute } from '../../pi/run/execute'
 import { exitCode, jsonLine, settledOutput } from '../../project/runs/render'
 import { readStatus, writeStatus } from '../../project/runs/store'
@@ -7,6 +8,14 @@ import { prepare } from './prepare'
 
 import type { Status } from '../../project/runs/types'
 import type { RunOptions } from './types'
+
+/**
+ * Describe --thinking with every level Pi accepts, so the help cannot drift from the check.
+ * @returns the option's help text
+ */
+export function thinkingHelp(): string {
+    return `thinking level: ${THINKING_LEVELS.join(', ')}`
+}
 
 /**
  * Report a mistake caught before any run existed.
@@ -22,7 +31,7 @@ function refuse(error: unknown, json: boolean | undefined): number {
             `${JSON.stringify({ outcome: 'configuration_error', error: message })}\n`,
         )
     } else {
-        process.stderr.write(`ft could not start the run (configuration_error): ${message}\n`)
+        process.stderr.write(`ft could not start the run: ${message}\n`)
     }
 
     return exitCode('configuration_error')
@@ -117,7 +126,7 @@ async function launch(prepared: Status): Promise<Status> {
 
         if (Date.now() > giveUp) {
             process.stderr.write(
-                `ft started ${current.id} but it has not reported in; ft watch ${current.id} will tell\n`,
+                `ft started ${current.id}, but the run has not confirmed it is running; run ft watch ${current.id} to wait for its report\n`,
             )
 
             return current

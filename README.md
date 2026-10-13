@@ -1,18 +1,18 @@
 # ft
 
-ft lets a coding agent hand a task to another model. You write the task in a file (a brief), ft runs it on the model you chose, and the answer lands in a file the agent reads when it is ready. Several briefs can run at once.
+ft lets your coding agent hand a task to another model. The agent writes the task in a file (a brief), ft runs it on the model you chose, and the answer comes back to the agent to check and explain to you. Several briefs can run at once.
 
-Under the hood each run is a pinned, isolated [Pi](https://github.com/badlogic/pi-mono) session. ft downloads and verifies everything it runs.
+Under the hood each run is a separate, pinned [Pi](https://github.com/badlogic/pi-mono) session that works in your working tree. ft downloads and verifies everything it runs.
 
 ## Install
 
-You need the [GitHub CLI](https://cli.github.com), signed in (`gh auth login`).
+ft runs on Linux and macOS, on x64 or arm64. You need the [GitHub CLI](https://cli.github.com), signed in (`gh auth login`).
 
 ```sh
 gh api repos/superbuilders/ft/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
 ```
 
-This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder) and creates your personal config in `~/.config/ft`. It changes nothing else. Run it again at any time to update `ft` itself.
+This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder) and creates your personal config in `~/.config/ft`. It changes nothing else. Run it again at any time to move to the latest release; repositories keep the version they pinned.
 
 ## Choose a model
 
@@ -30,30 +30,39 @@ ft starts with an empty config. Add a provider and a lane named `code` to `~/.co
 }
 ```
 
-- A **provider** says where a model lives and where its key comes from. The key comes from an environment variable (`{ "env": "NAME" }`) or from a command that prints it (`{ "command": ["op", "read", "op://vault/item/key"] }`). ft never writes the key to disk or to its output.
+- A **provider** says where a model lives and where its key comes from. The key comes from an environment variable (`{ "env": "NAME" }`) or from a command that prints it (`{ "command": ["op", "read", "op://vault/item/key"] }`). ft never writes the key to disk, and only `ft key <provider>` prints it.
 - A **lane** names a model for a kind of work. `code` is the default. Add others, such as `research`, and pick one with `--lane`.
 - Any of Pi's built-in providers works with just a `key`. For your own endpoint, add `baseUrl`, `api` and `models`. This repository's `.ft.json` is a full example, and `ft schema` prints every field.
 
-Then check it:
+Set `ANTHROPIC_API_KEY` in the environment ft runs in, then check the setup:
 
 ```sh
 ft doctor
 ```
 
+It ends with `Ready`, or with what to fix.
+
 ## Run a brief
 
-A brief is a Markdown file that says what to do and what to report back.
+A brief is a Markdown file that says what to do and what to report back. For example, `review.md`:
+
+```markdown
+Review the README against the code.
+Report wrong or missing setup steps, with file paths and line numbers.
+```
 
 ```sh
 ft run review.md                 # run one brief and wait for its report
 ft start a.md b.md c.md          # start several and return at once
-ft watch                         # print each report as its run finishes
+ft watch <id> <id> <id>          # print each report as its run finishes
 ft show <id>                     # every step of one run, and its answer
 ft list                          # recent runs
 ft stop <id>                     # cancel a run
 ```
 
-Runs read the code but change nothing, unless you pass `--profile write`. ft never commits. Each run keeps its brief, its steps and its answer in `.ft/runs/<id>/` in the repository you ran it from.
+The report names the run's id and where its answer is saved; `ft start` prints the ids and the `ft watch` command to use.
+
+By default a run uses the `read` profile, which tells the model not to change files. That is an instruction, not a sandbox: the model can still run shell commands. Pass `--profile write` for changes your agent will review. ft never commits. Each run keeps its brief, its steps and its answer in `.ft/runs/<id>/` in the repository you ran it from.
 
 ## Let your agents use ft
 
@@ -69,12 +78,13 @@ Running it again after an update refreshes the skill. To let agents run ft witho
 ## Set a repository up for your team
 
 ```sh
-ft init
+ft init                                    # start with an empty config
+ft init --from ~/.config/ft/.ft.json       # or copy your personal one
 ```
 
-This writes the files a teammate needs: `.ft.json`, the pinned version in `.ft/lock.json`, and a launcher at `.ft/ft`. In a JavaScript repository it also adds an `ft` package script, so `bun ft` or `npm run ft --` works without installing anything. Commit these files. Anyone who clones the repository then needs only gh, signed in.
+This writes the files a teammate needs: `.ft.json`, the pinned version in `.ft/lock.json` with the schema beside it, and a launcher at `.ft/ft`. In a JavaScript repository it also adds an `ft` package script, so `bun ft` or `npm run ft --` works without installing anything. Commit these files. Anyone who clones the repository then needs only gh, signed in, and the provider keys the config names.
 
-A repository's own `.ft.json` always wins. Your personal config applies only where a repository has none.
+Where a repository has its own `.ft.json`, ft uses only that file; it does not merge in your personal config. So a new empty repository config needs its own providers and lanes before runs work there.
 
 ## Two scopes, same commands
 

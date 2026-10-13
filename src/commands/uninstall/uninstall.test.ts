@@ -81,5 +81,5 @@ it('leaves another program named ft alone', async () => {
     await uninstall({})
 
     expect(existsSync(join(other, 'ft'))).toBe(true)
-    expect(output).toContain('Nothing of ft was left on this machine')
+    expect(output).toContain('Nothing to remove')
 })

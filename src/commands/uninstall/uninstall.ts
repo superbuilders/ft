@@ -66,7 +66,7 @@ export async function uninstall(options: { purge?: boolean }): Promise<void> {
 
     const lines = [
         ...removed.map(path => `Removed  ${path}`),
-        ...(removed.length === 0 ? ['Nothing of ft was left on this machine'] : []),
+        ...(removed.length === 0 ? ['Nothing to remove'] : []),
         ...(!options.purge && existsSync(configRoot())
             ? [`Kept     ${tildePath(configRoot())} (your config; ft uninstall --purge removes it)`]
             : []),

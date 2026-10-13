@@ -30,7 +30,7 @@ export function findModel(providers: Record<string, Provider>, ref: string): Sel
     const model = ref.slice(slash + 1)
 
     if (slash <= 0 || !model) {
-        throw new Error(`Model ${ref} must be written provider/model`)
+        throw new Error(`Model ${ref} must be written as provider/model`)
     }
 
     const config = providers[provider]
@@ -81,7 +81,7 @@ export function resolveLane(
         throw new Error(
             known.length > 0
                 ? `.ft.json has no lane named ${name}; its lanes are ${known.join(', ')}`
-                : `.ft.json has no lane named ${name}, and no lanes at all; add one under "lanes"`,
+                : `.ft.json defines no lanes; add one named ${name} under "lanes"`,
         )
     }
 

@@ -113,8 +113,9 @@ download_label="Downloading ft $version"
 verify_label='Verifying checksums'
 install_label="Installing to $shown_dir"
 setup_label='Setting up your personal config'
+repin_label='Updating your personal config'
 widest_status=unchanged
-for label in "$download_label" "$verify_label" "$install_label" "$setup_label"; do
+for label in "$download_label" "$verify_label" "$install_label" "$setup_label" "$repin_label"; do
     [ "${#label}" -le "$width" ] || width=${#label}
 done
 width=$((width + 3 + 1 + ${#widest_status}))
@@ -164,10 +165,10 @@ mkdir -p "$install_dir" || fail 1 'cannot create installation directory'
 install_dir=$(cd "$install_dir" && pwd -P) || fail 1 'cannot resolve installation directory'
 if ! { [ -f "$install_dir/ft" ] && cmp -s "$stage/ft-shim" "$install_dir/ft"; }; then
     # Stage beside the destination so replacement is atomic even across filesystems.
-    replacement=$(mktemp "$install_dir/.ft-install.XXXXXXXXXX") || fail 1 'cannot stage shim replacement'
-    cat "$stage/ft-shim" >"$replacement" || fail 1 'cannot copy shim'
-    chmod 755 "$replacement" || fail 1 'cannot make shim executable'
-    mv -f "$replacement" "$install_dir/ft" || fail 1 'cannot install shim'
+    replacement=$(mktemp "$install_dir/.ft-install.XXXXXXXXXX") || fail 1 'cannot prepare the launcher'
+    cat "$stage/ft-shim" >"$replacement" || fail 1 'cannot copy the launcher'
+    chmod 755 "$replacement" || fail 1 'cannot make the launcher executable'
+    mv -f "$replacement" "$install_dir/ft" || fail 1 'cannot install the launcher'
     replacement=
     changed=yes
 fi
@@ -176,7 +177,7 @@ runner=$cache/runner/$version/ft
 if [ ! -f "$runner" ] || [ "$(sha256_of "$runner")" != "$runner_sha" ]; then
     (umask 077 && mkdir -p "$cache/runner" "$cache/staging") || fail 1 'cannot create cache directories'
     chmod +x "$stage/$runner_asset" || fail 1 'cannot make runner executable'
-    [ "$("$stage/$runner_asset" --version 2>/dev/null)" = "$version" ] || fail 1 'runner smoke test failed'
+    [ "$("$stage/$runner_asset" --version 2>/dev/null)" = "$version" ] || fail 1 'runner version check failed'
     published=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
     mv "$stage/$runner_asset" "$published/ft" || fail 1 'cannot prepare runner'
     rm -rf "$cache/runner/$version" || fail 1 'cannot replace cached runner'
@@ -189,10 +190,21 @@ else
     step_end unchanged "$dim"
 fi
 
+# Running the installer asks for this version, so the personal pin follows it; repository pins do not.
 setup=
+finish=
+pinned=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${personal%/*}/.ft/lock.json" 2>/dev/null)
 if [ ! -f "$personal" ]; then
     step "$setup_label"
-    if FT_RELEASE_DIR=$stage "$runner" init --user "$version" >"$stage/init.out" 2>&1; then
+    finish='ft init --user'
+    set -- init --user "$version"
+elif [ "$pinned" != "$version" ]; then
+    step "$repin_label"
+    finish="ft pin --user $version"
+    set -- pin --user "$version"
+fi
+if [ -n "$finish" ]; then
+    if FT_RELEASE_DIR=$stage "$runner" "$@" >"$stage/init.out" 2>&1; then
         step_end done "$green"
         setup=done
     else
@@ -203,7 +215,7 @@ fi
 
 rule
 if [ "$setup" = failed ]; then
-    printf '  %s✔ Installed ft %s%s (your personal config is not set up yet)\n' "$green" "$version" "$reset"
+    printf '  %s✔ Installed ft %s%s (one step left, below)\n' "$green" "$version" "$reset"
 else
     printf '  %s✔ Installed ft %s%s\n' "$green" "$version" "$reset"
 fi
@@ -236,7 +248,7 @@ case :${PATH:-}: in
 esac
 if [ "$setup" = failed ]; then
     sed 's/^/  /' "$stage/init.out" >&2
-    printf '  Finish with: ft init --user\n'
+    printf '  Finish with: %s\n' "$finish"
 fi
 printf '\n'
 [ "$setup" != failed ] || exit 1

@@ -38,7 +38,7 @@ describe('sonar adapter', () => {
         )
 
         expect(stream).toEqual({
-            text: 'Answer [1].\n\n## Citations\n\n1. https://example.test/source\n\n## Search results\n\n1. Example — https://example.test\n   Snip\n',
+            text: 'Answer [1].\n\n## Citations\n\n1. https://example.test/source\n\n## Search results\n\n1. Example: https://example.test\n   Snip\n',
             finish: 'stop',
             done: true,
         })

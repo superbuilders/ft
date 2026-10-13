@@ -104,7 +104,7 @@ export async function init(
                 [
                     ...fill,
                     'Check it with ft doctor',
-                    'Optional: ft skill --user, so agents in every repository use ft unprompted',
+                    'Optional: ft skill --user, to teach agents in every repository how to delegate with ft',
                 ],
             ),
         )
@@ -127,8 +127,8 @@ export async function init(
             [
                 ...fill,
                 `Check it with ${script.command} doctor`,
-                `Optional: ${script.command} skill, so agents here use ft unprompted`,
-                'Commit these files. Anyone who clones then needs only gh, signed in',
+                `Optional: ${script.command} skill, to teach agents here how to delegate with ft`,
+                'Commit these files. Anyone who clones the repository then needs only gh, signed in.',
             ],
         ),
     )

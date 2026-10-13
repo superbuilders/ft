@@ -76,7 +76,7 @@ export async function collectContext(projectRoot: string, cwd: string): Promise<
     const root = await realpath(gitRoot.trim() || projectRoot)
 
     if (!within(root, runCwd)) {
-        throw new Error('Run cwd is outside the context project root')
+        throw new Error(`The run's directory ${runCwd} is outside the project root ${root}`)
     }
 
     const directories: string[] = []

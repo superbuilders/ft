@@ -143,7 +143,7 @@ export async function execute(dir: string): Promise<Status> {
     const status = await readStatus(dir)
 
     if (!status) {
-        throw new Error(`${dir} holds no run`)
+        throw new Error(`No run status found in ${dir}`)
     }
 
     const request = await readRequest(dir)
@@ -221,11 +221,12 @@ export async function execute(dir: string): Promise<Status> {
 
     if (interrupted) {
         decided.outcome = interrupted
-        decided.error = interrupted === 'timeout' ? 'Deadline exceeded' : 'Caller cancelled the run'
+        decided.error =
+            interrupted === 'timeout' ? 'Deadline exceeded' : 'The run was stopped by a signal'
     }
 
     if (decided.outcome !== 'success') {
-        decided.error ??= `Run ended ${decided.outcome} (stopReason ${decided.stopReason}, Pi exit ${decided.piExitCode})`
+        decided.error ??= `Run ended with outcome ${decided.outcome} (stop reason ${decided.stopReason}, Pi exit code ${decided.piExitCode})`
     }
 
     try {

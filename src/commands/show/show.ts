@@ -62,7 +62,7 @@ export async function show(id: string, options: { json?: boolean }): Promise<voi
         lines.push(
             headline(status, state),
             `Now: ${status.activity ?? 'starting'}`,
-            `ft watch ${status.id} collects it when it finishes`,
+            `Run ft watch ${status.id} to wait for its report`,
         )
         process.stdout.write(`${lines.join('\n')}\n`)
 

@@ -72,13 +72,15 @@ files, not further subtrees. Never create `mocks/` or a `helpers.ts` kitchen
 sink. A concern root holds only `env.d.ts`, `setup.ts`, `global-setup.ts`,
 `actors.ts`, `harness.ts`, or `seed.ts`.
 
-A double is named by what it is. A held `Fake*` double lives in a tests-tree
-`fakes/` directory or inline in a test. Shared fake modules declare
-`@fake owned | platform | vendor` in a leading module docblock. Owned fakes
-also declare `@certifiedBy <repo-relative path>` pointing at a real
-`*.test.ts` contract suite. Platform/vendor doubles pin their substituted
-interface and name their backstop in prose. The three generic boundary rules
-enforce layout, contract declaration and residency.
+Name a double for what it is. A `Fake*` class lives in a tests-tree `fakes/`
+directory or inline in a test. Each shared fake module starts with a docblock
+holding exactly one of `@fake owned` (fakes this repository's code),
+`@fake platform` (a standard platform API) or `@fake vendor` (a third-party
+API). An owned fake also declares `@certifiedBy <repo-relative path>`, a
+`*.test.ts` contract suite that runs against the real code. Platform and vendor
+fakes pin the type of the interface they replace and say in prose which tests
+exercise the real thing. The three generic boundary rules enforce the layout,
+the tags and where fakes live.
 
 ## Architectural Principles
 
@@ -90,8 +92,7 @@ enforce layout, contract declaration and residency.
   parameters to global state. Comments explain why, not what.
 - Minimize rules: prefer a deterministic rule that applies everywhere over
   thresholds and judgment calls.
-- Fix warnings now; refactor as you go. After a refactor, delete dead code,
-  unused imports and orphaned files.
+- Fix warnings now; refactor as you go.
 - TypeScript files use `kebab-case.ts`. Types live with their owner in
   `types.ts`, exported individually; do not invent a shared package in
   anticipation of consumers.
@@ -108,8 +109,9 @@ enforce layout, contract declaration and residency.
 `project/` (reading the caller's project), `models/` (providers, Pi's
 built-in catalog and lanes), and `system/` (helpers with no ft knowledge). Sibling folders do not
 import each other unless `.oxlint/boundaries/layers.json` names the edge. The
-`boundaries/layer-imports` rule enforces that map; a new folder needs an
-entry before its files lint. Move code down a layer rather than adding an
+`boundaries/layer-imports` rule enforces that map. A new folder inherits the
+edges of its mapped ancestors; give it its own entry only when it needs an edge
+they lack. Move code down a layer rather than adding an
 upward edge.
 
 ## Configuration
@@ -131,15 +133,18 @@ the skill, the home directory. `ft init` sets a repository up from one release:
 the lock, schema, launcher `.ft/ft` (the shim, so cloners need only gh), a
 starter `.ft.json`, and an `ft` package script when there is a package.json.
 `ft init --user` writes the config, lock and schema only. The installer
-downloads the shim, runner and schema in one gh call, caches the runner, and
-runs `ft init --user` with `FT_RELEASE_DIR` naming that download, so setup
-fetches nothing; it touches nothing else. `ft uninstall` removes the launcher,
+downloads the shim, runner, schema and `SHA256SUMS` in one gh call, installs
+the shim and caches the runner. Then, with `FT_RELEASE_DIR` naming that
+download so nothing is fetched twice, it runs `ft init --user` when there is no
+personal config, or `ft pin --user <version>` when the personal lock pins
+another version. Repository pins stay as they are, and it touches nothing else. `ft uninstall` removes the launcher,
 cache and personal skill, and the personal config only with `--purge`. `ft pin` refuses a scope that is not set up.
 `ft skill` writes the skill built into the runner (from `.agents/skills/ft/`)
-at `.agents/skills/ft/SKILL.md` with a `.claude/skills/ft` link, so rerunning
-it after an upgrade refreshes it; nothing writes the skill unasked. The
+at `.agents/skills/ft/SKILL.md` with a `.claude/skills/ft` link (personal scope
+links only when `~/.claude` exists), so rerunning it after an upgrade refreshes
+it; nothing writes the skill unasked. The
 personal config is the fallback when no `.ft.json` is found walking up; a
-repository's own config always wins. With the personal config, `root` (where
+repository's own config replaces it whole, with no merging. With the personal config, `root` (where
 key commands run) is the config directory, and `workspace` (where runs and
 context live) is the git repository around the working directory. Release
 assets are the runners, `ft-shim`, `install.sh` and `schema.json`, all listed
@@ -165,13 +170,13 @@ A run is an object with an id (`<name>-<4 hex>`) and a folder under
 `stderr.log`, then `answer.md` or `partial.md`. The folder ignores itself in
 git. The run code is split by layer: `project/runs/` owns the folder (create,
 publish status, save the answer), `pi/run/` drives Pi (choose the model,
-launch, judge, handle signals and the deadline), and `commands/run/` only
-reads the command line and prints. `ft run` executes in the foreground; `ft start` spawns the hidden
+launch, judge, handle signals and the deadline), and `commands/run/` checks the
+request, opens the run folders, starts them and prints. `ft run` executes in the foreground; `ft start` spawns the hidden
 `ft exec <dir>` detached and returns, so the run survives a harness killing or
 backgrounding its shell. `watch`, `list` and `show` only read the
 folder, and `stop` signals the run's process (a running status whose local
-process is gone reads as `lost`; nothing rewrites it). Mistakes caught before a run exists print to stderr and leave no
-folder.
+process is gone reads as `lost`; nothing rewrites it). Mistakes caught before a run exists leave no folder; they print to
+stderr, or as one JSON object on stdout with `--json`.
 
 Callers read stdout, and some harnesses keep only its tail, so every report
 ends with a line restating the verdict. The agent-facing manual is
@@ -196,16 +201,16 @@ Keep entrypoints and `commands/` wiring thin. Logic and colocated tests live
 in the program-root `lib/`, never a `lib/` nested in `commands/`. Private
 helpers stay in that program's `lib/`; `scripts/lib/` is for helpers shared
 across programs/configs. Read environment variables inside functions, not
-at import time or in option defaults. Use `types.ts` / `constants.ts`
-kind-files, and JSDoc on exported functions.
+at import time or in option defaults.
 
 ## Linting & Formatting
 
 - oxlint: `.oxlintrc.json` extends `.oxlint/base.json`, which composes spacing,
   JSDoc, generic overrides and generic boundaries. oxfmt: `.oxfmtrc.json`.
-- JSDoc is required on exported functions, classes and methods in `src/**`
-  and `scripts/**`, not on const/interface/type/enum declarations. Include
-  described `@param` and `@returns` tags.
+- JSDoc is required on every function declaration, class and method in
+  `src/**` and `scripts/**`, exported or not (not on arrow functions or
+  const/type/enum declarations). Include described `@param` and `@returns`
+  tags.
 - For a destructured parameter, document a meaningful object name and its
   keys (`@param event` and `@param event.locals`, not `root0`).
 - Property docs are JSDoc for IDE hover; comments inside function bodies are

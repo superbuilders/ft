@@ -104,7 +104,7 @@ export function scopeRoot(user: boolean): string {
  */
 function noConfig(): Error {
     return new Error(
-        `No ${CONFIG_FILE} here or above, and no personal config. Set ft up with ft init (this repository) or ft init --user (every repository you work in)`,
+        `No ${CONFIG_FILE} here or above, and no personal config. Set ft up with ft init for this repository, or ft init --user for your personal setup.`,
     )
 }
 
@@ -150,7 +150,7 @@ function schemaProblems(error: TLocalizedValidationError): string[] {
                 FORBIDDEN_PROVIDER_FIELDS.includes(
                     field as (typeof FORBIDDEN_PROVIDER_FIELDS)[number],
                 )
-                    ? `${at(field)}: put credentials in key (env or command), never in config`
+                    ? `${at(field)}: name the credential in key (env or command); never put it in the config`
                     : `${at(field)}: not a field ft or Pi reads`,
             )
         }
@@ -271,7 +271,9 @@ function providerProblems(id: string, provider: Provider): string[] {
  */
 export function validateConfig(value: unknown): Config {
     if (value && typeof value === 'object' && ('version' in value || 'sha256' in value)) {
-        throw new Error('version and sha256 now live in .ft/lock.json: remove them and run ft pin')
+        throw new Error(
+            'version and sha256 now live in .ft/lock.json: remove them from .ft.json, then run ft pin <version> (add --user for your personal config)',
+        )
     }
 
     let problems: string[]

@@ -124,7 +124,9 @@ export async function acquireLock(
                     () => 'unknown owner',
                 )
 
-                process.stderr.write(`Waiting for ${name}: ${holder.trim()}\n`)
+                process.stderr.write(
+                    `Waiting for the ${name} install lock (held by ${holder.trim()})\n`,
+                )
                 announced = true
             }
 

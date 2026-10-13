@@ -7,18 +7,19 @@ import { getKey } from '../../project/key/key'
 import { cacheRoot, platformTarget } from '../../system/host/host'
 
 /**
- * Print installation and credential health without exposing any credential.
+ * Print installation and credential health without exposing any credential. Tools that are not
+ * installed yet are not problems: the next run installs them.
  * @param runnerVersion - this runner's version
- * @returns completion of diagnostic output
+ * @returns exit code: 0 when ready, 2 when a lane, endpoint or key check failed
  */
-export async function doctor(runnerVersion: string): Promise<void> {
+export async function doctor(runnerVersion: string): Promise<number> {
     platformTarget()
 
     const config = await loadConfig(process.cwd())
     const paths = runtimePaths(cacheRoot())
     const lines = [
         `Config: ${config.path}${isPersonal(config.path) ? ' (personal; this directory has no .ft.json)' : ''}`,
-        `Runs: ${config.workspace}`,
+        `Project: ${config.workspace}`,
         `Runner: ${runnerVersion}`,
         `Pi: ${PI_VERSION} (${existsSync(paths.pi) ? 'installed' : 'not installed'})`,
     ]
@@ -27,6 +28,13 @@ export async function doctor(runnerVersion: string): Promise<void> {
         lines.push(
             `${name}: ${TOOL_RELEASES[name].version} (${existsSync(paths.tools[name]) ? 'installed' : 'not installed'})`,
         )
+    }
+
+    let problems = 0
+
+    if (Object.keys(config.config.lanes).length === 0) {
+        problems++
+        lines.push(`Lanes: none yet; add one named code to ${config.path}`)
     }
 
     for (const [name, lane] of Object.entries(config.config.lanes)) {
@@ -41,16 +49,25 @@ export async function doctor(runnerVersion: string): Promise<void> {
 
             lines.push(`Provider ${id}: ${url ?? "Pi's built-in endpoint"}`)
         } catch (error) {
+            problems++
             lines.push(`Provider ${id}: ${(error as Error).message}`)
         }
 
         try {
             await getKey(provider.key, config.root)
-            lines.push(`Provider ${id}: key ready`)
+            lines.push(`Provider ${id}: key loaded`)
         } catch (error) {
+            problems++
             lines.push(`Provider ${id}: key failed (${(error as Error).message})`)
         }
     }
 
+    lines.push(
+        problems === 0
+            ? 'Ready'
+            : `Not ready: ${problems} ${problems === 1 ? 'problem' : 'problems'} above`,
+    )
     process.stdout.write(`${lines.join('\n')}\n`)
+
+    return problems === 0 ? 0 : 2
 }

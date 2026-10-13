@@ -103,14 +103,14 @@ function verdict(state: State): string {
     const phrases: Record<State, string> = {
         running: 'is running',
         success: 'succeeded',
-        model_error: 'failed (model_error)',
-        incomplete: 'stopped without a final answer (incomplete)',
-        protocol_error: 'failed (protocol_error)',
-        runtime_error: 'failed (runtime_error)',
-        configuration_error: 'could not start (configuration_error)',
+        model_error: 'failed with a model provider error',
+        incomplete: 'stopped without a final answer',
+        protocol_error: "failed: Pi's output could not be read",
+        runtime_error: 'failed while running the session',
+        configuration_error: 'could not start',
         timeout: 'timed out',
         cancelled: 'was cancelled',
-        lost: 'was lost',
+        lost: 'stopped without a saved outcome',
     }
 
     return phrases[state]
@@ -119,7 +119,7 @@ function verdict(state: State): string {
 /**
  * Count what happened to a set of runs in one line, naming each run that did not succeed.
  * @param settled - each run and its final state
- * @returns e.g. `8 runs: 7 succeeded; review-k3x2 failed (model_error)`
+ * @returns e.g. `8 runs: 7 succeeded; review-k3x2 failed with a model provider error`
  */
 export function tally(settled: { status: Status; state: State }[]): string {
     const succeeded = settled.filter(({ state }) => state === 'success').length
@@ -262,7 +262,7 @@ export function renderReport(
         lines.push('')
 
         if (!status.answer) {
-            lines.push("The model's last message before the run stopped:", '')
+            lines.push("The model's last message (not a final answer):", '')
         }
 
         lines.push(inline(kept, saved), '')
@@ -274,7 +274,9 @@ export function renderReport(
         saved
             ? `${status.answer ? 'answer' : 'partial answer'} in ${displayPath(saved)}${size}`
             : null,
-        !inShow && state !== 'configuration_error' ? `ft show ${status.id} for every step` : null,
+        !inShow && state !== 'configuration_error'
+            ? `ft show ${status.id} for every step and the answer`
+            : null,
     ].filter(Boolean)
 
     lines.push(`${status.id} ${verdict(state)}${notes.length > 0 ? ` (${notes.join('; ')})` : ''}`)

@@ -65,7 +65,7 @@ export async function watch(
     if (targets.length === 0) {
         if (!options.json) {
             process.stdout.write(
-                'No runs are running in this project. A run that already finished needs its id: ft list shows them\n',
+                'No runs are running in this project. To watch a finished run, pass its id (ft list shows ids).\n',
             )
         }
 
@@ -119,7 +119,7 @@ export async function watch(
                 const finished = settled.length > 0 ? `${tally(settled)}\n` : ''
 
                 process.stdout.write(
-                    `${finished}${table}Still running. Call ft watch ${waiting} again to keep watching\n`,
+                    `${finished}${table}Still running. Run ft watch ${waiting} again to keep watching.\n`,
                 )
             }
 

@@ -559,7 +559,7 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stdout).toBe('')
         expect(result.stderr).toBe(
             scenario.locked
-                ? 'ft: gh cannot read its token (on macOS this usually means the login keychain is locked in this session, such as over SSH); set GH_TOKEN or run security unlock-keychain\n'
+                ? 'ft: gh cannot read its token: on macOS the login keychain may be locked in this session (for example over SSH); set GH_TOKEN or run security unlock-keychain\n'
                 : 'ft: gh is not authenticated; run gh auth login\n',
         )
         expect(ghCalls()).toEqual([expect.stringContaining(`-p ft-${mapped} -D `), 'auth token'])
@@ -586,7 +586,7 @@ describe.each(shells)('shim via %s', shell => {
             const result = await start(shell, ['run'], overrides).result
 
             expect(result.code).toBe(1)
-            expect(result.stderr).toContain('runner smoke test failed')
+            expect(result.stderr).toContain('runner version check failed')
             expect(existsSync(finalPath())).toBe(false)
             expectClean()
         },
@@ -669,6 +669,28 @@ describe('installer via sh', () => {
         expect(rerun.stdout).toMatch(/Installing to .+\.\.\. +unchanged/)
         expect(rerun.stdout).not.toContain('export PATH=')
         expect(readdirSync(env.FT_INSTALL_DIR ?? '')).toEqual(['ft'])
+    })
+
+    it('moves an existing personal pin to the installed version, and only when it differs', async () => {
+        const config = { XDG_CONFIG_HOME: join(root, 'config') }
+        const personal = join(config.XDG_CONFIG_HOME, 'ft')
+
+        mkdirSync(join(personal, '.ft'), { recursive: true })
+        writeFileSync(join(personal, '.ft.json'), '{}\n')
+        writeFileSync(join(personal, '.ft', 'lock.json'), '{\n    "version": "0.0.9"\n}\n')
+
+        const moved = await start('sh', [version], config, installer).result
+
+        expect(moved.code, moved.stderr).toBe(0)
+        expect(moved.stdout).toMatch(/Updating your personal config\.\.\. +done/)
+        expect(moved.stdout).not.toContain('Setting up')
+
+        writeFileSync(join(personal, '.ft', 'lock.json'), `{\n    "version": "${version}"\n}\n`)
+
+        const current = await start('sh', [version], config, installer).result
+
+        expect(current.code, current.stderr).toBe(0)
+        expect(current.stdout).not.toContain('Updating your personal config')
     })
 
     it('quotes apostrophes in the suggested PATH line', async () => {

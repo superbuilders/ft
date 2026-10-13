@@ -18,7 +18,7 @@ const KeySchema = Type.Union(
     ],
     {
         description:
-            'Where ft reads the credential: {"env": "NAME"} or {"command": ["argv", ...]} run at the project root. Never the credential itself.',
+            'Where ft reads the credential: {"env": "NAME"}, or {"command": ["argv", ...]} run in the folder that holds this .ft.json. Never the credential itself.',
     },
 )
 

@@ -57,8 +57,8 @@ while :; do
     [ -n "$project" ] || project=/
 done
 # A directory with no .ft.json of its own uses the personal config, if there is one.
+personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
 if [ -z "$config" ]; then
-    personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
     [ ! -f "$personal" ] || config=$personal
 fi
 
@@ -75,9 +75,12 @@ else
     case ${1:-} in
         pin|init) ;;
         *)
+            if [ "$config" = "$personal" ]; then
+                fail 2 "no $pinned found; run ft pin --user <version>"
+            fi
             [ -z "$config" ] ||
                 fail 2 "no $pinned found; run ft pin <version> in the project root"
-            fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init (this repository) or ft init --user (every repository you work in)'
+            fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init for this repository, or ft init --user for your personal setup'
             ;;
     esac
     bootstrap=yes
@@ -150,7 +153,7 @@ gh_call() {
     if [ "$gh_status" -eq 4 ] || grep -Eiq 'not logged|not authenticated|unauthenticated|authentication|gh auth login|HTTP 401|bad credentials|GH_TOKEN|invalid token|token.*invalid' "$stage/gh.stderr"; then
         if ! "$gh_bin" auth token >/dev/null 2>&1 && [ "$os" = darwin ] &&
             [ "${GH_TOKEN+x}" != x ] && [ "${GITHUB_TOKEN+x}" != x ]; then
-            fail 2 'gh cannot read its token (on macOS this usually means the login keychain is locked in this session, such as over SSH); set GH_TOKEN or run security unlock-keychain'
+            fail 2 'gh cannot read its token: on macOS the login keychain may be locked in this session (for example over SSH); set GH_TOKEN or run security unlock-keychain'
         fi
         fail 2 'gh is not authenticated; run gh auth login'
     fi
@@ -193,7 +196,7 @@ while ! mkdir "$lock" 2>/dev/null; do
             ;;
     esac
     if [ "$waiting" = no ]; then
-        printf 'ft: waiting for runner-%s lock held by %s %s\n' "$version" "${owner_pid:-unknown}" "${owner_host:-unknown}" >&2
+        printf 'ft: waiting for the runner-%s install lock (held by process %s on %s)\n' "$version" "${owner_pid:-unknown}" "${owner_host:-unknown}" >&2
         waiting=yes
     fi
     sleep 0.2
@@ -223,10 +226,10 @@ if [ ! -f "$cache/runner/$version/ft" ]; then
     chmod +x "$stage/ft-$target" || fail 1 'cannot make runner executable'
     "$stage/ft-$target" --version >"$stage/smoke.stdout" 2>"$stage/smoke.stderr" &
     active_pid=$!
-    wait "$active_pid" || fail 1 'runner smoke test failed (--version)'
+    wait "$active_pid" || fail 1 'runner version check failed (--version)'
     active_pid=
-    smoke=$(cat "$stage/smoke.stdout") || fail 1 'cannot read runner smoke test result'
-    [ "$smoke" = "$version" ] || fail 1 'runner smoke test failed (unexpected version)'
+    smoke=$(cat "$stage/smoke.stdout") || fail 1 'cannot read runner version check result'
+    [ "$smoke" = "$version" ] || fail 1 'runner version check failed (unexpected version)'
     mv "$stage/ft-$target" "$stage/ft" || fail 1 'cannot prepare runner'
     rm -f "$stage/gh.stderr" "$stage/smoke.stdout" "$stage/smoke.stderr" "$stage/SHA256SUMS" "$stage/release.json" || fail 1 'cannot clean staging metadata'
     mv "$stage" "$cache/runner/$version" || fail 1 'cannot publish runner'

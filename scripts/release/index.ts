@@ -7,7 +7,7 @@ new Command()
     .description('Bump the version, tag it and push; CI builds and publishes the release')
     .argument(
         '<version>',
-        'patch, minor, major, or an exact x.y.z (the current version tags it as-is)',
+        'patch, minor, major, or an exact x.y.z (giving the current version tags it without a bump)',
     )
     .action(runRelease)
     .parseAsync()

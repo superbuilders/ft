@@ -68,7 +68,7 @@ describe('the report', () => {
         expect(lines[1]).toBe('Tools: read 3, grep 1.')
         expect(lines).not.toContain('One real problem.')
         expect(lines.at(-1)).toMatch(
-            /^review-k3x2 succeeded \(answer in .*answer\.md, 1 line; ft show review-k3x2 for every step\)$/,
+            /^review-k3x2 succeeded \(answer in .*answer\.md, 1 line; ft show review-k3x2 for every step and the answer\)$/,
         )
         expect(renderReport(status, 'success', 'One real problem.\n', true)).toContain(
             '\nOne real problem.\n',
@@ -87,7 +87,7 @@ describe('the report', () => {
         expect(report).toContain('Next: The brief and the files the model read did not fit')
         expect(report.trimEnd().split('\n').at(-1)).toContain('partial answer in')
         expect(renderReport(status, 'model_error', 'Reading the refund path.', true)).toContain(
-            "The model's last message before the run stopped:\n\nReading the refund path.",
+            "The model's last message (not a final answer):\n\nReading the refund path.",
         )
     })
 
@@ -95,10 +95,10 @@ describe('the report', () => {
         const status = statusWith({ outcome: 'configuration_error', error: 'no key', answer: null })
 
         expect(headline(status, 'configuration_error')).toBe(
-            'review-k3x2 could not start (configuration_error) (gateway/gpt-6.1-sol, thinking high)',
+            'review-k3x2 could not start (gateway/gpt-6.1-sol, thinking high)',
         )
         expect(renderReport(status, 'configuration_error', null).trimEnd().split('\n').at(-1)).toBe(
-            'review-k3x2 could not start (configuration_error)',
+            'review-k3x2 could not start',
         )
     })
 })
@@ -135,5 +135,5 @@ it('tallies runs and names each one that did not succeed', () => {
             { status: statusWith({ id: 'b-2' }), state: 'model_error' },
             { status: statusWith({ id: 'c-3' }), state: 'timeout' },
         ]),
-    ).toBe('3 runs: 1 succeeded; b-2 failed (model_error); c-3 timed out')
+    ).toBe('3 runs: 1 succeeded; b-2 failed with a model provider error; c-3 timed out')
 })

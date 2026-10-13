@@ -27,7 +27,9 @@ function deadlineSeconds(deadline: string | undefined): number | undefined {
     const seconds = Number(deadline)
 
     if (!Number.isFinite(seconds) || seconds <= 0 || seconds > DEADLINE_MAX_SECONDS) {
-        throw new Error(`--deadline must be positive seconds, at most ${DEADLINE_MAX_SECONDS}`)
+        throw new Error(
+            `--deadline must be a positive number of seconds, at most ${DEADLINE_MAX_SECONDS}`,
+        )
     }
 
     return seconds
@@ -62,15 +64,11 @@ async function readBrief(brief: string): Promise<string> {
  */
 export async function prepare(briefs: string[], options: RunOptions): Promise<Status[]> {
     if (briefs.length > 1 && (options.name || options.out)) {
-        throw new Error('--name and --out take a single brief; each run is named after its brief')
+        throw new Error('--name and --out work only with a single brief')
     }
 
     if (briefs.filter(brief => brief === '-').length > 1) {
         throw new Error('Only one brief can come from stdin')
-    }
-
-    if (options.out) {
-        await rm(resolve(options.out), { force: true })
     }
 
     platformTarget()
@@ -108,6 +106,11 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
             piVersion: PI_VERSION,
         })),
     )
+
+    /* Only once the run is accepted, so a refused run leaves the old file alone. */
+    if (options.out) {
+        await rm(resolve(options.out), { force: true })
+    }
 
     return Promise.all(runs.map(run => openRun(config.workspace, run)))
 }

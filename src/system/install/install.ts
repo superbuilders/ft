@@ -54,7 +54,7 @@ export async function installArchive(
         const response = await fetch(spec.url, { signal })
 
         if (!response.ok) {
-            throw new Error(`Download failed: HTTP ${response.status}`)
+            throw new Error(`${spec.binary} download failed (HTTP ${response.status})`)
         }
 
         const bytes = new Uint8Array(await response.arrayBuffer())
@@ -72,7 +72,7 @@ export async function installArchive(
         if (
             listing.split('\n').some(path => path.startsWith('/') || path.split('/').includes('..'))
         ) {
-            throw new Error('Unsafe archive paths')
+            throw new Error(`The ${spec.binary} archive has absolute paths or .. entries`)
         }
 
         await commandOutput(['tar', '-xzf', archive, '-C', tree, '--strip-components=1'], signal)
@@ -80,7 +80,9 @@ export async function installArchive(
         const version = await commandOutput([join(tree, spec.binary), '--version'], signal)
 
         if (!version.includes(spec.version)) {
-            throw new Error(`Smoke test returned unexpected version: ${version.trim()}`)
+            throw new Error(
+                `${spec.binary} version check failed (expected ${spec.version}, got ${version.trim()})`,
+            )
         }
 
         signal?.throwIfAborted()
