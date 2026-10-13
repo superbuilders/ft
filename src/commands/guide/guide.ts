@@ -1,3 +1,4 @@
+import { RUN_PROFILES } from '../../pi/run/constants'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
 import { GUIDE_BODY, LANE_FALLBACK_DESCRIPTION } from './constants'
@@ -29,12 +30,25 @@ async function lanes(): Promise<string[]> {
 }
 
 /**
+ * Write tool names as a reader lists them.
+ * @param tools - tool names
+ * @returns for example "read, grep and bash"
+ */
+function listed(tools: readonly string[]): string {
+    return tools.length > 1
+        ? `${tools.slice(0, -1).join(', ')} and ${tools.at(-1)}`
+        : tools.join('')
+}
+
+/**
  * Print the agent-facing manual for exactly this runner: what it does, this project's lanes, and
  * how to run, wait for and read runs. A skill points here instead of restating flags that drift.
  * @param runnerVersion - this runner's version
  * @returns completion
  */
 export async function guide(runnerVersion: string): Promise<void> {
+    const read = RUN_PROFILES.read?.tools ?? []
+    const write = RUN_PROFILES.write?.tools ?? []
     const text = [
         `# ft ${runnerVersion}: hand a bounded task to another model`,
         '',
@@ -48,7 +62,10 @@ export async function guide(runnerVersion: string): Promise<void> {
         '',
         ...(await lanes()),
         '',
-        GUIDE_BODY,
+        GUIDE_BODY.replace('{read tools}', listed(read)).replace(
+            '{write tools}',
+            listed(write.filter(tool => !read.includes(tool))),
+        ),
     ]
 
     process.stdout.write(text.join('\n'))

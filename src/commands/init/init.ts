@@ -81,7 +81,7 @@ export async function init(
     const root = scopeRoot(user)
     const [starter, release] = await Promise.all([
         starterConfig(options.from),
-        fetchRelease(version, user ? [] : ['launcher']),
+        fetchRelease(version, !user),
     ])
 
     await writeRelease(root, release)

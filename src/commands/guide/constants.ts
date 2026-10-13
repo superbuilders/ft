@@ -2,6 +2,7 @@
 export const LANE_FALLBACK_DESCRIPTION = 'No description in .ft.json.'
 
 /** The guide's fixed body, after the version and the project's lanes. */
+/** The manual after the lanes; guide.ts fills `{read tools}` and `{write tools}` from RUN_PROFILES. */
 export const GUIDE_BODY = `## Write the brief
 
 A brief is the whole task as the other model sees it, written to a Markdown file anywhere (ft keeps a copy). Describe the task, where to work, what counts as done, and what to leave alone. Add only the constraints the repository's instructions do not already cover. Keep one task per brief. Its first line with text becomes the run's title in \`ft list\`, so make that line name the task. To keep answers short, ask for that in the brief.
@@ -42,8 +43,8 @@ Every report ends with a line restating its verdict, so the end of the output st
 
 A profile is the delegate's tool set plus standing instructions. Neither profile is a sandbox: both include bash.
 
-- read (default): read, grep, find, ls and bash. For reviews, research and investigation. The delegate is told not to change files, but bash can still change them.
-- write: adds edit and write. The delegate is told to stay in scope, run the repository's checks, and never stage, commit or push. Write runs share your working tree, so parallel write runs need disjoint files. The report lists files that edit and write changed; changes made through bash are not listed, so check \`git status\`.
+- read (default): {read tools}. For reviews, research and investigation. The delegate is told not to change files, but bash can still change them.
+- write: adds {write tools}. The delegate is told to stay in scope, run the repository's checks, and never stage, commit or push. Write runs share your working tree, so parallel write runs need disjoint files. The report lists files that edit and write changed; changes made through bash are not listed, so check \`git status\`.
 
 A lane whose model is configured as tool-free (such as a web-research model) runs without tools whatever the profile.
 

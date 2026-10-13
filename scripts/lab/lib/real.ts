@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 
 import { validateConfig } from '../../../src/project/config/config'
 import { TARGETS } from '../../../src/system/host/constants'
+import { labChecksums } from './build'
 import { liveResearch, liveToolTurn } from './harness'
 import { check, PrerequisiteError, start } from './processes'
 
@@ -62,12 +63,7 @@ process.stdout.write(output);
         JSON.stringify(
             {
                 version: context.build.version,
-                sha256: Object.fromEntries(
-                    TARGETS.map(target => [
-                        target,
-                        target === context.build.target ? context.build.digest : '0'.repeat(64),
-                    ]),
-                ),
+                sha256: labChecksums(context.build.target, context.build.digest),
             },
             null,
             4,

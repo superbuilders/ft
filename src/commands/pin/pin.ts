@@ -32,10 +32,7 @@ export async function pin(version: string, options: { user?: boolean }): Promise
         throw new Error(`No ${CONFIG_FILE} in ${root}${hint}`)
     }
 
-    const release = await fetchRelease(
-        version,
-        existsSync(join(root, LAUNCHER_FILE)) ? ['launcher'] : [],
-    )
+    const release = await fetchRelease(version, existsSync(join(root, LAUNCHER_FILE)))
 
     await writeRelease(root, release)
     process.stderr.write(`Pinned ft ${version} in ${join(root, LOCK_FILE)}\n`)

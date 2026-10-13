@@ -22,14 +22,26 @@ export async function digest(path: string): Promise<string> {
 }
 
 /**
+ * Every target's runner checksum for a lab release or lock. A lock needs every target's, but the
+ * lab builds and runs only this host's, so the others are placeholders.
+ * @param target - the built runner's platform target
+ * @param runner - its SHA-256
+ * @returns checksum per target
+ */
+export function labChecksums(target: string, runner: string): Record<string, string> {
+    return Object.fromEntries(
+        TARGETS.map(other => [other, other === target ? runner : '0'.repeat(64)]),
+    )
+}
+
+/**
  * Fill a folder holding only ft-<target> with the rest of a release: the shim, installer, config
- * schema and SHA256SUMS. A lock needs every target's checksum, but the lab builds and runs
- * only this host's, so the others are placeholders.
+ * schema and SHA256SUMS.
  * @param directory - folder holding the runner binary
  * @param target - the binary's platform target
- * @returns completion once SHA256SUMS is written
+ * @returns the runner's SHA-256, once SHA256SUMS is written
  */
-async function completeRelease(directory: string, target: string): Promise<void> {
+async function completeRelease(directory: string, target: string): Promise<string> {
     await copyFile('shim/ft', join(directory, 'ft-shim'))
     await copyFile('install.sh', join(directory, 'install.sh'))
 
@@ -37,15 +49,20 @@ async function completeRelease(directory: string, target: string): Promise<void>
 
     await writeFile(join(directory, 'schema.json'), schema.stdout)
 
-    const assets = [`ft-${target}`, 'ft-shim', 'install.sh', 'schema.json']
-    const sums = await Promise.all(
-        assets.map(async asset => `${await digest(join(directory, asset))}  ${asset}\n`),
+    const assets = ['ft-shim', 'install.sh', 'schema.json']
+    const [runner = '', ...digests] = await Promise.all(
+        [`ft-${target}`, ...assets].map(asset => digest(join(directory, asset))),
     )
-    const absent = TARGETS.filter(other => other !== target).map(
-        other => `${'0'.repeat(64)}  ft-${other}\n`,
-    )
+    const lines = [
+        ...Object.entries(labChecksums(target, runner)).map(
+            ([other, sum]) => `${sum}  ft-${other}`,
+        ),
+        ...assets.map((asset, index) => `${digests[index]}  ${asset}`),
+    ]
 
-    await writeFile(join(directory, 'SHA256SUMS'), [...sums, ...absent].join(''))
+    await writeFile(join(directory, 'SHA256SUMS'), lines.map(line => `${line}\n`).join(''))
+
+    return runner
 }
 
 /**
@@ -140,13 +157,12 @@ export async function prebuilt(directory: string): Promise<Build> {
     const absolute = resolve(directory)
     const binary = join(absolute, `ft-${target}`)
 
-    await completeRelease(absolute, target)
-
+    const runner = await completeRelease(absolute, target)
     const reported = await command([binary, '--version'])
 
     return {
         version: reported.stdout.trim(),
-        digest: await digest(binary),
+        digest: runner,
         directory: absolute,
         binary,
         target,

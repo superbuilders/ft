@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { chmod, readFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { atomicWrite } from '../../system/files/atomic-write'
@@ -19,32 +20,49 @@ import {
 import type { Lock, Release } from './types'
 
 /**
- * Download one asset of a release through authenticated gh, or read it from the folder the
- * installer has just downloaded the release into (`FT_RELEASE_DIR`), so setup right after an
- * install fetches nothing twice. Either way the caller checks it against the release manifest.
+ * Read release files from one folder: the one the installer has just downloaded the release into
+ * (`FT_RELEASE_DIR`), so setup right after an install fetches nothing twice, or else a temporary
+ * folder that one authenticated gh download fills. Either way the caller checks each file against
+ * the release manifest.
  * @param version - exact runner release version
- * @param asset - release asset name
- * @returns the asset's text
+ * @param assets - release asset names
+ * @returns each asset's text, in order
  */
-function releaseAsset(version: string, asset: string): Promise<string> {
+async function releaseFiles(version: string, assets: string[]): Promise<string[]> {
+    /**
+     * Read the assets out of one folder.
+     * @param folder - folder holding the downloaded assets
+     * @returns each asset's text, in order
+     */
+    function read(folder: string): Promise<string[]> {
+        return Promise.all(assets.map(asset => readFile(join(folder, asset), 'utf8')))
+    }
+
     const downloaded = process.env.FT_RELEASE_DIR
 
     if (downloaded) {
-        return readFile(join(downloaded, asset), 'utf8')
+        return read(downloaded)
     }
 
-    return commandOutput([
-        'gh',
-        'release',
-        'download',
-        `v${version}`,
-        '-R',
-        RELEASE_REPOSITORY,
-        '-p',
-        asset,
-        '-O',
-        '-',
-    ])
+    const folder = await mkdtemp(join(tmpdir(), 'ft-release-'))
+
+    try {
+        await commandOutput([
+            'gh',
+            'release',
+            'download',
+            `v${version}`,
+            '-R',
+            RELEASE_REPOSITORY,
+            ...assets.flatMap(asset => ['-p', asset]),
+            '-D',
+            folder,
+        ])
+
+        return await read(folder)
+    } finally {
+        await rm(folder, { recursive: true, force: true })
+    }
 }
 
 /**
@@ -67,43 +85,47 @@ function checksum(sums: string, asset: string): string {
 }
 
 /**
+ * Check one release file against the release manifest.
+ * @param sums - SHA256SUMS text
+ * @param asset - release asset name
+ * @param text - the file's text
+ * @returns the text, once it matches
+ */
+function verified(sums: string, asset: string, text: string): string {
+    if (createHash('sha256').update(text).digest('hex') !== checksum(sums, asset)) {
+        throw new Error(`${asset} does not match its checksum`)
+    }
+
+    return text
+}
+
+/**
  * Fetch what a caller needs from one release, each file checked against the release manifest:
  * always the runner checksums for the lock and the config schema, plus the launcher when asked for.
  * @param version - exact runner release version
- * @param extras - the optional files to fetch
+ * @param withLauncher - also fetch the launcher, for a repository
  * @returns the release's files
  */
-export async function fetchRelease(
-    version: string,
-    extras: readonly 'launcher'[],
-): Promise<Release> {
+export async function fetchRelease(version: string, withLauncher: boolean): Promise<Release> {
     if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) {
         throw new Error('Expected a release version such as 0.2.0')
     }
 
-    const names = ['schema' as const, ...extras]
-    const [sums, ...texts] = await Promise.all(
-        ['SHA256SUMS', ...names.map(name => RELEASE_ASSETS[name])].map(asset =>
-            releaseAsset(version, asset),
-        ),
-    )
-    const files = Object.fromEntries(
-        names.map((name, index) => {
-            const asset = RELEASE_ASSETS[name]
-            const text = texts[index] ?? ''
-
-            if (createHash('sha256').update(text).digest('hex') !== checksum(sums ?? '', asset)) {
-                throw new Error(`${asset} does not match its checksum`)
-            }
-
-            return [name, text]
-        }),
-    ) as Pick<Release, 'schema' | 'launcher'>
+    const { schema, launcher } = RELEASE_ASSETS
+    const [sums = '', schemaText = '', launcherText] = await releaseFiles(version, [
+        'SHA256SUMS',
+        schema,
+        ...(withLauncher ? [launcher] : []),
+    ])
     const sha256 = Object.fromEntries(
-        TARGETS.map(target => [target, checksum(sums ?? '', `ft-${target}`)]),
+        TARGETS.map(target => [target, checksum(sums, `ft-${target}`)]),
     ) as Lock['sha256']
 
-    return { lock: { version, sha256 }, ...files }
+    return {
+        lock: { version, sha256 },
+        schema: verified(sums, schema, schemaText),
+        ...(launcherText === undefined ? {} : { launcher: verified(sums, launcher, launcherText) }),
+    }
 }
 
 /**

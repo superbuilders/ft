@@ -3,9 +3,8 @@ import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { PI_SHA256, PI_VERSION, TOOL_RELEASES } from '../../../src/pi/runtime/constants'
-import { TARGETS } from '../../../src/system/host/constants'
 import { installArchive } from '../../../src/system/install/install'
-import { digest } from './build'
+import { digest, labChecksums } from './build'
 import { DUMMY_KEY } from './constants'
 import { PrerequisiteError } from './processes'
 
@@ -175,12 +174,7 @@ export async function configure(context: Context, build: Build, gateway?: string
     const key = { command: [process.execPath, 'key.ts'] }
     const lock = {
         version: build.version,
-        sha256: Object.fromEntries(
-            TARGETS.map(target => [
-                target,
-                target === build.target ? build.digest : '0'.repeat(64),
-            ]),
-        ),
+        sha256: labChecksums(build.target, build.digest),
     }
     const config = {
         providers: {

@@ -16,14 +16,23 @@ let root: string
 let output: string
 
 vi.mock('../../system/process/subprocess', () => ({
+    /**
+     * Act as gh release download: every -p asset into the -D folder, failing on a missing one.
+     * @param argv - the gh command line
+     * @returns gh's empty stdout
+     */
     commandOutput: async (argv: string[]) => {
-        const asset = assets[argv[argv.indexOf('-p') + 1] ?? '']
+        const { writeFile: write } = await import('node:fs/promises')
+        const folder = argv[argv.indexOf('-D') + 1] ?? ''
+        const names = argv.flatMap((arg, index) => (arg === '-p' ? [argv[index + 1] ?? ''] : []))
 
-        if (asset === undefined) {
+        if (names.some(name => assets[name] === undefined)) {
             throw new Error('gh failed')
         }
 
-        return asset
+        await Promise.all(names.map(name => write(join(folder, name), assets[name] ?? '')))
+
+        return ''
     },
 }))
 
