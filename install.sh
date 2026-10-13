@@ -207,6 +207,7 @@ if [ "$setup" = failed ]; then
 else
     printf '  %s✔ Installed ft %s%s\n' "$green" "$version" "$reset"
 fi
+rule
 printf '  %s%s%s\n' "$cyan" "$readme" "$reset"
 rule
 
