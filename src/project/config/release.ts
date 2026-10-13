@@ -61,7 +61,7 @@ async function releaseFiles(version: string, assets: string[]): Promise<string[]
         ]).catch((error: unknown) => {
             if (error instanceof Error && RELEASE_NOT_FOUND.test(error.message)) {
                 throw new Error(
-                    `ft ${version} is not a published release; leave the version out for the newest`,
+                    `${version} is not a published ft release; leave the version out for the newest`,
                     { cause: error },
                 )
             }
