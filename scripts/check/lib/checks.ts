@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { runSteps } from '../../lib/run-step'
 import { CHECK_LOG_PATH, CHECKS_FAILED_EXIT_CODE } from './constants'
 
 import type { CheckOptions, CheckResult, CheckStep } from './types'
@@ -34,13 +35,13 @@ function buildSteps(options: CheckOptions): CheckStep[] {
 }
 
 /**
- * Capture both output streams without dumping full tool output into the hook.
+ * Run one check as its own subprocess, keeping its output out of the hook's terminal.
  *
  * @param step - the command and display label
  * @param cwd - absolute repository root
  * @returns the completed step, including launch failures
  */
-function runStep(step: CheckStep, cwd: string): Promise<CheckResult> {
+function runCommand(step: CheckStep, cwd: string): Promise<CheckResult> {
     return new Promise(resolve => {
         const [executable, ...args] = step.command
         const child = spawn(executable, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -60,16 +61,13 @@ function runStep(step: CheckStep, cwd: string): Promise<CheckResult> {
                 chunks.push(Buffer.from(`Terminated by ${signal}\n`))
             }
 
-            const exitCode = code ?? 1
-
-            console.log(`${exitCode === 0 ? '✓' : '✗'} ${step.name} (exit ${exitCode})`)
-            resolve({ step, exitCode, output: Buffer.concat(chunks).toString('utf8') })
+            resolve({ step, exitCode: code ?? 1, output: Buffer.concat(chunks).toString('utf8') })
         })
     })
 }
 
 /**
- * Run all gates in parallel and save complete failure output for hook readers.
+ * Run all gates in parallel under one spinner and save complete failure output for hook readers.
  *
  * @param options - commander mode flags
  * @returns zero on success, or the reported-check-failure exit code
@@ -77,6 +75,7 @@ function runStep(step: CheckStep, cwd: string): Promise<CheckResult> {
 export async function runChecks(options: CheckOptions): Promise<number> {
     const root = fileURLToPath(new URL('../../../', import.meta.url))
     const logPath = join(root, CHECK_LOG_PATH)
+    const results: CheckResult[] = []
 
     await mkdir(dirname(logPath), { recursive: true })
     await writeFile(
@@ -85,15 +84,35 @@ export async function runChecks(options: CheckOptions): Promise<number> {
     )
     console.log(`Check log: ${CHECK_LOG_PATH}`)
 
-    const results = await Promise.all(buildSteps(options).map(step => runStep(step, root)))
-    const failures = results.filter(result => result.exitCode !== 0)
+    const steps = Object.fromEntries(
+        buildSteps(options).map(step => [
+            step.name,
+            {
+                text: step.name,
+                action: async () => {
+                    const result = await runCommand(step, root)
 
-    if (failures.length === 0) {
+                    results.push(result)
+
+                    if (result.exitCode !== 0) {
+                        throw new Error(`exit ${result.exitCode}; full output in ${CHECK_LOG_PATH}`)
+                    }
+                },
+            },
+        ]),
+    )
+    const passed = await runSteps(steps).then(
+        () => true,
+        () => false,
+    )
+
+    if (passed) {
         await writeFile(logPath, `Checks passed at ${new Date().toISOString()}.\n`)
 
         return 0
     }
 
+    const failures = results.filter(result => result.exitCode !== 0)
     const pointer = `Checks failed (${failures.map(result => result.step.name).join(', ')}). Full output: ${CHECK_LOG_PATH}`
     const details = failures.map(
         result =>

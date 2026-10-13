@@ -4,6 +4,7 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 import { commandOutput } from '../../../src/system/process/subprocess'
+import { runStep } from '../../lib/run-step'
 import { DOGFOOD_TAG, INSTALL_PATH } from './constants'
 
 /**
@@ -24,7 +25,11 @@ export async function dogfood(): Promise<void> {
     const stage = await mkdtemp(join(tmpdir(), 'ft-dogfood-'))
     const target = join(homedir(), ...INSTALL_PATH)
 
-    try {
+    /**
+     * Build the commit and swap it in for the previous dogfood build.
+     * @returns completion
+     */
+    async function install(): Promise<void> {
         const archive = join(stage, 'head.tar')
         const output = join(stage, 'ft')
 
@@ -50,13 +55,21 @@ export async function dogfood(): Promise<void> {
         await copyFile(output, `${target}.new`)
         await chmod(`${target}.new`, 0o755)
         await rename(`${target}.new`, target)
+    }
+
+    try {
+        await runStep(
+            `Building ft-dev from ${commit}`,
+            install,
+            `Installed ft ${build} at ${target}`,
+        )
     } finally {
         await rm(stage, { recursive: true, force: true })
     }
 
-    process.stdout.write(
-        `Installed ft ${build} at ${target}${dirty ? ' (uncommitted edits are not in it; commit and rerun to include them)' : ''}\n`,
-    )
+    if (dirty) {
+        process.stdout.write('Uncommitted edits are not in it; commit and rerun to include them\n')
+    }
 }
 
 /**
