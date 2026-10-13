@@ -92,7 +92,18 @@ it('reports a termination signal and kills detached tools that ignore SIGTERM', 
         expect(pid).toBeGreaterThan(0)
         controller.abort()
         expect(await running).toEqual({ code: null, signal: 'SIGTERM' })
-        expect(() => process.kill(pid, 0)).toThrow()
+        /* The hard kill has been sent; the orphaned tool vanishes once init reaps it. */
+        await expect
+            .poll(() => {
+                try {
+                    process.kill(pid, 0)
+
+                    return true
+                } catch {
+                    return false
+                }
+            })
+            .toBe(false)
     } finally {
         controller.abort()
         await running

@@ -67,17 +67,17 @@ export async function runPi(input: {
         env: piEnvironment(input.env, input.agent, input.tmp, input.toolDirs),
     })
     const parser = eventParser(input.state, input.progress)
-    let killTimer: ReturnType<typeof setTimeout> | undefined
 
     /**
-     * Terminate Pi's process group, escalating after the grace period.
-     * @returns nothing
+     * Terminate Pi's process group, then kill whatever is left once the grace period ends.
+     * @returns completion after the hard kill
      */
     async function terminate(): Promise<void> {
         const groups = await descendantGroups(child.pid)
 
         signalGroups(groups, 'SIGTERM')
-        killTimer = setTimeout(() => signalGroups(groups, 'SIGKILL'), KILL_GRACE_MS)
+        await Bun.sleep(KILL_GRACE_MS)
+        signalGroups(groups, 'SIGKILL')
     }
 
     let termination: Promise<void> | undefined
@@ -121,12 +121,7 @@ export async function runPi(input: {
         return { code: child.exitCode, signal: child.signalCode }
     } finally {
         input.signal.removeEventListener('abort', abort)
+        /* Waits for the hard kill even if Pi exits first, so detached tool children are not left behind. */
         await termination
-
-        if (killTimer) {
-            /* Keep the hard-kill window even if Pi exits before detached tool children. */
-            await new Promise(resolve => setTimeout(resolve, KILL_GRACE_MS))
-            clearTimeout(killTimer)
-        }
     }
 }

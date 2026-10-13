@@ -83,6 +83,31 @@ for asset in $patterns; do
 done
 `
 
+/** The host's copies of the tools the launcher may call, looked up once for every test's PATH. */
+const hostTools = [
+    'sh',
+    'dash',
+    'mkdir',
+    'rm',
+    'mv',
+    'cat',
+    'sed',
+    'grep',
+    'hostname',
+    'mktemp',
+    'chmod',
+    'sleep',
+    'find',
+    'tr',
+    'sha256sum',
+    'cmp',
+    'shasum',
+].flatMap(utility => {
+    const located = spawnSync('sh', ['-c', `command -v ${utility}`], { encoding: 'utf8' })
+
+    return located.status === 0 ? [[utility, located.stdout.trim()] as const] : []
+})
+
 let root: string
 let project: string
 let cwd: string
@@ -185,30 +210,8 @@ beforeEach(() => {
         mkdirSync(path, { recursive: true })
     }
 
-    for (const utility of [
-        'sh',
-        'dash',
-        'mkdir',
-        'rm',
-        'mv',
-        'cat',
-        'sed',
-        'grep',
-        'hostname',
-        'mktemp',
-        'chmod',
-        'sleep',
-        'find',
-        'tr',
-        'sha256sum',
-        'cmp',
-        'shasum',
-    ]) {
-        const located = spawnSync('sh', ['-c', `command -v ${utility}`], { encoding: 'utf8' })
-
-        if (located.status === 0) {
-            symlinkSync(located.stdout.trim(), join(root, 'bin', utility))
-        }
+    for (const [utility, path] of hostTools) {
+        symlinkSync(path, join(root, 'bin', utility))
     }
 
     executable(join(root, 'bin', 'gh'), fakeGh)

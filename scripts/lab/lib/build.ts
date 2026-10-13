@@ -76,6 +76,7 @@ export async function build(cache: string, salt = ''): Promise<Build> {
     const hash = createHash('sha256').update(
         `${Bun.version}\0${target}\0${salt}\0native-compile-v1`,
     )
+    const sources = await Array.fromAsync(new Bun.Glob('src/**/*.ts').scan('.'))
     const paths = [
         'package.json',
         'bun.lock',
@@ -83,7 +84,8 @@ export async function build(cache: string, salt = ''): Promise<Build> {
         'install.sh',
         '.agents/skills/ft/SKILL.md',
         'scripts/lab/lib/build.ts',
-        ...(await Array.fromAsync(new Bun.Glob('src/**/*.ts').scan('.'))),
+        /* Tests are not compiled into the runner, so editing one must not force a rebuild. */
+        ...sources.filter(path => !path.endsWith('.test.ts')),
     ].toSorted()
 
     for (const path of paths) {

@@ -87,6 +87,8 @@ export async function remote(
                 '--exclude=node_modules',
                 '--exclude=tmp',
                 '--exclude=.git',
+                /* Skip what each folder's .gitignore ignores, such as the runs under .ft/runs. */
+                '--filter=:- .gitignore',
                 `${process.cwd()}/`,
                 `air:${LAB_ROOT}/checkout/`,
             ])

@@ -128,19 +128,27 @@ export function eventParser(
     changed: () => void = () => {},
 ): { push: (chunk: Buffer) => void; end: () => void } {
     const decoder = new StringDecoder('utf8')
-    let pending = ''
+    /* The unfinished record's pieces, joined once its LF arrives, so a long record is not rescanned per chunk. */
+    let pending: string[] = []
 
     return {
         push(chunk) {
-            pending += decoder.write(chunk)
-
-            let lf = pending.indexOf('\n')
+            const text = decoder.write(chunk)
+            let start = 0
+            let lf = text.indexOf('\n')
             let progressed = false
 
             while (lf >= 0) {
-                progressed = record(state, pending.slice(0, lf).replace(/\r$/, '')) || progressed
-                pending = pending.slice(lf + 1)
-                lf = pending.indexOf('\n')
+                const line = pending.join('') + text.slice(start, lf)
+
+                pending = []
+                progressed = record(state, line.replace(/\r$/, '')) || progressed
+                start = lf + 1
+                lf = text.indexOf('\n', start)
+            }
+
+            if (start < text.length) {
+                pending.push(text.slice(start))
             }
 
             if (progressed) {
@@ -148,9 +156,7 @@ export function eventParser(
             }
         },
         end() {
-            pending += decoder.end()
-
-            if (pending.length > 0) {
+            if (pending.join('') + decoder.end()) {
                 state.protocolError ??= 'Unterminated JSONL record'
             }
         },

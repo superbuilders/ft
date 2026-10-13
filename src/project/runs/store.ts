@@ -178,17 +178,8 @@ export function stateOf(status: Status): State {
  */
 export async function listRuns(root: string): Promise<Status[]> {
     const runs = runsRoot(root)
-
-    if (!existsSync(runs)) {
-        return []
-    }
-
-    const entries = await readdir(runs, { withFileTypes: true })
-    const statuses = await Promise.all(
-        entries
-            .filter(entry => entry.isDirectory())
-            .map(entry => readStatus(join(runs, entry.name))),
-    )
+    const ids = await runIds(root)
+    const statuses = await Promise.all(ids.map(id => readStatus(join(runs, id))))
 
     return statuses
         .filter((status): status is Status => status !== null)
@@ -196,20 +187,34 @@ export async function listRuns(root: string): Promise<Status[]> {
 }
 
 /**
- * Resolve one reference against the project's runs.
- * @param runs - every run, newest first
- * @param ref - id or id prefix
- * @param root - project root, for the error message
- * @returns the run's status
+ * The names of the run folders, which are the run ids.
+ * @param root - project root
+ * @returns folder names, in no particular order
  */
-function pick(runs: Status[], ref: string, root: string): Status {
-    const exact = runs.find(run => run.id === ref)
+async function runIds(root: string): Promise<string[]> {
+    const runs = runsRoot(root)
 
-    if (exact) {
-        return exact
+    if (!existsSync(runs)) {
+        return []
     }
 
-    const matches = runs.filter(run => run.id.startsWith(ref))
+    const entries = await readdir(runs, { withFileTypes: true })
+
+    return entries.filter(entry => entry.isDirectory()).map(entry => entry.name)
+}
+
+/**
+ * Resolve one reference, reading only the statuses of the folders it could name.
+ * @param ids - every run folder name
+ * @param ref - id or id prefix
+ * @param root - project root
+ * @returns the run's status
+ */
+async function pick(ids: string[], ref: string, root: string): Promise<Status> {
+    const runs = runsRoot(root)
+    const named = ids.includes(ref) ? [ref] : ids.filter(id => id.startsWith(ref))
+    const statuses = await Promise.all(named.map(id => readStatus(join(runs, id))))
+    const matches = statuses.filter((status): status is Status => status !== null)
 
     if (matches.length === 1 && matches[0]) {
         return matches[0]
@@ -222,22 +227,22 @@ function pick(runs: Status[], ref: string, root: string): Status {
     }
 
     throw new Error(
-        runs.length > 0
-            ? `no run ${ref} in ${runsRoot(root)} (${commandName()} list shows them)`
-            : `no runs yet in ${runsRoot(root)}`,
+        ids.length > 0
+            ? `no run ${ref} in ${runs} (${commandName()} list shows them)`
+            : `no runs yet in ${runs}`,
     )
 }
 
 /**
- * Find runs by their ids or unambiguous starts of them, reading the runs folder once.
+ * Find runs by their ids or unambiguous starts of them, listing the runs folder once.
  * @param root - project root
  * @param refs - ids or id prefixes
  * @returns the runs' statuses, in the order asked
  */
 export async function findRuns(root: string, refs: string[]): Promise<Status[]> {
-    const runs = await listRuns(root)
+    const ids = await runIds(root)
 
-    return refs.map(ref => pick(runs, ref, root))
+    return Promise.all(refs.map(ref => pick(ids, ref, root)))
 }
 
 /**

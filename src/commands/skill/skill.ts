@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, realpath, symlink } from 'node:fs/promises'
+import { mkdir, readFile, symlink } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 
 import { scopeRoot } from '../../project/config/config'
@@ -35,10 +35,7 @@ async function linkForClaude(base: string): Promise<void> {
     const link = join(skills, 'ft')
     const target = dirname(join(base, SKILL_PATH))
 
-    if (existsSync(skills) && (await realpath(skills)) === (await realpath(dirname(target)))) {
-        return
-    }
-
+    /* Also true when .claude/skills is an alias of .agents/skills: the skill written there shows through. */
     if (!existsSync(link)) {
         await mkdir(skills, { recursive: true })
         await symlink(relative(skills, target), link)

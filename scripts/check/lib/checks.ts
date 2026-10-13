@@ -15,20 +15,21 @@ import type { CheckOptions, CheckResult, CheckStep } from './types'
  * @returns the parallel steps for this run
  */
 function buildSteps(options: CheckOptions): CheckStep[] {
+    /* Type-aware lint also runs every ordinary rule, so pre-push runs it instead of the plain lint. */
+    const lint: CheckStep = options.prePush
+        ? {
+              name: 'Lint (type-aware)',
+              command: ['bunx', 'oxlint', '--type-aware', '--deny-warnings'],
+          }
+        : { name: 'Lint', command: ['bunx', 'oxlint', '--deny-warnings'] }
     const steps: CheckStep[] = [
         { name: 'Typecheck', command: ['bun', 'run', '--silent', 'typecheck'] },
-        { name: 'Lint', command: ['bunx', 'oxlint', '--deny-warnings'] },
+        lint,
         { name: 'Format', command: ['bunx', 'oxfmt', '--check', '.'] },
     ]
 
     if (options.prePush) {
-        steps.push(
-            {
-                name: 'Lint (type-aware)',
-                command: ['bunx', 'oxlint', '--type-aware', '--deny-warnings'],
-            },
-            { name: 'Unused code', command: ['bun', 'run', '--silent', 'knip'] },
-        )
+        steps.push({ name: 'Unused code', command: ['bun', 'run', '--silent', 'knip'] })
     }
 
     return steps
