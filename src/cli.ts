@@ -115,7 +115,7 @@ program
     .action(pin)
 program
     .command('skill')
-    .description('Add the agent skill to this repository, or your home directory with --user')
+    .description('Add the agent skill to this repository, or your personal setup with --user')
     .option('--user', 'put it in your home directory, for every repository')
     .action(skill)
 program

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { findConfig, loadConfig, resolveBaseUrl, validateConfig } from './config'
+import { findConfig, loadConfig, resolveBaseUrl, scopeRoot, validateConfig } from './config'
 
 const directories: string[] = []
 const gateway = {
@@ -63,6 +63,29 @@ describe('config', () => {
         expect(loaded.path).toBe(join(root, 'config', 'ft', '.ft.json'))
         expect(loaded.root).toBe(join(root, 'config', 'ft'))
         expect(loaded.workspace).toBe(join(root, 'repo'))
+    })
+
+    it('has a repository scope only inside a git repository or a project config', async () => {
+        const root = await mkdtemp(join(tmpdir(), 'ft-config-'))
+
+        directories.push(root)
+        await mkdir(join(root, 'repo', '.git'), { recursive: true })
+        await mkdir(join(root, 'repo', 'src'))
+        await mkdir(join(root, 'project'))
+        await writeFile(join(root, 'project', '.ft.json'), JSON.stringify(valid))
+        vi.stubEnv('FT_CONFIG', '')
+        vi.stubEnv('XDG_CONFIG_HOME', join(root, 'config'))
+
+        const cwd = vi.spyOn(process, 'cwd')
+
+        cwd.mockReturnValue(join(root, 'repo', 'src'))
+        expect(scopeRoot(false)).toBe(join(root, 'repo'))
+        cwd.mockReturnValue(join(root, 'project'))
+        expect(scopeRoot(false)).toBe(join(root, 'project'))
+        cwd.mockReturnValue(root)
+        expect(() => scopeRoot(false)).toThrow('add --user for your personal setup')
+        expect(scopeRoot(true)).toBe(join(root, 'config', 'ft'))
+        cwd.mockRestore()
     })
 
     it('accepts built-in and custom providers, Pi fields, $schema and an env base URL', () => {

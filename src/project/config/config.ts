@@ -68,23 +68,34 @@ function workspaceOf(path: string, cwd: string): string {
 /**
  * The git repository around a directory.
  * @param cwd - any directory
- * @returns the repository's top directory, or cwd outside a repository
+ * @returns the repository's top directory, or null outside a repository
  */
-function repositoryRoot(cwd: string): string {
+function gitRoot(cwd: string): string | null {
     for (let dir = resolve(cwd); ; dir = dirname(dir)) {
         if (existsSync(join(dir, '.git'))) {
             return dir
         }
 
         if (dirname(dir) === dir) {
-            return resolve(cwd)
+            return null
         }
     }
 }
 
 /**
+ * The git repository around a directory, or the directory itself outside one.
+ * @param cwd - any directory
+ * @returns absolute directory
+ */
+function repositoryRoot(cwd: string): string {
+    return gitRoot(cwd) ?? resolve(cwd)
+}
+
+/**
  * The directory one scope's setup lives in: this person's config directory, or this repository,
- * meaning the directory of its own config, else the git repository around cwd.
+ * meaning the directory of its own config, else the git repository around cwd. Outside any
+ * repository there is no repository scope, so the caller is pointed at the personal one rather
+ * than setting up whatever directory it happens to be in.
  * @param user - the personal scope rather than the repository
  * @returns absolute directory
  */
@@ -95,7 +106,19 @@ export function scopeRoot(user: boolean): string {
 
     const found = findConfig(process.cwd(), process.env.FT_CONFIG)
 
-    return found && !isPersonal(found) ? dirname(found) : repositoryRoot(process.cwd())
+    if (found && !isPersonal(found)) {
+        return dirname(found)
+    }
+
+    const repository = gitRoot(process.cwd())
+
+    if (!repository) {
+        throw new Error(
+            'This is not inside a git repository; run this in one, or add --user for your personal setup',
+        )
+    }
+
+    return repository
 }
 
 /**
