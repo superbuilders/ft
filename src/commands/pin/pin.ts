@@ -4,6 +4,9 @@ import { join } from 'node:path'
 import { scopeRoot } from '../../project/config/config'
 import { CONFIG_FILE, LAUNCHER_FILE, LOCK_FILE } from '../../project/config/constants'
 import { fetchRelease, latestVersion, writeRelease } from '../../project/config/release'
+import { tildePath } from '../../system/host/host'
+import { styleFor } from '../../system/terminal/style'
+import { renderSummary } from '../../system/terminal/summary'
 
 /**
  * Pin a release for one scope: write its checksums to the lock and its config schema beside it,
@@ -39,5 +42,13 @@ export async function pin(
     const release = await fetchRelease(version, existsSync(join(root, LAUNCHER_FILE)))
 
     await writeRelease(root, release)
-    process.stderr.write(`Pinned ft ${version} in ${join(root, LOCK_FILE)}\n`)
+    process.stdout.write(
+        renderSummary(
+            {
+                done: `Pinned ft ${version} for ${user ? 'your personal setup' : 'this repository'}`,
+                rows: [['Lock', tildePath(join(root, LOCK_FILE))]],
+            },
+            styleFor(process.stdout),
+        ),
+    )
 }

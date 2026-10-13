@@ -11,6 +11,8 @@ import {
     writeStarterConfig,
 } from '../../project/config/release'
 import { tildePath } from '../../system/host/host'
+import { styleFor } from '../../system/terminal/style'
+import { renderSummary } from '../../system/terminal/summary'
 import { LOCKFILES, PACKAGE_SCRIPT } from './constants'
 
 /**
@@ -41,25 +43,6 @@ async function packageScript(root: string): Promise<{ command: string; added: bo
     await writeFile(path, `${JSON.stringify(manifest, null, /^(\s+)"/m.exec(text)?.[1] ?? 4)}\n`)
 
     return { command, added: true }
-}
-
-/**
- * Lay out what a setup did as label rows, then the numbered steps left for the reader.
- * @param rows - label and value pairs
- * @param steps - what to do next, in order
- * @returns text ending in a newline
- */
-function summary(rows: [string, string][], steps: string[]): string {
-    const width = Math.max(...rows.map(([label]) => label.length)) + 2
-
-    return [
-        ...rows.map(([label, value]) => `${label.padEnd(width)}${value}`),
-        '',
-        'Next:',
-        ...steps.map((step, index) => `  ${index + 1}. ${step}`),
-    ]
-        .map(line => `${line}\n`)
-        .join('')
 }
 
 /**
@@ -96,16 +79,21 @@ export async function init(
     const config = user ? tildePath(join(root, CONFIG_FILE)) : CONFIG_FILE
     const fill =
         written && !options.from ? [`Add a provider and a lane named code to ${config}`] : []
+    const style = styleFor(process.stdout)
 
     if (user) {
         process.stdout.write(
-            summary(
-                [['Config', `${config} (${state})`]],
-                [
-                    ...fill,
-                    'Check it with ft doctor --user',
-                    'Optional: ft skill --user, to teach agents in every repository how to delegate with ft',
-                ],
+            renderSummary(
+                {
+                    done: `Set up ft ${version} for your personal setup`,
+                    rows: [['Config', `${config} (${state})`]],
+                    steps: [
+                        ...fill,
+                        'Check it with `ft doctor --user`',
+                        'Optional: `ft skill --user`, to teach agents in every repository how to delegate with ft',
+                    ],
+                },
+                style,
             ),
         )
 
@@ -115,21 +103,25 @@ export async function init(
     const script = await packageScript(root)
 
     process.stdout.write(
-        summary(
-            [
-                ['Config', `${config} (${state})`],
-                ['Launcher', `${LAUNCHER_FILE}, with its lock and schema beside it`],
-                [
-                    'Run as',
-                    `${script.command}${script.added ? ' (script added to package.json)' : ''}`,
+        renderSummary(
+            {
+                done: `Set up ft ${version} for this repository`,
+                rows: [
+                    ['Config', `${config} (${state})`],
+                    ['Launcher', `${LAUNCHER_FILE}, with its lock and schema beside it`],
+                    [
+                        'Run as',
+                        `${script.command}${script.added ? ' (script added to package.json)' : ''}`,
+                    ],
                 ],
-            ],
-            [
-                ...fill,
-                `Check it with ${script.command} doctor`,
-                `Optional: ${script.command} skill, to teach agents here how to delegate with ft`,
-                'Commit these files. Anyone who clones the repository then needs only gh, signed in.',
-            ],
+                steps: [
+                    ...fill,
+                    `Check it with \`${script.command} doctor\``,
+                    `Optional: \`${script.command} skill\`, to teach agents here how to delegate with ft`,
+                    'Commit these files. Anyone who clones the repository then needs only gh, signed in.',
+                ],
+            },
+            style,
         ),
     )
 }

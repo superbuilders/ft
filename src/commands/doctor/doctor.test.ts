@@ -48,7 +48,7 @@ it('fails a config with no lanes', async () => {
     const { code, output } = await diagnose({ providers: {}, lanes: {} })
 
     expect(code).toBe(2)
-    expect(output).toContain('Lanes: none yet; add one named code')
+    expect(output).toContain('  none yet; add one named code')
     expect(output).toContain('Not ready: 1 problem above')
 })
 
@@ -61,7 +61,7 @@ it('fails a key it cannot load, without exposing anything', async () => {
     })
 
     expect(code).toBe(2)
-    expect(output).toContain('Provider anthropic: key failed')
+    expect(output).toMatch(/  anthropic +Pi's built-in endpoint +key failed/)
     expect(output).toMatch(/Not ready: 1 problem above\n$/)
 })
 
@@ -74,7 +74,7 @@ it('is ready when every check passes', async () => {
     })
 
     expect(code).toBe(0)
-    expect(output).toContain('Provider anthropic: key loaded')
+    expect(output).toMatch(/  anthropic +Pi's built-in endpoint +key loaded/)
     expect(output).toMatch(/Ready\n$/)
 })
 
@@ -84,7 +84,7 @@ it('says the personal config is not used where a repository config replaces it',
         { personal: { providers: {}, lanes: {} } },
     )
 
-    expect(output).toContain("(not used here; this repository's .ft.json replaces it)")
+    expect(output).toMatch(/\(your personal config, .*xdg\/ft\/\.ft\.json, is not used here\)/)
 })
 
 it('checks the personal config with --user, even where a repository config applies', async () => {
@@ -102,6 +102,6 @@ it('checks the personal config with --user, even where a repository config appli
     )
 
     expect(code).toBe(0)
-    expect(output).toMatch(/^Config: .*xdg\/ft\/\.ft\.json \(personal\)\n/)
-    expect(output).not.toContain('Project:')
+    expect(output).toMatch(/^Config +.*xdg\/ft\/\.ft\.json \(personal\)\n/)
+    expect(output).not.toContain('Project')
 })

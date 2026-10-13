@@ -1,6 +1,7 @@
 import { projectRoot } from '../../project/config/config'
 import { exitCode, jsonLine, renderTable, settledOutput, tally } from '../../project/runs/render'
 import { findRuns, listRuns, readStatus, stateOf } from '../../project/runs/store'
+import { styleFor } from '../../system/terminal/style'
 import { WAIT_POLL_MS } from './constants'
 
 import type { State, Status } from '../../project/runs/types'
@@ -12,12 +13,14 @@ import type { State, Status } from '../../project/runs/types'
  * @param seen - the last line printed for each run, by id
  */
 function narrate(running: Status[], seen: Map<string, string>): void {
-    for (const status of running) {
-        const line = `${status.id}: ${status.activity ?? 'starting'}`
+    const style = styleFor(process.stderr)
 
-        if (seen.get(status.id) !== line) {
-            seen.set(status.id, line)
-            process.stderr.write(`${line}\n`)
+    for (const status of running) {
+        const activity = status.activity ?? 'starting'
+
+        if (seen.get(status.id) !== activity) {
+            seen.set(status.id, activity)
+            process.stderr.write(`${style.dim(`${status.id}:`)} ${activity}\n`)
         }
     }
 }
@@ -76,6 +79,7 @@ export async function watch(
     const settled: { status: Status; state: State }[] = []
     const seen = new Map<string, string>()
     const narrating = !options.json && process.stderr.isTTY
+    const style = styleFor(process.stdout)
 
     for (;;) {
         const read = await Promise.all(pending.map(readStatus))
@@ -86,7 +90,7 @@ export async function watch(
 
             if (status && state !== 'running') {
                 process.stdout.write(
-                    `${await settledOutput(status, state, options.json)}${options.json ? '' : '\n'}`,
+                    `${await settledOutput(status, state, options.json, style)}${options.json ? '' : '\n'}`,
                 )
                 settled.push({ status, state })
             } else if (status) {
@@ -102,7 +106,7 @@ export async function watch(
 
         if (pending.length === 0) {
             if (!options.json) {
-                process.stdout.write(`${tally(settled)}\n`)
+                process.stdout.write(`${tally(settled, style)}\n`)
             }
 
             return Math.max(0, ...settled.map(({ state }) => exitCode(state)))
@@ -114,12 +118,13 @@ export async function watch(
             } else {
                 const table = renderTable(
                     running.map(status => ({ status, state: 'running' as const })),
+                    style,
                 )
                 const waiting = running.map(status => status.id).join(' ')
-                const finished = settled.length > 0 ? `${tally(settled)}\n` : ''
+                const finished = settled.length > 0 ? `${tally(settled, style)}\n` : ''
 
                 process.stdout.write(
-                    `${finished}${table}Still running. Run ft watch ${waiting} again to keep watching.\n`,
+                    `${finished}${table}Still running. Run ${style.cyan(`ft watch ${waiting}`)} again to keep watching.\n`,
                 )
             }
 

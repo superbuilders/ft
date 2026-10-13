@@ -6,6 +6,8 @@ import { scopeRoot } from '../../project/config/config'
 import { SKILL_PATH } from '../../project/config/constants'
 import { atomicWrite } from '../../system/files/atomic-write'
 import { homeDirectory } from '../../system/host/host'
+import { styleFor } from '../../system/terminal/style'
+import { renderSummary } from '../../system/terminal/summary'
 import { SKILL_TEXT } from './text'
 
 import type { SkillPlacement } from './types'
@@ -75,13 +77,17 @@ export async function skill(options: { user?: boolean }): Promise<void> {
     const notes = [state, linkClaude ? 'linked for Claude Code' : null].filter(Boolean).join(', ')
 
     process.stdout.write(
-        [
-            `Skill  ${shown} (${notes})`,
-            options.user
-                ? 'To let agents run ft without asking each time, allow ft commands in their settings'
-                : 'Commit it, so agents in every clone use ft',
-        ]
-            .map(line => `${line}\n`)
-            .join(''),
+        renderSummary(
+            {
+                done: `Installed the ft skill ${options.user ? 'for every repository' : 'in this repository'}`,
+                rows: [['Skill', `${shown} (${notes})`]],
+                notes: [
+                    options.user
+                        ? 'To let agents run ft without asking each time, allow ft commands in their settings'
+                        : 'Commit it, so agents in every clone use ft',
+                ],
+            },
+            styleFor(process.stdout),
+        ),
     )
 }

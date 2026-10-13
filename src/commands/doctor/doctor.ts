@@ -7,10 +7,50 @@ import { isPersonal, loadConfig, resolveBaseUrl } from '../../project/config/con
 import { CONFIG_FILE } from '../../project/config/constants'
 import { getKey } from '../../project/key/key'
 import { cacheRoot, configRoot, platformTarget, tildePath } from '../../system/host/host'
+import { styleFor } from '../../system/terminal/style'
+
+import type { Style } from '../../system/terminal/types'
+
+/**
+ * Say whether a tool is installed: a mark on a terminal, a word everywhere else.
+ * @param installed - whether it is installed
+ * @param style - output styles
+ * @returns the marker
+ */
+function installedMark(installed: boolean, style: Style): string {
+    if (!style.on) {
+        return installed ? '(installed)' : '(not installed yet)'
+    }
+
+    return installed ? style.green('✔') : style.dim('not installed yet')
+}
+
+/**
+ * Pad a top-level label to the column its values start at.
+ * @param text - the label
+ * @param style - output styles
+ * @returns the styled, padded label
+ */
+function heading(text: string, style: Style): string {
+    return style.bold(text.padEnd(9))
+}
+
+/**
+ * Pad labels to one column, so a block of label and value lines lines up.
+ * @param rows - each line's label and value
+ * @param indent - text before each label
+ * @returns the lines
+ */
+function aligned(rows: [string, string][], indent: string): string[] {
+    const width = Math.max(...rows.map(([label]) => label.length))
+
+    return rows.map(([label, value]) => `${indent}${label.padEnd(width)}  ${value}`)
+}
 
 /**
  * Print installation and credential health without exposing any credential. Tools that are not
- * installed yet are not problems: the next run installs them.
+ * installed yet are not problems: the next run installs them. The last line is always `Ready` or
+ * `Not ready: ...`.
  * @param runnerVersion - this runner's version
  * @param options - command options
  * @param options.user - check the personal config rather than the one that applies here
@@ -19,74 +59,97 @@ import { cacheRoot, configRoot, platformTarget, tildePath } from '../../system/h
 export async function doctor(runnerVersion: string, options: { user?: boolean }): Promise<number> {
     platformTarget()
 
+    const style = styleFor(process.stdout)
     const user = options.user === true
     const config = await loadConfig(process.cwd(), user)
     const paths = runtimePaths(cacheRoot())
     const personal = join(configRoot(), CONFIG_FILE)
-    const lines = [`Config: ${config.path}`]
+    const lines = [`${heading('Config', style)} ${tildePath(config.path)}`]
+    const indent = ' '.repeat(10)
 
     if (user) {
-        lines[0] += ' (personal)'
+        lines[0] += style.dim(' (personal)')
     } else if (isPersonal(config.path)) {
-        lines[0] += ' (personal; this directory has no .ft.json)'
+        lines[0] += style.dim(' (personal)')
+        lines.push(
+            `${indent}${style.dim(`(this directory has no ${CONFIG_FILE}, so your personal config applies)`)}`,
+        )
     } else if (existsSync(personal)) {
         /* The two never merge, so say which one is in play; doctor --user checks the other. */
         lines.push(
-            `Personal config: ${tildePath(personal)} (not used here; this repository's .ft.json replaces it)`,
+            `${indent}${style.dim(`(your personal config, ${tildePath(personal)}, is not used here)`)}`,
         )
     }
 
     if (!user) {
-        lines.push(`Project: ${config.workspace}`)
+        lines.push(`${heading('Project', style)} ${tildePath(config.workspace)}`)
     }
+
+    const tools = [
+        `Pi ${PI_VERSION} ${installedMark(existsSync(paths.pi), style)}`,
+        ...(['rg', 'fd'] as const).map(
+            name =>
+                `${name} ${TOOL_RELEASES[name].version} ${installedMark(existsSync(paths.tools[name]), style)}`,
+        ),
+    ]
 
     lines.push(
-        `Runner: ${runnerVersion}`,
-        `Pi: ${PI_VERSION} (${existsSync(paths.pi) ? 'installed' : 'not installed'})`,
+        `${heading('Runner', style)} ${runnerVersion}   ${tools.join('   ')}`,
+        '',
+        style.bold('Lanes'),
     )
 
-    for (const name of ['rg', 'fd'] as const) {
-        lines.push(
-            `${name}: ${TOOL_RELEASES[name].version} (${existsSync(paths.tools[name]) ? 'installed' : 'not installed'})`,
-        )
-    }
-
     let problems = 0
+    const lanes = Object.entries(config.config.lanes)
 
-    if (Object.keys(config.config.lanes).length === 0) {
+    if (lanes.length === 0) {
         problems++
-        lines.push(`Lanes: none yet; add one named code to ${config.path}`)
-    }
-
-    for (const [name, lane] of Object.entries(config.config.lanes)) {
+        lines.push(style.red(`  none yet; add one named code to ${tildePath(config.path)}`))
+    } else {
         lines.push(
-            `Lane ${name}: ${lane.model}${lane.thinking ? ` thinking=${lane.thinking}` : ''}`,
+            ...aligned(
+                lanes.map(([name, lane]) => [
+                    name,
+                    `${lane.model}${lane.thinking ? style.dim(`, thinking ${lane.thinking}`) : ''}`,
+                ]),
+                '  ',
+            ),
         )
     }
+
+    const providers: [string, string][] = []
 
     for (const [id, provider] of Object.entries(config.config.providers)) {
-        try {
-            const url = resolveBaseUrl(id, provider)
+        let where: string
 
-            lines.push(`Provider ${id}: ${url ?? "Pi's built-in endpoint"}`)
+        try {
+            where = style.dim(resolveBaseUrl(id, provider) ?? "Pi's built-in endpoint")
         } catch (error) {
             problems++
-            lines.push(`Provider ${id}: ${(error as Error).message}`)
+            where = style.red((error as Error).message)
         }
 
         try {
             await getKey(provider.key, config.root)
-            lines.push(`Provider ${id}: key loaded`)
+            providers.push([id, `${where}   ${style.mark(true)}key loaded`])
         } catch (error) {
             problems++
-            lines.push(`Provider ${id}: key failed (${(error as Error).message})`)
+            providers.push([
+                id,
+                `${where}   ${style.mark(false)}${style.red(`key failed (${(error as Error).message})`)}`,
+            ])
         }
     }
 
+    if (providers.length > 0) {
+        lines.push('', style.bold('Providers'), ...aligned(providers, '  '))
+    }
+
     lines.push(
+        '',
         problems === 0
-            ? 'Ready'
-            : `Not ready: ${problems} ${problems === 1 ? 'problem' : 'problems'} above`,
+            ? `${style.mark(true)}${style.green('Ready')}`
+            : `${style.mark(false)}${style.red(`Not ready: ${problems} ${problems === 1 ? 'problem' : 'problems'} above`)}`,
     )
     process.stdout.write(`${lines.join('\n')}\n`)
 

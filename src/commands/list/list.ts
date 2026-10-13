@@ -1,6 +1,7 @@
 import { projectRoot } from '../../project/config/config'
 import { jsonLine, renderTable } from '../../project/runs/render'
 import { listRuns, stateOf } from '../../project/runs/store'
+import { styleFor } from '../../system/terminal/style'
 import { RECENT_RUNS } from './constants'
 
 /**
@@ -35,8 +36,9 @@ export async function list(options: { all?: boolean; json?: boolean }): Promise<
     }
 
     const hidden = listed.length - shown.length
+    const style = styleFor(process.stdout)
+    const older =
+        hidden > 0 ? `${style.dim(`(${hidden} older runs; ft list --all lists them)`)}\n` : ''
 
-    process.stdout.write(
-        `${renderTable(shown)}${hidden > 0 ? `(${hidden} older runs; ft list --all lists them)\n` : ''}`,
-    )
+    process.stdout.write(`${renderTable(shown, style)}${older}`)
 }

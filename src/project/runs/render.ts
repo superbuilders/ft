@@ -1,9 +1,11 @@
 import { isAbsolute, relative } from 'node:path'
 
+import { PLAIN } from '../../system/terminal/style'
 import { EXIT_CODES, INLINE_ANSWER_MAX, NEXT_STEPS } from './constants'
 import { CONTEXT_OVERFLOW } from './patterns'
 import { readKept } from './store'
 
+import type { Style } from '../../system/terminal/types'
 import type { State, Status } from './types'
 
 /**
@@ -117,20 +119,37 @@ function verdict(state: State): string {
 }
 
 /**
+ * Color a state the way a reader scans for it: green for success, yellow while running, red for
+ * every way a run can fail.
+ * @param state - stored outcome, or `lost`
+ * @param style - output styles
+ * @returns the style for this state
+ */
+function stateColor(state: State, style: Style): (text: string) => string {
+    if (state === 'success') {
+        return style.green
+    }
+
+    return state === 'running' ? style.yellow : style.red
+}
+
+/**
  * Count what happened to a set of runs in one line, naming each run that did not succeed.
  * @param settled - each run and its final state
+ * @param style - output styles
  * @returns e.g. `8 runs: 7 succeeded; review-k3x2 failed with a model provider error`
  */
-export function tally(settled: { status: Status; state: State }[]): string {
+export function tally(settled: { status: Status; state: State }[], style = PLAIN): string {
     const succeeded = settled.filter(({ state }) => state === 'success').length
     const others = settled
         .filter(({ state }) => state !== 'success')
-        .map(({ status, state }) => `${status.id} ${verdict(state)}`)
+        .map(({ status, state }) => `${style.bold(status.id)} ${style.red(verdict(state))}`)
+    const count = `${succeeded} succeeded`
 
-    return [
-        `${settled.length} ${settled.length === 1 ? 'run' : 'runs'}: ${succeeded} succeeded`,
+    return `${style.mark(others.length === 0)}${[
+        `${settled.length} ${settled.length === 1 ? 'run' : 'runs'}: ${succeeded > 0 ? style.green(count) : count}`,
         ...others,
-    ].join('; ')
+    ].join('; ')}`
 }
 
 /**
@@ -153,18 +172,24 @@ function facts(status: Status): string {
  * The report's first line.
  * @param status - run status
  * @param state - stored outcome, or `lost`
+ * @param style - output styles
  * @returns e.g. `review-k3x2 succeeded in 4m12s (truefoundry/gpt-6.1-sol, 38.2k tokens)`
  */
-export function headline(status: Status, state: State): string {
+export function headline(status: Status, state: State, style = PLAIN): string {
+    const id = style.bold(status.id)
+    const details = style.dim(facts(status))
+
     if (state === 'running') {
-        return `${status.id} has been running for ${formatDuration(elapsed(status))}${facts(status)}`
+        return `${id} ${style.yellow('has been running')} for ${formatDuration(elapsed(status))}${details}`
     }
+
+    const said = stateColor(state, style)(verdict(state))
 
     if (state === 'configuration_error') {
-        return `${status.id} ${verdict(state)}${facts(status)}`
+        return `${id} ${said}${details}`
     }
 
-    return `${status.id} ${verdict(state)} in ${formatDuration(elapsed(status))}${facts(status)}`
+    return `${id} ${said} in ${formatDuration(elapsed(status))}${details}`
 }
 
 /**
@@ -231,6 +256,7 @@ function inline(text: string, path: string): string {
  * @param state - stored outcome, or `lost`
  * @param text - the answer or partial answer, if any
  * @param inShow - the report is inside `ft show`: print the answer and do not point at `ft show`
+ * @param style - output styles
  * @returns report text ending in a newline
  */
 export function renderReport(
@@ -238,21 +264,22 @@ export function renderReport(
     state: State,
     text: string | null,
     inShow = false,
+    style = PLAIN,
 ): string {
-    const lines = [headline(status, state)]
+    const lines = [headline(status, state, style)]
     const activity = activityLine(status)
     const next = nextStep(status, state)
 
     if (activity) {
-        lines.push(activity)
+        lines.push(style.dim(activity))
     }
 
     if (status.error && state !== 'success') {
-        lines.push(`Error: ${status.error}`)
+        lines.push(style.red(`Error: ${status.error}`))
     }
 
     if (next) {
-        lines.push(`Next: ${next}`)
+        lines.push(`${style.bold('Next:')} ${next}`)
     }
 
     const saved = status.answer ?? status.partial
@@ -272,14 +299,19 @@ export function renderReport(
     const size = kept ? `, ${count} ${count === 1 ? 'line' : 'lines'}` : ''
     const notes = [
         saved
-            ? `${status.answer ? 'answer' : 'partial answer'} in ${displayPath(saved)}${size}`
+            ? style.dim(
+                  `${status.answer ? 'answer' : 'partial answer'} in ${displayPath(saved)}${size}`,
+              )
             : null,
         !inShow && state !== 'configuration_error'
-            ? `ft show ${status.id} for every step and the answer`
+            ? `${style.cyan(`ft show ${status.id}`)}${style.dim(' for every step and the answer')}`
             : null,
     ].filter(Boolean)
+    const said = stateColor(state, style)(verdict(state))
+    const aside =
+        notes.length > 0 ? ` ${style.dim('(')}${notes.join(style.dim('; '))}${style.dim(')')}` : ''
 
-    lines.push(`${status.id} ${verdict(state)}${notes.length > 0 ? ` (${notes.join('; ')})` : ''}`)
+    lines.push(`${style.mark(state === 'success')}${style.bold(status.id)} ${said}${aside}`)
 
     return `${lines.join('\n')}\n`
 }
@@ -325,11 +357,22 @@ function rowSubject(status: Status, state: State): string {
 }
 
 /**
- * One table of runs, a row each, columns padded to fit.
+ * Leave text as it is.
+ * @param text - any text
+ * @returns the same text
+ */
+function unstyled(text: string): string {
+    return text
+}
+
+/**
+ * One table of runs, a row each, columns padded to fit. Styling wraps each cell after padding, so
+ * the columns line up the same with color as without.
  * @param runs - statuses with their states, newest first
+ * @param style - output styles
  * @returns table text ending in a newline
  */
-export function renderTable(runs: { status: Status; state: State }[]): string {
+export function renderTable(runs: { status: Status; state: State }[], style = PLAIN): string {
     const priced = runs.some(({ status }) => status.usage.cost > 0)
     const header = [
         'RUN',
@@ -354,16 +397,40 @@ export function renderTable(runs: { status: Status; state: State }[]): string {
     const widths = header.map((_, column) =>
         Math.max(...[header, ...rows].map(row => (row[column] ?? '').length)),
     )
+    const quiet = new Set(['STARTED', 'TIME', 'TOKENS', 'COST', 'MODEL'])
 
-    return `${[header, ...rows]
-        .map(row =>
-            row
-                .map((cell, column) =>
-                    column === row.length - 1 ? cell : cell.padEnd(widths[column] ?? 0),
-                )
-                .join('  '),
-        )
-        .join('\n')}\n`
+    /**
+     * Pad one cell to its column, then style it.
+     * @param cell - cell text
+     * @param column - column index
+     * @param color - the cell's style
+     * @returns the cell as printed
+     */
+    function cellText(cell: string, column: number, color: (text: string) => string): string {
+        return color(column === header.length - 1 ? cell : cell.padEnd(widths[column] ?? 0))
+    }
+
+    const head = header.map((cell, column) => cellText(cell, column, style.dim)).join('  ')
+    const body = rows.map((row, index) =>
+        row
+            .map((cell, column) => {
+                const name = header[column] ?? ''
+                let color = unstyled
+
+                if (name === 'RUN') {
+                    color = style.bold
+                } else if (name === 'STATE') {
+                    color = stateColor(runs[index]?.state ?? 'lost', style)
+                } else if (quiet.has(name)) {
+                    color = style.dim
+                }
+
+                return cellText(cell, column, color)
+            })
+            .join('  '),
+    )
+
+    return `${[head, ...body].join('\n')}\n`
 }
 
 /**
@@ -371,12 +438,16 @@ export function renderTable(runs: { status: Status; state: State }[]): string {
  * @param status - settled status
  * @param state - its state
  * @param json - print the status as JSON
+ * @param style - output styles for the report
  * @returns the text to print
  */
 export async function settledOutput(
     status: Status,
     state: State,
     json: boolean | undefined,
+    style = PLAIN,
 ): Promise<string> {
-    return json ? jsonLine(status, state) : renderReport(status, state, await readKept(status))
+    return json
+        ? jsonLine(status, state)
+        : renderReport(status, state, await readKept(status), false, style)
 }

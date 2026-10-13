@@ -5,6 +5,8 @@ import { dirname, join, resolve } from 'node:path'
 import { SKILL_PATH } from '../../project/config/constants'
 import { installedLauncher } from '../../project/config/launcher'
 import { cacheRoot, configRoot, homeDirectory, tildePath } from '../../system/host/host'
+import { styleFor } from '../../system/terminal/style'
+import { renderSummary } from '../../system/terminal/summary'
 
 /**
  * Remove what the installer and `ft skill --user` put on this machine: the launcher, the cache of
@@ -41,14 +43,24 @@ export async function uninstall(options: { purge?: boolean }): Promise<void> {
         removed.push(tildePath(link))
     }
 
-    const lines = [
-        ...removed.map(path => `Removed  ${path}`),
-        ...(removed.length === 0 ? ['Nothing to remove'] : []),
-        ...(!options.purge && existsSync(configRoot())
-            ? [`Kept     ${tildePath(configRoot())} (your config; ft uninstall --purge removes it)`]
-            : []),
-        'Repositories set up with ft init keep their files',
-    ]
+    const kept: [string, string][] =
+        !options.purge && existsSync(configRoot())
+            ? [
+                  [
+                      'Kept',
+                      `${tildePath(configRoot())} (your config; \`ft uninstall --purge\` removes it)`,
+                  ],
+              ]
+            : []
 
-    process.stdout.write(lines.map(line => `${line}\n`).join(''))
+    process.stdout.write(
+        renderSummary(
+            {
+                done: removed.length > 0 ? 'Uninstalled ft' : 'Nothing to remove',
+                rows: [...removed.map((path): [string, string] => ['Removed', path]), ...kept],
+                notes: ['Repositories set up with `ft init` keep their files'],
+            },
+            styleFor(process.stdout),
+        ),
+    )
 }

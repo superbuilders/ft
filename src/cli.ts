@@ -5,6 +5,7 @@ import { guide } from './commands/guide/guide'
 import { init } from './commands/init/init'
 import { key } from './commands/key/key'
 import { list } from './commands/list/list'
+import { HELP_STYLES, printFailure } from './commands/output/output'
 import { pin } from './commands/pin/pin'
 import { exec, run, start, thinkingHelp } from './commands/run/run'
 import { schema } from './commands/schema/schema'
@@ -21,6 +22,7 @@ import type { RunOptions } from './commands/run/types'
 const program = new Command()
     .name('ft')
     .version(RUNNER_VERSION)
+    .configureHelp(HELP_STYLES)
     .addHelpText('after', '\nAgents: run ft guide to learn how to use ft in this project')
 
 /**
@@ -138,6 +140,6 @@ program
 try {
     await program.parseAsync()
 } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : 'ft failed'}\n`)
+    printFailure(error)
     process.exitCode = program.args[0] === 'key' ? 1 : 2
 }

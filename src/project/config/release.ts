@@ -16,6 +16,7 @@ import {
     RELEASE_REPOSITORY,
     SCHEMA_FILE,
 } from './constants'
+import { RELEASE_NOT_FOUND } from './patterns'
 
 import type { Lock, Release } from './types'
 
@@ -57,7 +58,16 @@ async function releaseFiles(version: string, assets: string[]): Promise<string[]
             ...assets.flatMap(asset => ['-p', asset]),
             '-D',
             folder,
-        ])
+        ]).catch((error: unknown) => {
+            if (error instanceof Error && RELEASE_NOT_FOUND.test(error.message)) {
+                throw new Error(
+                    `ft ${version} is not a published release; leave the version out for the newest`,
+                    { cause: error },
+                )
+            }
+
+            throw error
+        })
 
         return await read(folder)
     } finally {

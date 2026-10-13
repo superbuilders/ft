@@ -3,6 +3,7 @@ import { execute } from '../../pi/run/execute'
 import { exitCode, jsonLine, settledOutput } from '../../project/runs/render'
 import { readStatus, writeStatus } from '../../project/runs/store'
 import { selfCommand } from '../../system/process/self'
+import { styleFor } from '../../system/terminal/style'
 import { START_CONFIRM_MS, START_POLL_MS } from './constants'
 import { prepare } from './prepare'
 
@@ -31,7 +32,9 @@ function refuse(error: unknown, json: boolean | undefined): number {
             `${JSON.stringify({ outcome: 'configuration_error', error: message })}\n`,
         )
     } else {
-        process.stderr.write(`ft could not start the run: ${message}\n`)
+        process.stderr.write(
+            `${styleFor(process.stderr).red(`ft: could not start the run: ${message}`)}\n`,
+        )
     }
 
     return exitCode('configuration_error')
@@ -54,7 +57,9 @@ export async function run(brief: string, options: RunOptions): Promise<number> {
 
     const settled = await execute(status.dir)
 
-    process.stdout.write(await settledOutput(settled, settled.outcome, options.json))
+    process.stdout.write(
+        await settledOutput(settled, settled.outcome, options.json, styleFor(process.stdout)),
+    )
 
     return exitCode(settled.outcome)
 }
@@ -126,7 +131,7 @@ async function launch(prepared: Status): Promise<Status> {
 
         if (Date.now() > giveUp) {
             process.stderr.write(
-                `ft started ${current.id}, but the run has not confirmed it is running; run ft watch ${current.id} to wait for its report\n`,
+                `ft: started ${current.id}, but the run has not confirmed it is running; run ft watch ${current.id} to wait for its report\n`,
             )
 
             return current
@@ -155,23 +160,26 @@ export async function start(briefs: string[], options: RunOptions): Promise<numb
 
     const started = await Promise.all(prepared.map(launch))
     const running = started.filter(status => status.outcome === 'running')
+    const style = styleFor(process.stdout)
     let code = 0
 
     for (const status of started) {
         if (status.outcome !== 'running') {
-            process.stdout.write(await settledOutput(status, status.outcome, options.json))
+            process.stdout.write(await settledOutput(status, status.outcome, options.json, style))
             code = Math.max(code, exitCode(status.outcome))
         } else if (options.json) {
             process.stdout.write(jsonLine(status, status.outcome))
         } else {
             process.stdout.write(
-                `Started ${status.id} (${status.provider}/${status.model}, ${status.profile} profile): ${status.title}\n`,
+                `${style.mark(true)}Started ${style.bold(status.id)} ${style.dim(`(${status.provider}/${status.model}, ${status.profile} profile)`)}: ${status.title}\n`,
             )
         }
     }
 
     if (running.length > 0 && !options.json) {
-        process.stdout.write(`Watch with: ft watch ${running.map(status => status.id).join(' ')}\n`)
+        process.stdout.write(
+            `Watch with: ${style.cyan(`ft watch ${running.map(status => status.id).join(' ')}`)}\n`,
+        )
     }
 
     return code
