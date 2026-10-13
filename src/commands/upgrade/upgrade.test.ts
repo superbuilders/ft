@@ -8,7 +8,6 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { upgrade } from './upgrade'
 
 let root: string
-let output: string
 
 vi.mock('../../system/process/subprocess', () => ({
     /**
@@ -35,12 +34,6 @@ async function release(listed?: string): Promise<void> {
 
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ft-upgrade-'))
-    output = ''
-    vi.spyOn(process.stdout, 'write').mockImplementation(chunk => {
-        output += String(chunk)
-
-        return true
-    })
 })
 
 afterEach(async () => {
@@ -59,7 +52,6 @@ it('runs the newest release installer where the launcher already is, and leaves 
     await upgrade()
 
     expect(await readFile(join(root, 'ran'), 'utf8')).toBe(`0.3.0 ${bin}\n`)
-    expect(output).toContain('run ft pin inside one to move it to 0.3.0')
 })
 
 it('refuses an installer that does not match the release manifest', async () => {

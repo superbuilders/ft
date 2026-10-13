@@ -23,8 +23,4 @@ export async function upgrade(): Promise<void> {
     if (code !== 0) {
         throw new Error(`The ft ${version} installer failed (exit ${code}); see its output above`)
     }
-
-    process.stdout.write(
-        `Repositories keep the version they pinned; run ft pin inside one to move it to ${version}\n`,
-    )
 }
