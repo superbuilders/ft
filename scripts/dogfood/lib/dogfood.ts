@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { chmod, copyFile, mkdir, mkdtemp, readFile, rename, rm, symlink } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -6,9 +7,9 @@ import { commandOutput } from '../../../src/system/process/subprocess'
 import { DOGFOOD_TAG, INSTALL_PATH } from './constants'
 
 /**
- * Build ft from the last commit, ignoring uncommitted edits, and install it as `ft` on PATH.
- * Agents working in this repository delegate through it, so a half-finished change never breaks
- * the tool reviewing it.
+ * Build ft from the last commit, ignoring uncommitted edits, and install it as `ft-dev` beside the
+ * installed `ft`. Agents working in this repository delegate through it, so a half-finished change
+ * never breaks the tool reviewing it; it also tries a change in other repositories before release.
  * @returns completion
  */
 export async function dogfood(): Promise<void> {
@@ -56,4 +57,21 @@ export async function dogfood(): Promise<void> {
     process.stdout.write(
         `Installed ft ${build} at ${target}${dirty ? ' (uncommitted edits are not in it; commit and rerun to include them)' : ''}\n`,
     )
+}
+
+/**
+ * Remove the dogfood build, leaving the installed `ft` alone.
+ * @returns completion
+ */
+export async function removeDogfood(): Promise<void> {
+    const target = join(homedir(), ...INSTALL_PATH)
+
+    if (!existsSync(target)) {
+        process.stdout.write(`Nothing to remove at ${target}\n`)
+
+        return
+    }
+
+    await rm(target)
+    process.stdout.write(`Removed ${target}\n`)
 }

@@ -1,5 +1,8 @@
-/** Prerelease tag the dogfood build carries, so `ft --version` says it is not a release. */
+/** Prerelease tag the dogfood build carries, so `ft-dev --version` says it is not a release. */
 export const DOGFOOD_TAG = 'dogfood'
 
-/** Where the dogfood binary goes, under the home directory; it is on PATH as plain `ft`. */
-export const INSTALL_PATH = ['.local', 'bin', 'ft'] as const
+/**
+ * Where the dogfood build goes, under the home directory: beside the installed `ft`, on PATH as
+ * `ft-dev`, so it never replaces the real install or the launcher's pinned versions.
+ */
+export const INSTALL_PATH = ['.local', 'bin', 'ft-dev'] as const

@@ -24,15 +24,16 @@ bun src/cli.ts skill [--user]              # Add the agent skill to this reposit
 bun src/cli.ts doctor [--user]             # Check the config used here, or the personal one
 bun src/cli.ts uninstall [--purge]         # Remove the launcher, cache and personal skill (and config)
 bun run release <patch|minor|major|x.y.z>  # Bump, tag, push; release.yml builds and publishes
-bun run dogfood                            # Install the last commit's ft as ft on PATH
+bun run dogfood [--remove]                 # Install the last commit's ft as ft-dev, beside ft
 ```
 
 ## Delegating
 
-Delegate reviews and scoped changes with `ft` (the `ft` skill).
-The `ft` on PATH is a build of the last commit, so uncommitted edits never
-break the tool reviewing them. After committing a change to ft, run
-`bun run dogfood` before the next delegation so it uses what you built.
+Delegate reviews and scoped changes with `ft-dev` (the `ft` skill, with every
+`ft` command written `ft-dev`). `ft-dev` is a build of the last commit,
+installed beside the released `ft`, so uncommitted edits never break the tool
+reviewing them. After committing a change to ft, run `bun run dogfood` before
+the next delegation so it uses what you built.
 
 ## Validation Workflow
 
