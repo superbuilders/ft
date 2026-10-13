@@ -57,9 +57,10 @@ while :; do
     [ -n "$project" ] || project=/
 done
 # A directory with no .ft.json of its own uses the personal config, if there is one.
-personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
+scope=
 if [ -z "$config" ]; then
-    [ ! -f "$personal" ] || config=$personal
+    personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
+    [ ! -f "$personal" ] || { config=$personal; scope=' --user'; }
 fi
 
 bootstrap=no
@@ -75,11 +76,8 @@ else
     case ${1:-} in
         pin|init) ;;
         *)
-            if [ "$config" = "$personal" ]; then
-                fail 2 "no $pinned found; run ft pin --user <version>"
-            fi
             [ -z "$config" ] ||
-                fail 2 "no $pinned found; run ft pin <version> in the project root"
+                fail 2 "no $pinned found; run ft pin$scope <version>"
             fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init for this repository, or ft init --user for your personal setup'
             ;;
     esac

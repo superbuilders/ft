@@ -265,9 +265,13 @@ describe.each(shells)('shim via %s', shell => {
         expect(existsSync(finalPath())).toBe(true)
         expectClean()
 
-        const second = await start(shell, ['doctor'], { FAKE_GH_FAIL: 'download' }).result
+        const second = await start(shell, ['doctor'], {
+            FAKE_GH_FAIL: 'download',
+            HOME: undefined,
+            XDG_CONFIG_HOME: undefined,
+        }).result
 
-        expect(second.code).toBe(0)
+        expect(second.code, second.stderr).toBe(0)
         expect(second.stdout).toContain('arg=<doctor>')
         expect(ghCalls()).toHaveLength(1)
         expectClean()
@@ -431,8 +435,24 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor']).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain(`no ${join(project, '.ft/lock.json')} found`)
+        expect(result.stderr).toContain(
+            `no ${join(project, '.ft/lock.json')} found; run ft pin <version>`,
+        )
         expect(ghCalls()).toEqual([])
+    })
+
+    it('asks for a personal pin when the personal config has no lock', async () => {
+        const config = join(root, 'xdg')
+
+        mkdirSync(join(config, 'ft'), { recursive: true })
+        writeFileSync(join(config, 'ft', '.ft.json'), '{}')
+
+        cwd = root
+
+        const result = await start(shell, ['doctor'], { XDG_CONFIG_HOME: config }).result
+
+        expect(result.code).toBe(2)
+        expect(result.stderr).toContain('found; run ft pin --user <version>')
     })
 
     it('prints the shim version without config or gh', async () => {
