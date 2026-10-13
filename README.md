@@ -104,7 +104,7 @@ Plain commands use the config of the folder you are in: the repository's when it
 ft upgrade    # or ft update
 ```
 
-This moves ft on your machine to the newest release: the `ft` command and your personal setup.
+This moves ft on your machine to the newest release: the `ft` command and your personal setup. It never changes a repository's pinned version. To move a repository to the newest release, run `ft pin` there without a version, then commit the files it changes.
 
 ## Uninstall
 
