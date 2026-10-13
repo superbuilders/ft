@@ -1,6 +1,6 @@
 #!/bin/sh
-# Private-repo install (GitHub's Contents API supports this raw media type):
-# gh api repos/superbuilders/ft/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
+# Install the newest release (the repository is private, so the download goes through gh):
+# gh release download -R superbuilders/ft -p install.sh -O - | sh
 set -u
 umask 077
 

@@ -11,7 +11,7 @@ A run works like this. The agent writes the task in a file (a brief), ft runs it
 ft runs on Linux and macOS, on x64 or arm64. You need the [GitHub CLI](https://cli.github.com), signed in (`gh auth login`).
 
 ```sh
-gh api repos/superbuilders/ft/contents/install.sh -H 'Accept: application/vnd.github.raw' | sh
+gh release download -R superbuilders/ft -p install.sh -O - | sh
 ```
 
 This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder) and creates your personal config in `~/.config/ft`. It changes nothing else.
