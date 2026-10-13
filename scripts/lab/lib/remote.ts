@@ -105,12 +105,16 @@ export async function remote(
         const bunVersion = await pinnedBunVersion()
         const bun = `${AIR_TOOLCHAIN}/bun-${bunVersion}/bun`
 
-        await phase(result, 'toolchain', async () => {
+        /* The Air's output prints once a phase ends, so it never writes over the spinner. */
+        const toolchain = await phase(result, 'toolchain', async () => {
             const output = await command(['ssh', 'air', toolchainScript(bunVersion)])
 
-            process.stderr.write(output.stderr)
+            return output.stderr
         })
-        await phase(result, 'dependencies', async () => {
+
+        process.stderr.write(toolchain)
+
+        const dependencies = await phase(result, 'dependencies', async () => {
             const script = `set -eu
 cd ${LAB_ROOT}/checkout
 current="$(shasum -a 256 bun.lock) bun-${bunVersion}"
@@ -121,8 +125,10 @@ if [ "$current" != "$previous" ] || [ ! -d node_modules ]; then
 fi`
             const output = await command(['ssh', 'air', script])
 
-            process.stderr.write(output.stderr)
+            return output.stderr
         })
+
+        process.stderr.write(dependencies)
 
         const arguments_ =
             scenarios[0] === 'exec'

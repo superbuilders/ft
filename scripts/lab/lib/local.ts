@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { runStep } from '../../lib/run-step'
 import { build, prebuilt } from './build'
 import { LAB_ROOT, LOOPBACK_SCENARIOS, SCENARIOS } from './constants'
 import { killExtract } from './faults'
@@ -45,19 +46,17 @@ export function resultFor(scenario: string, host: string): Result {
 }
 
 /**
- * Execute one timed phase with progress exclusively on stderr.
+ * Execute one timed phase as a step with spinner feedback, on stderr only.
  * @param result - phase-duration owner
  * @param name - phase name
  * @param action - bounded phase implementation
  * @returns phase result
  */
 export async function phase<T>(result: Result, name: string, action: () => Promise<T>): Promise<T> {
-    process.stderr.write(`[lab] ${result.host} ${result.scenario}: ${name}\n`)
-
     const begin = performance.now()
 
     try {
-        return await action()
+        return await runStep(`${result.host} ${result.scenario}: ${name}`, action)
     } finally {
         result.phases[name] = Math.round(performance.now() - begin)
     }

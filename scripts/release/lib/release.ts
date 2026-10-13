@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
 import { commandOutput } from '../../../src/system/process/subprocess'
+import { runStep } from '../../lib/run-step'
 import { BUMPS, RELEASE_BRANCH, REPOSITORY } from './constants'
 
 /**
@@ -102,19 +103,22 @@ export async function release(requested: string): Promise<void> {
     const version = nextVersion(current, requested)
     const tag = `v${version}`
 
-    await preflight(tag)
+    await runStep(`Checking ${RELEASE_BRANCH} is ready for ${tag}`, () => preflight(tag))
+    await runStep(
+        `Tagging and pushing ${tag}`,
+        async () => {
+            if (version !== current) {
+                await writeFile(
+                    'package.json',
+                    manifest.replace(`"version": "${current}"`, `"version": "${version}"`),
+                )
+                await git('commit', '--all', '--message', `Release ${tag}`)
+            }
 
-    if (version !== current) {
-        await writeFile(
-            'package.json',
-            manifest.replace(`"version": "${current}"`, `"version": "${version}"`),
-        )
-        await git('commit', '--all', '--message', `Release ${tag}`)
-    }
-
-    await git('tag', '--annotate', tag, '--message', tag)
-    await git('push', '--atomic', 'origin', RELEASE_BRANCH, tag)
-    console.log(
-        `Pushed ${tag}; release build: https://github.com/${REPOSITORY}/actions/workflows/release.yml`,
+            await git('tag', '--annotate', tag, '--message', tag)
+            await git('push', '--atomic', 'origin', RELEASE_BRANCH, tag)
+        },
+        `Pushed ${tag}`,
     )
+    console.log(`Release build: https://github.com/${REPOSITORY}/actions/workflows/release.yml`)
 }

@@ -95,8 +95,6 @@ export async function build(cache: string, salt = ''): Promise<Build> {
     const binary = join(directory, `ft-${target}`)
 
     if (!existsSync(join(directory, 'SHA256SUMS'))) {
-        process.stderr.write(`[lab] build ${target} ${version}\n`)
-
         const stage = `${directory}.${crypto.randomUUID()}`
 
         await mkdir(stage, { recursive: true, mode: 0o700 })
