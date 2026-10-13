@@ -18,7 +18,7 @@ function verifyChecksum(bytes: Uint8Array, expected: string): void {
     const digest = createHash('sha256').update(bytes).digest('hex')
 
     if (digest !== expected.toLowerCase()) {
-        throw new Error(`SHA-256 mismatch: expected ${expected}, got ${digest}`)
+        throw new Error(`SHA-256 mismatch (expected ${expected}, got ${digest})`)
     }
 }
 
@@ -72,7 +72,7 @@ export async function installArchive(
         if (
             listing.split('\n').some(path => path.startsWith('/') || path.split('/').includes('..'))
         ) {
-            throw new Error(`The ${spec.binary} archive has absolute paths or .. entries`)
+            throw new Error(`${spec.binary} archive has absolute paths or .. entries`)
         }
 
         await commandOutput(['tar', '-xzf', archive, '-C', tree, '--strip-components=1'], signal)

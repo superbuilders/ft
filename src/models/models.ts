@@ -11,7 +11,7 @@ import type { Lane, Provider, Selection, Thinking } from './types'
 function thinkingLevel(value: string): Thinking {
     if (!THINKING_LEVELS.includes(value as Thinking)) {
         throw new Error(
-            `Invalid thinking level ${value}; choose one of ${THINKING_LEVELS.join(', ')}`,
+            `invalid thinking level ${value} (choose one of ${THINKING_LEVELS.join(', ')})`,
         )
     }
 
@@ -30,14 +30,14 @@ export function findModel(providers: Record<string, Provider>, ref: string): Sel
     const model = ref.slice(slash + 1)
 
     if (slash <= 0 || !model) {
-        throw new Error(`Model ${ref} must be written as provider/model`)
+        throw new Error(`model ${ref} must be written as provider/model`)
     }
 
     const config = providers[provider]
 
     if (!config) {
         throw new Error(
-            `Model ${ref} names provider ${provider}, which .ft.json does not configure`,
+            `model ${ref} names provider ${provider}, which .ft.json does not configure`,
         )
     }
 
@@ -48,8 +48,8 @@ export function findModel(providers: Record<string, Provider>, ref: string): Sel
 
         throw new Error(
             ids.length > 0
-                ? `Provider ${provider} has no model ${model}; it configures ${ids.join(', ')}`
-                : `Provider ${provider} has no model ${model}`,
+                ? `provider ${provider} has no model ${model} (it configures ${ids.join(', ')})`
+                : `provider ${provider} has no model ${model}`,
         )
     }
 
@@ -80,8 +80,8 @@ export function resolveLane(
 
         throw new Error(
             known.length > 0
-                ? `.ft.json has no lane named ${name}; its lanes are ${known.join(', ')}`
-                : `.ft.json defines no lanes; add one named ${name} under "lanes"`,
+                ? `.ft.json has no lane named ${name} (its lanes are ${known.join(', ')})`
+                : `.ft.json defines no lanes (add one named ${name} under "lanes")`,
         )
     }
 

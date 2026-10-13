@@ -21,6 +21,6 @@ export async function upgrade(): Promise<void> {
     const code = await child.exited
 
     if (code !== 0) {
-        throw new Error(`The ft ${version} installer failed (exit ${code}); see its output above`)
+        throw new Error(`ft ${version} installer failed (exit ${code}; see its output above)`)
     }
 }

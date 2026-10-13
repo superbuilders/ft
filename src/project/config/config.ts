@@ -125,7 +125,7 @@ export function scopeRoot(user: boolean): string {
  */
 function noConfig(): Error {
     return new Error(
-        `No ${CONFIG_FILE} here or above, and no personal config. Set ft up with ft init for this repository, or ft init --user for your personal setup.`,
+        `no ${CONFIG_FILE} here or above, and no personal config (set ft up with ft init for this repository, or ft init --user for your personal setup)`,
     )
 }
 
@@ -293,7 +293,7 @@ function providerProblems(id: string, provider: Provider): string[] {
 export function validateConfig(value: unknown): Config {
     if (value && typeof value === 'object' && ('version' in value || 'sha256' in value)) {
         throw new Error(
-            'version and sha256 now live in .ft/lock.json: remove them from .ft.json, then run ft pin <version> (add --user for your personal config)',
+            'version and sha256 belong in .ft/lock.json now (remove them from .ft.json, then run ft pin, adding --user for your personal config)',
         )
     }
 
@@ -319,7 +319,7 @@ export function validateConfig(value: unknown): Config {
 
     if (problems.length > 0) {
         throw new Error(
-            `Invalid ${CONFIG_FILE}:\n${problems.map(problem => `  - ${problem}`).join('\n')}`,
+            `invalid ${CONFIG_FILE}:\n${problems.map(problem => `  - ${problem}`).join('\n')}`,
         )
     }
 
@@ -336,7 +336,7 @@ export async function loadConfig(cwd: string, user = false): Promise<ResolvedCon
     const path = user ? join(configRoot(), CONFIG_FILE) : findConfig(cwd, process.env.FT_CONFIG)
 
     if (user && !existsSync(path as string)) {
-        throw new Error(`No personal config in ${configRoot()}; set it up with ft init --user`)
+        throw new Error(`no personal config in ${configRoot()} (set it up with ft init --user)`)
     }
 
     if (!path) {

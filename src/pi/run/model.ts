@@ -21,7 +21,7 @@ export function chooseModel(request: Omit<Request, 'cwd'>, config: Config): Mode
     }
 
     if (request.lane && request.model) {
-        throw new Error('Choose at most one of --lane or --model')
+        throw new Error('--lane and --model cannot be used together')
     }
 
     const selected = resolveLane(

@@ -54,7 +54,7 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 
 [ "$#" -le 1 ] || fail 2 'usage: install.sh [version]'
-[ -n "${HOME:-}" ] || fail 2 'HOME is not set; ft installs under your home directory'
+[ -n "${HOME:-}" ] || fail 2 'HOME is not set (ft installs under your home directory)'
 case $(uname -s) in
     Linux) os=linux ;;
     Darwin) os=darwin ;;
@@ -66,12 +66,12 @@ case $(uname -m) in
     *) fail 2 'unsupported platform architecture (expected arm64 or x64)' ;;
 esac
 runner_asset=ft-$os-$arch
-command -v gh >/dev/null 2>&1 || fail 2 'gh is required; install GitHub CLI and run gh auth login'
+command -v gh >/dev/null 2>&1 || fail 2 'gh is required (install GitHub CLI, then run gh auth login)'
 stage=$(mktemp -d "${TMPDIR:-/tmp}/ft-install.XXXXXXXXXX") || fail 1 'cannot create staging directory'
 gh auth status >"$stage/auth.stdout" 2>"$stage/auth.stderr" &
 active_pid=$!
 if ! wait "$active_pid"; then
-    fail 2 'gh is not authenticated; run gh auth login'
+    fail 2 'gh is not authenticated (run gh auth login)'
 fi
 active_pid=
 
@@ -86,7 +86,7 @@ gh_call() {
         active_pid=
     fi
     if [ "$gh_status" -eq 4 ] || grep -Eiq 'not logged|not authenticated|authentication|gh auth login|HTTP 401|bad credentials|GH_TOKEN' "$stage/gh.stderr"; then
-        fail 2 'gh is not authenticated; run gh auth login'
+        fail 2 'gh is not authenticated (run gh auth login)'
     fi
     fail 1 'GitHub release download or lookup failed'
 }

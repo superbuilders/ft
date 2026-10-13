@@ -217,14 +217,14 @@ function pick(runs: Status[], ref: string, root: string): Status {
 
     if (matches.length > 1) {
         throw new Error(
-            `${ref} matches ${matches.length} runs (${matches.map(run => run.id).join(', ')}); give more of the id`,
+            `${ref} matches ${matches.length} runs: ${matches.map(run => run.id).join(', ')} (give more of the id)`,
         )
     }
 
     throw new Error(
         runs.length > 0
-            ? `No run ${ref} in ${runsRoot(root)}; ${commandName()} list shows them`
-            : `No runs yet in ${runsRoot(root)}`,
+            ? `no run ${ref} in ${runsRoot(root)} (${commandName()} list shows them)`
+            : `no runs yet in ${runsRoot(root)}`,
     )
 }
 

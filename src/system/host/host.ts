@@ -11,7 +11,7 @@ import type { Target } from './types'
  */
 export function platformTarget(os = process.platform, arch = process.arch): Target {
     if ((os !== 'darwin' && os !== 'linux') || (arch !== 'arm64' && arch !== 'x64')) {
-        throw new Error(`Unsupported platform: ${os}-${arch}`)
+        throw new Error(`unsupported platform: ${os}-${arch}`)
     }
 
     return `${os}-${arch}`

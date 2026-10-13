@@ -143,7 +143,7 @@ export async function execute(dir: string): Promise<Status> {
     const status = await readStatus(dir)
 
     if (!status) {
-        throw new Error(`No run status found in ${dir}`)
+        throw new Error(`no run status in ${dir}`)
     }
 
     const request = await readRequest(dir)
@@ -235,7 +235,7 @@ export async function execute(dir: string): Promise<Status> {
         Object.assign(decided, {
             outcome: 'runtime_error',
             answer: null,
-            error: `Could not save the answer: ${error instanceof Error ? error.message : 'unknown error'}`,
+            error: `could not save the answer: ${error instanceof Error ? error.message : 'unknown error'}`,
         })
     }
 

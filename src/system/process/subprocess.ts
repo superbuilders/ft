@@ -37,7 +37,7 @@ export async function commandOutput(argv: string[], signal?: AbortSignal): Promi
 
     if (result.exitCode !== 0) {
         throw new Error(
-            `${argv[0]} failed (exit ${result.exitCode}): ${result.stderr.toString('utf8')}`,
+            `${argv[0]} failed (exit ${result.exitCode}): ${result.stderr.toString('utf8').trim()}`,
         )
     }
 

@@ -61,7 +61,7 @@ async function releaseFiles(version: string, assets: string[]): Promise<string[]
         ]).catch((error: unknown) => {
             if (error instanceof Error && RELEASE_NOT_FOUND.test(error.message)) {
                 throw new Error(
-                    `${version} is not a published ft release; leave the version out for the newest`,
+                    `${version} is not a published ft release (leave the version out for the newest)`,
                     { cause: error },
                 )
             }
@@ -82,7 +82,7 @@ async function releaseFiles(version: string, assets: string[]): Promise<string[]
  */
 function checkedVersion(version: string): string {
     if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) {
-        throw new Error('Expected a release version such as 0.2.0')
+        throw new Error('expected a release version such as 0.2.0')
     }
 
     return version

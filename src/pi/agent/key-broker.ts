@@ -20,7 +20,7 @@ export function serveKey(
             open() {},
             data(socket, chunk) {
                 if (Buffer.from(chunk).toString('utf8') !== key.provider) {
-                    socket.end(JSON.stringify({ error: 'This run has no key for that provider' }))
+                    socket.end(JSON.stringify({ error: 'this run has no key for that provider' }))
 
                     return
                 }
@@ -74,7 +74,7 @@ export async function brokerKey(path: string, provider: string): Promise<string>
     const response = JSON.parse(raw + decoder.decode()) as { key?: string; error?: string }
 
     if (!response.key) {
-        throw new Error(response.error ?? 'Key broker returned no key')
+        throw new Error(response.error ?? 'key broker returned no key')
     }
 
     return response.key

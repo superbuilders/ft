@@ -442,7 +442,7 @@ describe.each(shells)('shim via %s', shell => {
         }).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain('no personal config; set it up with ft init --user')
+        expect(result.stderr).toContain('no personal config (set it up with ft init --user)')
         expect(ghCalls()).toEqual([])
     })
 
@@ -451,7 +451,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code).toBe(2)
         expect(result.stderr).toContain(
-            'no .ft.json here or above, and no personal config; set ft up with ft init',
+            'no .ft.json here or above, and no personal config (set ft up with ft init',
         )
         expect(ghCalls()).toEqual([])
     })
@@ -463,7 +463,7 @@ describe.each(shells)('shim via %s', shell => {
         }).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain('HOME is not set; set it, or set XDG_CONFIG_HOME')
+        expect(result.stderr).toContain('HOME is not set (set it, or set XDG_CONFIG_HOME')
     })
 
     it('requires pin when the config has no lock beside it', async () => {
@@ -472,9 +472,7 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor']).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain(
-            `no ${join(project, '.ft/lock.json')} found; run ft pin <version>`,
-        )
+        expect(result.stderr).toContain(`no ${join(project, '.ft/lock.json')} (run ft pin)`)
         expect(ghCalls()).toEqual([])
     })
 
@@ -489,7 +487,7 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor'], { XDG_CONFIG_HOME: config }).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain('found; run ft pin --user <version>')
+        expect(result.stderr).toContain('lock.json (run ft pin --user)')
     })
 
     it('prints the shim version without config or gh', async () => {
@@ -616,8 +614,8 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stdout).toBe('')
         expect(result.stderr).toBe(
             scenario.locked
-                ? 'ft: gh cannot read its token: on macOS the login keychain may be locked in this session (for example over SSH); set GH_TOKEN or run security unlock-keychain\n'
-                : 'ft: gh is not authenticated; run gh auth login\n',
+                ? 'ft: gh cannot read its token, likely because the macOS login keychain is locked in this session (set GH_TOKEN, or run security unlock-keychain)\n'
+                : 'ft: gh is not authenticated (run gh auth login)\n',
         )
         expect(ghCalls()).toEqual([expect.stringContaining(`-p ft-${mapped} -D `), 'auth token'])
         expect(existsSync(finalPath())).toBe(false)

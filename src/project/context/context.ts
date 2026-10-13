@@ -27,7 +27,7 @@ async function instruction(path: string, root: string, seen: Set<string>): Promi
     const canonical = await realpath(path)
 
     if (!within(root, canonical)) {
-        throw new Error(`Context import escapes project root: ${path}`)
+        throw new Error(`context import escapes the project root: ${path}`)
     }
 
     if (seen.has(canonical)) {
@@ -76,7 +76,7 @@ export async function collectContext(projectRoot: string, cwd: string): Promise<
     const root = await realpath(gitRoot.trim() || projectRoot)
 
     if (!within(root, runCwd)) {
-        throw new Error(`The run's directory ${runCwd} is outside the project root ${root}`)
+        throw new Error(`run directory ${runCwd} is outside the project root ${root}`)
     }
 
     const directories: string[] = []

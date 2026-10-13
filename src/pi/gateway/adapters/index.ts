@@ -14,7 +14,7 @@ export function adapterNamed(name: string): Adapter {
     const adapter = ADAPTERS[name]
 
     if (!adapter) {
-        throw new Error(`Unknown adapter ${name}; ft ships ${Object.keys(ADAPTERS).join(', ')}`)
+        throw new Error(`unknown adapter ${name} (ft ships ${Object.keys(ADAPTERS).join(', ')})`)
     }
 
     return adapter

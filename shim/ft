@@ -73,7 +73,7 @@ while [ "$personal_only" = no ]; do
 done
 # A directory with no .ft.json of its own uses the personal config, if there is one.
 if [ -z "$config" ]; then
-    [ -n "$personal" ] || fail 2 'HOME is not set; set it, or set XDG_CONFIG_HOME and XDG_CACHE_HOME'
+    [ -n "$personal" ] || fail 2 'HOME is not set (set it, or set XDG_CONFIG_HOME and XDG_CACHE_HOME)'
     [ ! -f "$personal" ] || config=$personal
 fi
 scope=
@@ -91,10 +91,10 @@ if [ -n "$config" ] && [ -f "$pinned" ]; then
 else
     if [ "$bootstrap_allowed" = no ]; then
         [ -z "$config" ] ||
-            fail 2 "no $pinned found; run ft pin$scope <version>"
+            fail 2 "no $pinned (run ft pin$scope)"
         [ "$personal_only" = no ] ||
-            fail 2 'no personal config; set it up with ft init --user'
-        fail 2 'no .ft.json here or above, and no personal config; set ft up with ft init for this repository, or ft init --user for your personal setup'
+            fail 2 'no personal config (set it up with ft init --user)'
+        fail 2 'no .ft.json here or above, and no personal config (set ft up with ft init for this repository, or ft init --user for your personal setup)'
     fi
     bootstrap=yes
     unset FT_CONFIG
@@ -135,7 +135,7 @@ if ! command -v gh >/dev/null 2>&1 && find_gh; then
 fi
 
 [ -n "${XDG_CACHE_HOME:-}" ] || [ -n "${HOME:-}" ] ||
-    fail 2 'HOME is not set; set it, or set XDG_CACHE_HOME'
+    fail 2 'HOME is not set (set it, or set XDG_CACHE_HOME)'
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
 if [ "$bootstrap" = no ]; then
     validate_version
@@ -152,7 +152,7 @@ new_stage() {
     stage=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
 }
 require_gh() {
-    [ -n "$gh_bin" ] || find_gh || fail 2 'gh is required; install GitHub CLI and run gh auth login'
+    [ -n "$gh_bin" ] || find_gh || fail 2 'gh is required (install GitHub CLI, then run gh auth login)'
 }
 gh_call() {
     # wait is interruptible by traps, unlike a foreground external command.
@@ -168,9 +168,9 @@ gh_call() {
     if [ "$gh_status" -eq 4 ] || grep -Eiq 'not logged|not authenticated|unauthenticated|authentication|gh auth login|HTTP 401|bad credentials|GH_TOKEN|invalid token|token.*invalid' "$stage/gh.stderr"; then
         if ! "$gh_bin" auth token >/dev/null 2>&1 && [ "$os" = darwin ] &&
             [ "${GH_TOKEN+x}" != x ] && [ "${GITHUB_TOKEN+x}" != x ]; then
-            fail 2 'gh cannot read its token: on macOS the login keychain may be locked in this session (for example over SSH); set GH_TOKEN or run security unlock-keychain'
+            fail 2 'gh cannot read its token, likely because the macOS login keychain is locked in this session (set GH_TOKEN, or run security unlock-keychain)'
         fi
-        fail 2 'gh is not authenticated; run gh auth login'
+        fail 2 'gh is not authenticated (run gh auth login)'
     fi
     fail 1 'GitHub release download or lookup failed'
 }

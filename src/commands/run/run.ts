@@ -83,7 +83,7 @@ async function launch(prepared: Status): Promise<Status> {
         const failed: Status = {
             ...prepared,
             outcome: 'runtime_error',
-            error: `ft could not start the run's process: ${error instanceof Error ? error.message : String(error)}`,
+            error: `could not start the run's process: ${error instanceof Error ? error.message : String(error)}`,
         }
 
         await writeStatus(failed)
@@ -121,7 +121,7 @@ async function launch(prepared: Status): Promise<Status> {
             const failed: Status = {
                 ...last,
                 outcome: 'runtime_error',
-                error: `The run's process exited (code ${String(exited)}) before it started`,
+                error: `the run's process exited (code ${String(exited)}) before it started`,
             }
 
             await writeStatus(failed)
@@ -131,7 +131,7 @@ async function launch(prepared: Status): Promise<Status> {
 
         if (Date.now() > giveUp) {
             process.stderr.write(
-                `ft: started ${current.id}, but the run has not confirmed it is running; run ${commandName()} watch ${current.id} to wait for its report\n`,
+                `ft: started ${current.id}, but it has not confirmed it is running yet (${commandName()} watch ${current.id} waits for its report)\n`,
             )
 
             return current

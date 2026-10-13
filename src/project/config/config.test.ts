@@ -118,7 +118,7 @@ describe('config', () => {
     })
 
     it.each([
-        [{ ...valid, version: '0.1.0' }, 'now live in .ft/lock.json'],
+        [{ ...valid, version: '0.1.0' }, 'belong in .ft/lock.json now'],
         [{ ...valid, extra: true }, 'extra: not a field ft or Pi reads'],
         [{ providers: valid.providers }, 'lanes'],
         [{ ...valid, providers: { gateway: { ...gateway, key: { command: [] } } } }, 'key'],

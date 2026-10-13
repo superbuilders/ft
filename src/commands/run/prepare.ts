@@ -46,7 +46,7 @@ async function readBrief(brief: string): Promise<string> {
             : await readFile(resolve(brief), 'utf8')
 
     if (!text.trim()) {
-        throw new Error(brief === '-' ? 'The brief on stdin is empty' : `Brief ${brief} is empty`)
+        throw new Error(brief === '-' ? 'the brief on stdin is empty' : `brief ${brief} is empty`)
     }
 
     return text
@@ -67,7 +67,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
     }
 
     if (briefs.filter(brief => brief === '-').length > 1) {
-        throw new Error('Only one brief can come from stdin')
+        throw new Error('only one brief can come from stdin')
     }
 
     platformTarget()

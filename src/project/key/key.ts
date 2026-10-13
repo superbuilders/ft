@@ -35,24 +35,24 @@ export async function getKey(
         const key = process.env[source.env]?.trim()
 
         if (!key) {
-            throw new Error(`Key environment variable ${source.env} is empty or unset`)
+            throw new Error(`key environment variable ${source.env} is empty or unset`)
         }
 
-        return checked(key, `Key environment variable ${source.env}`)
+        return checked(key, `key environment variable ${source.env}`)
     }
 
     const result = await runCommand(source.command, root, signal)
 
     if (result.exitCode !== 0) {
-        throw new Error(`Key command failed (exit ${result.exitCode})`)
+        throw new Error(`key command failed (exit ${result.exitCode})`)
     }
 
     /* Command stderr may contain the credential too; never forward either captured pipe. */
     const key = result.stdout.toString('utf8').trim()
 
     if (!key) {
-        throw new Error('Key command returned empty stdout')
+        throw new Error('key command printed nothing')
     }
 
-    return checked(key, 'Key command output')
+    return checked(key, 'key command output')
 }

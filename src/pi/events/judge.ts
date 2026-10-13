@@ -41,11 +41,11 @@ function record(state: JudgeState, line: string): boolean {
         const event = JSON.parse(line) as Record<string, unknown>
 
         if (!event || Array.isArray(event) || typeof event.type !== 'string') {
-            throw new Error('Expected a JSON event object with type')
+            throw new Error('expected a JSON event object with a type')
         }
 
         if (!state.header && event.type !== 'session') {
-            throw new Error('Missing initial session header')
+            throw new Error('missing initial session header')
         }
 
         if (event.type === 'session') {
@@ -58,7 +58,7 @@ function record(state: JudgeState, line: string): boolean {
 
         if (event.type === 'agent_settled') {
             if (typeof event.aborted !== 'boolean') {
-                throw new Error('Invalid agent_settled.aborted')
+                throw new Error('invalid agent_settled.aborted')
             }
 
             state.settled = true
@@ -81,23 +81,23 @@ function record(state: JudgeState, line: string): boolean {
             const message = event.message as Record<string, unknown> | undefined
 
             if (!message || typeof message.role !== 'string') {
-                throw new Error('Invalid message_end.message')
+                throw new Error('invalid message_end.message')
             }
 
             if (message.role === 'assistant') {
                 if (!Array.isArray(message.content) || typeof message.stopReason !== 'string') {
-                    throw new Error('Invalid assistant message')
+                    throw new Error('invalid assistant message')
                 }
 
                 state.stopReason = message.stopReason
                 state.text = message.content
                     .map((block: Record<string, unknown>) => {
                         if (!block || typeof block.type !== 'string') {
-                            throw new Error('Invalid content block')
+                            throw new Error('invalid content block')
                         }
 
                         if (block.type === 'text' && typeof block.text !== 'string') {
-                            throw new Error('Invalid text block')
+                            throw new Error('invalid text block')
                         }
 
                         return block.type === 'text' ? block.text : ''
