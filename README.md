@@ -90,8 +90,11 @@ A repository's own `.ft.json` always wins. Your personal config applies only whe
 ## Uninstall
 
 ```sh
-rm -rf ~/.local/bin/ft ~/.config/ft ~/.cache/ft ~/.agents/skills/ft ~/.claude/skills/ft
+ft uninstall            # removes ft, its downloads and your personal skill; keeps your config
+ft uninstall --purge    # also removes your config in ~/.config/ft
 ```
+
+Repositories set up with `ft init` keep their files. Remove those like any other file in the repository.
 
 ## Developing ft
 

@@ -40,3 +40,14 @@ export function cacheRoot(): string {
 export function configRoot(): string {
     return resolvePath(process.env.XDG_CONFIG_HOME || join(homeDirectory(), '.config'), 'ft')
 }
+
+/**
+ * Show a path the way people type it, with `~` for the home directory.
+ * @param path - absolute path
+ * @returns the path, starting with `~/` when it is under home
+ */
+export function tildePath(path: string): string {
+    const home = homeDirectory()
+
+    return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path
+}

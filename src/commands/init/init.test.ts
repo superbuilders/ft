@@ -112,3 +112,21 @@ it('spells the npm script with -- so ft keeps its own flags', async () => {
 
     expect(output).toMatch(/Run as +npm run ft --/)
 })
+
+it('reads the release the installer downloaded instead of calling gh', async () => {
+    const downloaded = join(root, 'downloaded')
+
+    await mkdir(downloaded)
+    await Promise.all(
+        Object.entries(assets).map(([name, text]) => writeFile(join(downloaded, name), text)),
+    )
+
+    for (const name of Object.keys(assets)) {
+        delete assets[name]
+    }
+
+    vi.stubEnv('FT_RELEASE_DIR', downloaded)
+    await init('0.2.0', { user: true })
+
+    expect(existsSync(join(root, 'config/ft/.ft/schema.json'))).toBe(true)
+})

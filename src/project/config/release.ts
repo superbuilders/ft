@@ -19,12 +19,20 @@ import {
 import type { Lock, Release } from './types'
 
 /**
- * Download one asset of a release through authenticated gh.
+ * Download one asset of a release through authenticated gh, or read it from the folder the
+ * installer has just downloaded the release into (`FT_RELEASE_DIR`), so setup right after an
+ * install fetches nothing twice. Either way the caller checks it against the release manifest.
  * @param version - exact runner release version
  * @param asset - release asset name
  * @returns the asset's text
  */
 function releaseAsset(version: string, asset: string): Promise<string> {
+    const downloaded = process.env.FT_RELEASE_DIR
+
+    if (downloaded) {
+        return readFile(join(downloaded, asset), 'utf8')
+    }
+
     return commandOutput([
         'gh',
         'release',

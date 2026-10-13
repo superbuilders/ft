@@ -221,9 +221,10 @@ esac
     )
     writeFileSync(join(fixtures, `ft-${target}`), runner)
     writeFileSync(join(fixtures, 'ft-shim'), readFileSync(shim))
+    writeFileSync(join(fixtures, 'schema.json'), '{}\n')
     writeFileSync(
         join(fixtures, 'SHA256SUMS'),
-        `${digest(runner)}  ft-${target}\n${digest(readFileSync(shim, 'utf8'))}  ft-shim\n`,
+        `${digest(runner)}  ft-${target}\n${digest(readFileSync(shim, 'utf8'))}  ft-shim\n${digest('{}\n')}  schema.json\n`,
     )
     env = {
         ...process.env,
@@ -648,13 +649,14 @@ describe('installer via sh', () => {
         expect(result.stdout).toMatch(/Setting up your personal config\.\.\. +done/)
         expect(result.stdout).not.toContain('arg=<init>')
         expect(result.stdout).toContain('Get started: https://github.com/superbuilders/ft#readme')
-        expect(ghCalls().slice(0, 3)).toEqual([
+        expect(ghCalls()).toEqual([
             'auth status',
             'release view -R superbuilders/ft --json tagName',
             expect.stringContaining(
-                'release download v0.1.0 -R superbuilders/ft -p ft-shim -p SHA256SUMS -D ',
+                `release download v0.1.0 -R superbuilders/ft -p ft-shim -p SHA256SUMS -p ft-${target} -p schema.json -D `,
             ),
         ])
+        expect(readFileSync(join(cache, 'ft/runner/0.1.0/ft'), 'utf8')).toBe(runner)
 
         const rerun = await start(
             'sh',

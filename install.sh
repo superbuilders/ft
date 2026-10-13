@@ -54,6 +54,17 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 
 [ "$#" -le 1 ] || fail 2 'usage: install.sh [version]'
+case $(uname -s) in
+    Linux) os=linux ;;
+    Darwin) os=darwin ;;
+    *) fail 2 'unsupported platform (expected Linux or Darwin)' ;;
+esac
+case $(uname -m) in
+    arm64|aarch64) arch=arm64 ;;
+    x86_64|amd64) arch=x64 ;;
+    *) fail 2 'unsupported platform architecture (expected arm64 or x64)' ;;
+esac
+runner_asset=ft-$os-$arch
 command -v gh >/dev/null 2>&1 || fail 2 'gh is required; install GitHub CLI and run gh auth login'
 stage=$(mktemp -d "${TMPDIR:-/tmp}/ft-install.XXXXXXXXXX") || fail 1 'cannot create staging directory'
 gh auth status >"$stage/auth.stdout" 2>"$stage/auth.stderr" &
@@ -97,8 +108,9 @@ case $install_dir in
     "$HOME"/*) shown_dir="~${install_dir#"$HOME"}" ;;
 esac
 personal=${XDG_CONFIG_HOME:-$HOME/.config}/ft/.ft.json
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/ft
 download_label="Downloading ft $version"
-verify_label='Verifying checksum'
+verify_label='Verifying checksums'
 install_label="Installing to $shown_dir"
 setup_label='Setting up your personal config'
 widest_status=unchanged
@@ -113,43 +125,72 @@ printf '  %sft %s%s%s\n' "$bold" "$green" "$version" "$reset"
 rule
 
 step "$download_label"
-gh_call release download "v$version" -R superbuilders/ft -p ft-shim -p SHA256SUMS -D "$stage" >/dev/null
+gh_call release download "v$version" -R superbuilders/ft -p ft-shim -p SHA256SUMS -p "$runner_asset" -p schema.json -D "$stage" >/dev/null
 step_end done "$green"
-step "$verify_label"
-expected=$(sed -n 's/^\([0-9a-fA-F]*\)  ft-shim$/\1/p' "$stage/SHA256SUMS")
-[ "${#expected}" -eq 64 ] && printf '%s\n' "$expected" | grep -Eq '^[0-9a-fA-F]+$' ||
-    fail 1 'missing or invalid ft-shim hash in release SHA256SUMS'
-expected=$(printf '%s' "$expected" | tr 'A-F' 'a-f')
+
 if command -v sha256sum >/dev/null 2>&1; then
-    actual=$(sha256sum <"$stage/ft-shim") || fail 1 'SHA-256 verification failed'
+    hasher=sha256sum
 elif command -v shasum >/dev/null 2>&1; then
-    actual=$(shasum -a 256 <"$stage/ft-shim") || fail 1 'SHA-256 verification failed'
+    hasher='shasum -a 256'
 else
     fail 2 'sha256sum or shasum is required'
 fi
-actual=${actual%% *}
-[ "$actual" = "$expected" ] || fail 1 'checksum mismatch for ft-shim'
+sha256_of() {
+    digest=$($hasher <"$1") || return 1
+    printf '%s\n' "${digest%% *}"
+}
+# Check a downloaded asset against SHA256SUMS, leaving its checksum in listed.
+verify() {
+    listed=$(sed -n "s/^\([0-9a-fA-F]*\)  $1\$/\1/p" "$stage/SHA256SUMS")
+    [ "${#listed}" -eq 64 ] && printf '%s\n' "$listed" | grep -Eq '^[0-9a-fA-F]+$' ||
+        fail 1 "missing or invalid $1 hash in release SHA256SUMS"
+    listed=$(printf '%s' "$listed" | tr 'A-F' 'a-f')
+    actual=$(sha256_of "$stage/$1") || fail 1 'SHA-256 verification failed'
+    [ "$actual" = "$listed" ] || fail 1 "checksum mismatch for $1"
+}
+
+step "$verify_label"
+verify ft-shim
+verify schema.json
+verify "$runner_asset"
+runner_sha=$listed
 step_end done "$green"
 
 step "$install_label" "Installing to $cyan$shown_dir$dim"
+changed=no
 mkdir -p "$install_dir" || fail 1 'cannot create installation directory'
 install_dir=$(cd "$install_dir" && pwd -P) || fail 1 'cannot resolve installation directory'
-if [ -f "$install_dir/ft" ] && cmp -s "$stage/ft-shim" "$install_dir/ft"; then
-    step_end unchanged "$dim"
-else
+if ! { [ -f "$install_dir/ft" ] && cmp -s "$stage/ft-shim" "$install_dir/ft"; }; then
     # Stage beside the destination so replacement is atomic even across filesystems.
     replacement=$(mktemp "$install_dir/.ft-install.XXXXXXXXXX") || fail 1 'cannot stage shim replacement'
     cat "$stage/ft-shim" >"$replacement" || fail 1 'cannot copy shim'
     chmod 755 "$replacement" || fail 1 'cannot make shim executable'
     mv -f "$replacement" "$install_dir/ft" || fail 1 'cannot install shim'
     replacement=
+    changed=yes
+fi
+# Cache the runner where the shim looks for it, so ft never downloads it a second time.
+runner=$cache/runner/$version/ft
+if [ ! -f "$runner" ] || [ "$(sha256_of "$runner")" != "$runner_sha" ]; then
+    (umask 077 && mkdir -p "$cache/runner" "$cache/staging") || fail 1 'cannot create cache directories'
+    chmod +x "$stage/$runner_asset" || fail 1 'cannot make runner executable'
+    [ "$("$stage/$runner_asset" --version 2>/dev/null)" = "$version" ] || fail 1 'runner smoke test failed'
+    published=$(mktemp -d "$cache/staging/XXXXXXXXXX") || fail 1 'cannot create staging directory'
+    mv "$stage/$runner_asset" "$published/ft" || fail 1 'cannot prepare runner'
+    rm -rf "$cache/runner/$version" || fail 1 'cannot replace cached runner'
+    mv "$published" "$cache/runner/$version" || fail 1 'cannot publish runner'
+    changed=yes
+fi
+if [ "$changed" = yes ]; then
     step_end done "$green"
+else
+    step_end unchanged "$dim"
 fi
 
 setup=
 if [ ! -f "$personal" ]; then
     step "$setup_label"
-    if "$install_dir/ft" init --user "$version" >"$stage/init.out" 2>&1; then
+    if FT_RELEASE_DIR=$stage "$runner" init --user "$version" >"$stage/init.out" 2>&1; then
         step_end done "$green"
         setup=done
     else

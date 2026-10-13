@@ -10,7 +10,7 @@ import {
     writeRelease,
     writeStarterConfig,
 } from '../../project/config/release'
-import { homeDirectory } from '../../system/host/host'
+import { tildePath } from '../../system/host/host'
 import { LOCKFILES, PACKAGE_SCRIPT } from './constants'
 
 /**
@@ -93,8 +93,7 @@ export async function init(
         state = options.from ? `copied from ${options.from}` : 'empty'
     }
 
-    const home = homeDirectory()
-    const config = user ? join(root, CONFIG_FILE).replace(`${home}/`, '~/') : CONFIG_FILE
+    const config = user ? tildePath(join(root, CONFIG_FILE)) : CONFIG_FILE
     const fill =
         written && !options.from ? [`Add a provider and a lane named code to ${config}`] : []
 

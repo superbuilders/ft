@@ -11,6 +11,7 @@ import { schema } from './commands/schema/schema'
 import { show } from './commands/show/show'
 import { skill } from './commands/skill/skill'
 import { stop } from './commands/stop/stop'
+import { uninstall } from './commands/uninstall/uninstall'
 import { watch } from './commands/watch/watch'
 import { RUNNER_VERSION } from './version'
 
@@ -110,6 +111,11 @@ program
     .description('Add the agent skill to this repository, or with --user for you')
     .option('--user', 'put it in your home directory, for every repository')
     .action(skill)
+program
+    .command('uninstall')
+    .description('Remove ft from this machine; your config stays unless you pass --purge')
+    .option('--purge', 'also remove your personal config')
+    .action(uninstall)
 program.command('schema').description('Print the JSON Schema for .ft.json').action(schema)
 program
     .command('doctor')

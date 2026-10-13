@@ -21,6 +21,7 @@ bun src/cli.ts --version                   # Package version
 bun src/cli.ts guide                       # The agent manual a consuming repo's skill points at
 bun src/cli.ts init [--user]               # Set ft up in this repository, or for one person
 bun src/cli.ts skill [--user]              # Add the agent skill to this repository, or one person's home
+bun src/cli.ts uninstall [--purge]         # Remove the launcher, cache and personal skill (and config)
 bun run release <patch|minor|major|x.y.z>  # Bump, tag, push; release.yml builds and publishes
 bun run dogfood                            # Install the last commit's ft as ft on PATH
 ```
@@ -129,8 +130,11 @@ directory; the personal scope is `${XDG_CONFIG_HOME:-~/.config}/ft/`, and for
 the skill, the home directory. `ft init` sets a repository up from one release:
 the lock, schema, launcher `.ft/ft` (the shim, so cloners need only gh), a
 starter `.ft.json`, and an `ft` package script when there is a package.json.
-`ft init --user` writes the config, lock and schema only; the installer runs
-it and touches nothing else. `ft pin` refuses a scope that is not set up.
+`ft init --user` writes the config, lock and schema only. The installer
+downloads the shim, runner and schema in one gh call, caches the runner, and
+runs `ft init --user` with `FT_RELEASE_DIR` naming that download, so setup
+fetches nothing; it touches nothing else. `ft uninstall` removes the launcher,
+cache and personal skill, and the personal config only with `--purge`. `ft pin` refuses a scope that is not set up.
 `ft skill` writes the skill built into the runner (from `.agents/skills/ft/`)
 at `.agents/skills/ft/SKILL.md` with a `.claude/skills/ft` link, so rerunning
 it after an upgrade refreshes it; nothing writes the skill unasked. The
