@@ -190,6 +190,11 @@
                                     "contextWindow": {
                                         "type": "number"
                                     },
+                                    "compactAt": {
+                                        "type": "integer",
+                                        "minimum": 40000,
+                                        "description": "Tokens of conversation at which Pi summarizes older turns to keep the run going (default 400000, at least 40000: Pi keeps the latest 20000 tokens word for word, so a lower value would compact every turn). ft never compacts later than the context window allows."
+                                    },
                                     "maxTokens": {
                                         "type": "number"
                                     },
