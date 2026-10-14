@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 
 import { isBuiltinProvider } from '../../models/catalog'
 import { findModel } from '../../models/models'
+import { repositoryRoot } from '../../system/files/repository-root'
 import { configRoot } from '../../system/host/host'
 import { CONFIG_FILE, FORBIDDEN_PROVIDER_FIELDS } from './constants'
 import { configValidator } from './schema'
@@ -62,33 +63,7 @@ export function isPersonal(path: string): boolean {
  * @returns absolute workspace directory
  */
 function workspaceOf(path: string, cwd: string): string {
-    return isPersonal(path) ? repositoryRoot(cwd) : dirname(path)
-}
-
-/**
- * The git repository around a directory.
- * @param cwd - any directory
- * @returns the repository's top directory, or null outside a repository
- */
-function gitRoot(cwd: string): string | null {
-    for (let dir = resolve(cwd); ; dir = dirname(dir)) {
-        if (existsSync(join(dir, '.git'))) {
-            return dir
-        }
-
-        if (dirname(dir) === dir) {
-            return null
-        }
-    }
-}
-
-/**
- * The git repository around a directory, or the directory itself outside one.
- * @param cwd - any directory
- * @returns absolute directory
- */
-function repositoryRoot(cwd: string): string {
-    return gitRoot(cwd) ?? resolve(cwd)
+    return isPersonal(path) ? (repositoryRoot(cwd) ?? resolve(cwd)) : dirname(path)
 }
 
 /**
@@ -110,7 +85,7 @@ export function scopeRoot(user: boolean): string {
         return dirname(found)
     }
 
-    const repository = gitRoot(process.cwd())
+    const repository = repositoryRoot(process.cwd())
 
     if (!repository) {
         throw new Error('not a git repository (use --user for your personal setup)')

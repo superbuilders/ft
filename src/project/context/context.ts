@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { readFile, realpath } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
-import { commandOutput } from '../../system/process/subprocess'
+import { repositoryRoot } from '../../system/files/repository-root'
 
 /**
  * Determine whether a path stays inside the permitted context boundary.
@@ -66,14 +66,7 @@ async function instruction(path: string, root: string, seen: Set<string>): Promi
  */
 export async function collectContext(projectRoot: string, cwd: string): Promise<string> {
     const runCwd = await realpath(cwd)
-    const gitRoot = await commandOutput([
-        'git',
-        '-C',
-        runCwd,
-        'rev-parse',
-        '--show-toplevel',
-    ]).catch(() => '')
-    const root = await realpath(gitRoot.trim() || projectRoot)
+    const root = await realpath(repositoryRoot(runCwd) ?? projectRoot)
 
     if (!within(root, runCwd)) {
         throw new Error(`run directory ${runCwd} is outside the project root ${root}`)
