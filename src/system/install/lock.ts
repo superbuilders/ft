@@ -22,6 +22,18 @@ function alive(pid: number): boolean {
 }
 
 /**
+ * Whether a lock-like directory's owner file names a dead process on this host.
+ * @param dir - directory holding an `owner` file
+ * @returns true only for a local owner known to be gone
+ */
+async function ownerIsDead(dir: string): Promise<boolean> {
+    const owner = await readFile(join(dir, 'owner'), 'utf8').catch(() => '')
+    const [pid, host] = owner.trim().split(' ')
+
+    return host === hostname() && /^\d+$/.test(pid ?? '') && Number(pid) > 0 && !alive(Number(pid))
+}
+
+/**
  * Recover a dead local owner while serializing stale-owner readers.
  * @param lock - occupied lock directory
  * @returns completion of the recovery attempt
@@ -48,10 +60,7 @@ async function recoverLock(lock: string): Promise<void> {
             throw error
         }
 
-        const holder = await readFile(join(recovery, 'owner'), 'utf8').catch(() => '')
-        const [pid, host] = holder.trim().split(' ')
-
-        if (host === hostname() && Number(pid) > 0 && !alive(Number(pid))) {
+        if (await ownerIsDead(recovery)) {
             await rm(recovery, { recursive: true, force: true })
         }
 
@@ -59,15 +68,8 @@ async function recoverLock(lock: string): Promise<void> {
     }
 
     try {
-        const owner = await readFile(join(lock, 'owner'), 'utf8').catch(() => '')
-        const [pid, host] = owner.trim().split(' ')
-
-        if (
-            host === hostname() &&
-            /^\d+$/.test(pid ?? '') &&
-            Number(pid) > 0 &&
-            !alive(Number(pid))
-        ) {
+        /* Recheck under the recovery lock: another waiter may have replaced the owner. */
+        if (await ownerIsDead(lock)) {
             await rm(lock, { recursive: true, force: true })
         }
     } finally {
@@ -130,7 +132,11 @@ export async function acquireLock(
                 announced = true
             }
 
-            await recoverLock(lock)
+            /* A live, remote or missing owner is waited on; only a dead local one is recovered. */
+            if (await ownerIsDead(lock)) {
+                await recoverLock(lock)
+            }
+
             await sleep(LOCK_POLL_MS, undefined, { signal })
         }
     } finally {

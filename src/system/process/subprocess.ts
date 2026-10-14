@@ -1,24 +1,26 @@
-import type { CommandResult } from './types'
+import type { CommandOptions, CommandResult } from './types'
 
 /**
- * Run a command to completion with both pipes captured and never echoed.
+ * Run a command to completion with its pipes captured and never echoed.
  * @param argv - executable and literal arguments
  * @param cwd - command working directory
- * @param signal - optional cancellation; aborting kills the command
+ * @param options - cancellation and whether stderr is captured
+ * @param options.signal - optional cancellation; aborting kills the command
+ * @param options.stderr - `ignore` discards stderr unread (default `pipe`)
  * @returns captured pipes and exit code
  */
 export async function runCommand(
     argv: string[],
     cwd: string,
-    signal?: AbortSignal,
+    { signal, stderr: errors = 'pipe' }: CommandOptions = {},
 ): Promise<CommandResult> {
     signal?.throwIfAborted()
 
-    const child = Bun.spawn(argv, { cwd, signal, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' })
+    const child = Bun.spawn(argv, { cwd, signal, stdin: 'ignore', stdout: 'pipe', stderr: errors })
     const [exitCode, stdout, stderr] = await Promise.all([
         child.exited,
         new Response(child.stdout).arrayBuffer(),
-        new Response(child.stderr).arrayBuffer(),
+        new Response(child.stderr ?? undefined).arrayBuffer(),
     ])
 
     signal?.throwIfAborted()
@@ -33,7 +35,7 @@ export async function runCommand(
  * @returns captured stdout after a successful exit
  */
 export async function commandOutput(argv: string[], signal?: AbortSignal): Promise<string> {
-    const result = await runCommand(argv, process.cwd(), signal)
+    const result = await runCommand(argv, process.cwd(), { signal })
 
     if (result.exitCode !== 0) {
         throw new Error(

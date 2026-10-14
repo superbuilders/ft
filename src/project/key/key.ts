@@ -48,13 +48,13 @@ export async function getKey(
         return checked(key, `key environment variable ${source.env}`)
     }
 
-    const result = await runCommand(source.command, root, signal)
+    const result = await runCommand(source.command, root, { signal, stderr: 'ignore' })
 
     if (result.exitCode !== 0) {
         throw new Error(`key command failed (exit ${result.exitCode})`)
     }
 
-    /* Command stderr may contain the credential too; never forward either captured pipe. */
+    /* Stdout carries the credential; never forward it. Stderr is discarded unread. */
     const key = result.stdout.toString('utf8').trim()
 
     if (!key) {

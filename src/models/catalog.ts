@@ -1,4 +1,4 @@
-import { getBuiltinModels, getBuiltinProviders } from '@earendil-works/pi-ai/providers/all'
+import { getBuiltinModel, getBuiltinProviders } from '@earendil-works/pi-ai/providers/all'
 
 import type { KnownProvider } from '@earendil-works/pi-ai'
 
@@ -18,5 +18,11 @@ export function isBuiltinProvider(id: string): id is KnownProvider {
  * @returns true when Pi knows the model
  */
 export function isBuiltinModel(provider: KnownProvider, model: string): boolean {
-    return getBuiltinModels(provider).some(entry => entry.id === model)
+    /*
+     * Pi's lookup is typed for known ids; config ids are arbitrary strings. Comparing the id also
+     * rejects inherited keys like `constructor`.
+     */
+    const entry = getBuiltinModel(provider, model as never) as { id?: string } | undefined
+
+    return entry?.id === model
 }

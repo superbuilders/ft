@@ -76,14 +76,14 @@ export async function watch(
         return 0
     }
 
-    let pending = targets.map(status => status.dir)
+    // Discovery already read every target, so the first pass uses those snapshots.
+    let read: (Status | null)[] = targets
     const settled: { status: Status; state: State }[] = []
     const seen = new Map<string, string>()
     const narrating = !options.json && process.stderr.isTTY
     const style = styleFor(process.stdout)
 
     for (;;) {
-        const read = await Promise.all(pending.map(readStatus))
         const running: Status[] = []
 
         for (const status of read) {
@@ -99,13 +99,11 @@ export async function watch(
             }
         }
 
-        pending = running.map(status => status.dir)
-
         if (narrating) {
             narrate(running, seen)
         }
 
-        if (pending.length === 0) {
+        if (running.length === 0) {
             if (!options.json) {
                 process.stdout.write(`${tally(settled, style)}\n`)
             }
@@ -133,5 +131,6 @@ export async function watch(
         }
 
         await Bun.sleep(Math.min(WAIT_POLL_MS, Math.max(0, limit - Date.now())))
+        read = await Promise.all(running.map(status => readStatus(status.dir)))
     }
 }

@@ -18,7 +18,7 @@ it('captures separate pipes, exit codes and literal argv without echoing', async
             literal,
         ],
         process.cwd(),
-        new AbortController().signal,
+        { signal: new AbortController().signal },
     )
 
     expect(result.stdout.toString('utf8')).toBe(literal)
@@ -27,6 +27,17 @@ it('captures separate pipes, exit codes and literal argv without echoing', async
     await expect(
         commandOutput(['bun', '-e', 'process.stderr.write("diagnostic"); process.exit(7)']),
     ).rejects.toThrow('bun failed (exit 7): diagnostic')
+})
+
+it('discards stderr unread when asked', async () => {
+    const result = await runCommand(
+        ['bun', '-e', 'process.stdout.write("key"); process.stderr.write("diagnostic")'],
+        process.cwd(),
+        { stderr: 'ignore' },
+    )
+
+    expect(result.stdout.toString('utf8')).toBe('key')
+    expect(result.stderr.length).toBe(0)
 })
 
 it('cancels a running command and kills it', async () => {
