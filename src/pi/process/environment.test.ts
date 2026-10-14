@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 
 import { filterEnvironment, piEnvironment } from './environment'
 
-it('removes every PI override and provider or configured credential', () => {
+it('removes every PI override, provider or configured credential, and the config handoff', () => {
     const caller = {
         PATH: '/bin',
         HOME: '/home/example',
@@ -16,6 +16,7 @@ it('removes every PI override and provider or configured credential', () => {
         CUSTOM_KEY: 'dummy',
         GH_TOKEN: 'dummy',
         COPILOT_GITHUB_TOKEN: 'dummy',
+        FT_CONFIG: '/repo/.ft.json',
     }
     const filtered = filterEnvironment(caller, ['CUSTOM_KEY'])
 

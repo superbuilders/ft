@@ -1,7 +1,9 @@
 import { delimiter } from 'node:path'
 
 /**
- * Remove ambient Pi controls and provider credentials before exposing the environment to tools.
+ * Remove ambient Pi controls, provider credentials and the launcher's config handoff before exposing
+ * the environment to tools. A delegate that inherited FT_CONFIG would point its own ft calls, and
+ * the repository's tests, at this run's config.
  * @param caller - original environment
  * @param keyEnvs - every configured provider's credential variable
  * @returns sanitized copy
@@ -14,6 +16,7 @@ export function filterEnvironment(
         Object.entries(caller).filter(
             ([name]) =>
                 !name.startsWith('PI_') &&
+                name !== 'FT_CONFIG' &&
                 !keyEnvs.includes(name) &&
                 !/(?:API_KEY|AUTH_TOKEN|OAUTH_TOKEN|ACCESS_TOKEN|SECRET|SECRET_ACCESS_KEY|SESSION_TOKEN|BEARER_TOKEN|GITHUB_TOKEN)$/.test(
                     name,

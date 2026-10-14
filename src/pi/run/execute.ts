@@ -91,7 +91,6 @@ async function drive(
             ),
         )
 
-        env.FT_CONFIG = config.path
         env.FT_KEY_SOCKET = socket
 
         const result = await runPi({
