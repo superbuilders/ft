@@ -1,9 +1,9 @@
 {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "sha256": {
-        "darwin-arm64": "9f9d6883e80cb2bd326d3f689929af2ad7e69cdcdf5a7c9f2af3cca090a5be5c",
-        "darwin-x64": "60a0500fd6b1bcafbd0f26e3e0a11630bfeeb01b9a0aeecea821791c88e76acc",
-        "linux-arm64": "7d21a38529617b42013d93be5452ad289a8d22eff76edf35c2008ec6c28eb9a2",
-        "linux-x64": "8e49bce823b025e7497d23de210d065708e5f0719b133e7f20966ed4bdeec0be"
+        "darwin-arm64": "79370e75ac87fe9e9e8764d4b92dc733507c3a765c3283b0defe93937f5daa3d",
+        "darwin-x64": "52a33dc015e4695287f1a794511cc43ca622ee7c1c50e563b8acc7131bd86cbb",
+        "linux-arm64": "16ff17b73461a2694758a0f0f9392e7f93101f82ee244e40e889666f6690852c",
+        "linux-x64": "c181f16b10f455c85cd694d1bd15934524e3cb0a759f6183555291fedd97ba9b"
     }
 }
