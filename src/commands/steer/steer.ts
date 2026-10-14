@@ -22,7 +22,6 @@ export async function steer(
     options: { json?: boolean },
 ): Promise<number> {
     const style = styleFor(process.stdout)
-    const text = message === '-' ? await new Response(Bun.stdin.stream()).text() : message
     const [status] = await findRuns(projectRoot(), [id])
     let receipt: SteerReceipt
 
@@ -30,13 +29,20 @@ export async function steer(
         throw new Error(`no run matches ${id}`)
     }
 
-    if (stateOf(status) !== 'running') {
-        receipt = { state: 'refused', reason: `the run has finished (${stateOf(status)})` }
+    const state = stateOf(status)
+
+    if (state !== 'running') {
+        receipt = { state: 'refused', reason: `the run has finished (${state})` }
     } else if (status.host !== hostname()) {
         receipt = { state: 'refused', reason: `the run is on ${status.host}; steer it there` }
     } else if (!status.control) {
-        receipt = { state: 'refused', reason: 'the run is not taking steers yet; try again' }
+        receipt = {
+            state: 'refused',
+            reason: 'the run is not taking steers (it is still starting, or an ft without steering started it)',
+        }
     } else {
+        const text = message === '-' ? await new Response(Bun.stdin.stream()).text() : message
+
         receipt = await sendSteer(status.control, text).catch(() => ({
             state: 'refused' as const,
             reason: 'the run stopped taking steers',

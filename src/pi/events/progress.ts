@@ -47,6 +47,24 @@ export function textOf(value: unknown, fallback: string): string {
 }
 
 /**
+ * The plain text of a message, whichever shape Pi gives its content.
+ * @param content - a message's content: a string or content blocks
+ * @returns the text blocks joined
+ */
+export function messageText(content: unknown): string {
+    if (typeof content === 'string') {
+        return content
+    }
+
+    return Array.isArray(content)
+        ? (content as (Record<string, unknown> | null)[])
+              .filter(block => block?.type === 'text' && typeof block.text === 'string')
+              .map(block => block?.text as string)
+              .join('')
+        : ''
+}
+
+/**
  * Fold one Pi event into what a person watching the run wants to know. A file counts as written
  * only once its edit or write call succeeds.
  * @param tracker - mutable progress and the file calls still running

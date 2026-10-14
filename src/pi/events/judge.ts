@@ -3,7 +3,7 @@ import { StringDecoder } from 'node:string_decoder'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 
 import { emptyProgress } from '../../project/runs/store'
-import { BRIEF_COMMAND_ID } from './constants'
+import { ACCEPTED_DISPOSITIONS, BRIEF_COMMAND_ID } from './constants'
 import { textOf, track } from './progress'
 
 import type { AssistantMessage } from '@earendil-works/pi-ai'
@@ -56,8 +56,14 @@ function record(
         }
 
         if (event.type === 'response' && event.id === BRIEF_COMMAND_ID) {
+            const disposition = (event.data as Record<string, unknown> | undefined)?.disposition
+
             if (event.success !== true) {
                 throw new Error(`Pi refused the brief: ${textOf(event.error, 'no reason given')}`)
+            }
+
+            if (!ACCEPTED_DISPOSITIONS.includes(String(disposition))) {
+                throw new Error(`Pi did not run the brief: ${String(disposition)}`)
             }
 
             state.accepted = true

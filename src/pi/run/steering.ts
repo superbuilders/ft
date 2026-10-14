@@ -1,5 +1,6 @@
 import { appendFile } from 'node:fs/promises'
 
+import { messageText } from '../events/progress'
 import { STEER_ID_PREFIX, STEER_MAX_CHARS } from './constants'
 
 import type { PiControl } from '../process/types'
@@ -45,27 +46,6 @@ export interface Steering {
      * @returns delivered and undelivered counts
      */
     counts(): { delivered: number; undelivered: number }
-}
-
-/**
- * The plain text of a user message, whichever shape Pi gives its content.
- * @param content - a message's content: a string or content blocks
- * @returns the text blocks joined
- */
-function userText(content: unknown): string {
-    if (typeof content === 'string') {
-        return content
-    }
-
-    return Array.isArray(content)
-        ? content
-              .filter(
-                  (block: Record<string, unknown>) =>
-                      block?.type === 'text' && typeof block.text === 'string',
-              )
-              .map((block: Record<string, unknown>) => block.text as string)
-              .join('')
-        : ''
 }
 
 /**
@@ -148,9 +128,9 @@ export function createSteering(log: string): Steering {
 
                 if (event.type === 'message_end') {
                     const message = (event.message ?? {}) as Record<string, unknown>
-                    const text = userText(message.content)
+                    const text = message.role === 'user' ? messageText(message.content) : null
                     const steer =
-                        message.role === 'user' &&
+                        text !== null &&
                         steers.find(
                             item =>
                                 (item.state === 'sent' || item.state === 'queued') &&

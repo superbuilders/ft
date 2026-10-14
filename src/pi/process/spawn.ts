@@ -106,16 +106,8 @@ export async function runPi(input: {
     const parser = eventParser(input.state, input.progress, event => {
         input.control?.observe(event)
 
-        /* Settled means Pi will not continue on its own; a refused or unstarted brief never runs. */
-        const refused =
-            event.type === 'response' &&
-            event.id === BRIEF_COMMAND_ID &&
-            (event.success !== true ||
-                !['started', 'queued'].includes(
-                    String((event.data as Record<string, unknown> | undefined)?.disposition),
-                ))
-
-        if (event.type === 'agent_settled' || refused) {
+        /* Settled means Pi will not continue on its own. */
+        if (event.type === 'agent_settled') {
             close()
         }
     })
@@ -150,6 +142,11 @@ export async function runPi(input: {
 
             input.events(chunk)
             parser.push(chunk)
+
+            /* A run that failed before Pi took the brief has nothing left to wait for. */
+            if (input.state.protocolError && !input.state.accepted) {
+                close()
+            }
         }
     })()
     const stderr = (async () => {

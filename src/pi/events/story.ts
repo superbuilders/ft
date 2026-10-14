@@ -1,4 +1,4 @@
-import { describeCall, oneLine, textOf } from './progress'
+import { describeCall, messageText, oneLine, textOf } from './progress'
 
 /**
  * One line of a run's story.
@@ -40,30 +40,9 @@ function assistantTurn(message: Record<string, unknown>): { text: string; calls:
         : []
 
     return {
-        text: blocks
-            .filter(block => block.type === 'text' && typeof block.text === 'string')
-            .map(block => block.text as string)
-            .join(''),
+        text: messageText(blocks),
         calls: blocks.some(block => block.type === 'toolCall'),
     }
-}
-
-/**
- * The plain text of a user message, whichever shape Pi gives its content.
- * @param content - a message's content: a string or content blocks
- * @returns the text blocks joined
- */
-function userText(content: unknown): string {
-    if (typeof content === 'string') {
-        return content
-    }
-
-    return Array.isArray(content)
-        ? (content as Record<string, unknown>[])
-              .filter(block => block.type === 'text' && typeof block.text === 'string')
-              .map(block => block.text as string)
-              .join('')
-        : ''
 }
 
 /**
@@ -103,19 +82,17 @@ export function storyOf(events: string): Step[] {
                 now = message.timestamp
             }
 
+            const stamp = start !== null && now !== null ? Math.max(0, now - start) : null
+
             /* The first user message is the brief; every later one is a steer Pi delivered. */
             if (message.role === 'user' && briefSeen) {
-                steps.push({
-                    at: start !== null && now !== null ? Math.max(0, now - start) : null,
-                    text: oneLine(`steered: ${userText(message.content)}`),
-                })
+                steps.push({ at: stamp, text: oneLine(`steered: ${messageText(message.content)}`) })
             } else if (message.role === 'user') {
                 briefSeen = true
             }
 
             if (message.role === 'assistant') {
                 const turn = assistantTurn(message)
-                const stamp = start !== null && now !== null ? Math.max(0, now - start) : null
 
                 if (typeof message.errorMessage === 'string') {
                     steps.push({ at: stamp, text: oneLine(`model error: ${message.errorMessage}`) })

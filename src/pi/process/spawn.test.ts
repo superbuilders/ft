@@ -22,6 +22,10 @@ for await (const chunk of Bun.stdin.stream()) {
         const command = JSON.parse(buffered.slice(0, lf))
         buffered = buffered.slice(lf + 1)
         const data = command.type === 'prompt' ? { disposition: 'started', bytes: Buffer.byteLength(command.message) } : { disposition: 'queued' }
+        if (command.type === 'prompt' && process.env.FAKE_PI_REFUSE) {
+            out({ id: command.id, type: 'response', command: command.type, success: false, error: 'busy' })
+            continue
+        }
         out({ id: command.id, type: 'response', command: command.type, success: true, data })
         if (command.type === 'prompt') out({ type: 'agent_start' })
         if (command.type === 'steer') {
@@ -91,6 +95,39 @@ it('sends a large brief as an RPC prompt, passes a control steer, and closes std
             'agent_settled',
         ])
         expect(Buffer.concat(diagnostics).toString('utf8')).toBe('diagnostic')
+    } finally {
+        await rm(root, { recursive: true, force: true })
+    }
+})
+
+it('closes stdin when Pi refuses the brief, so Pi exits instead of waiting', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ft-pi-refused-'))
+
+    try {
+        const pi = join(root, 'pi')
+        const state = createJudge()
+
+        await writeFile(pi, FAKE_RPC_PI, { mode: 0o700 })
+
+        const result = await runPi({
+            pi,
+            cwd: root,
+            brief: 'brief',
+            selected: { provider: 'test', model: 'test' },
+            tools: ['read'],
+            env: { ...process.env, FAKE_PI_REFUSE: '1' },
+            toolDirs: [],
+            agent: root,
+            tmp: root,
+            contextPath: join(root, 'context.md'),
+            state,
+            signal: new AbortController().signal,
+            events: () => {},
+            stderr: () => {},
+        })
+
+        expect(result).toEqual({ code: 7, signal: null })
+        expect(state.protocolError).toBe('Pi refused the brief: busy')
     } finally {
         await rm(root, { recursive: true, force: true })
     }

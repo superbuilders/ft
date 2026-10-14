@@ -111,6 +111,13 @@ describe('recorded Pi 1.1.0 protocol', () => {
         expect(judgeOutcome(refused, 0, null)).toBe('protocol_error')
         expect(refused.protocolError).toBe('Pi refused the brief: bad prompt')
 
+        const ignored = createJudge()
+
+        eventParser(ignored).push(
+            Buffer.from(`${JSON.stringify({ ...ACCEPTED, data: { disposition: 'ignored' } })}\n`),
+        )
+        expect(ignored.protocolError).toBe('Pi did not run the brief: ignored')
+
         const unaccepted = createJudge()
 
         Object.assign(unaccepted, {
