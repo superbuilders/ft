@@ -300,7 +300,7 @@ export function validateConfig(value: unknown): Config {
     let problems: string[]
 
     if (configValidator.Check(value)) {
-        const config = value as Config
+        const config = value
 
         problems = Object.entries(config.providers).flatMap(([id, provider]) =>
             providerProblems(id, provider),

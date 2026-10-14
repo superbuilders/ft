@@ -1,15 +1,12 @@
-import type { Role, Provider } from '../../models/types'
+import type { Static } from 'typebox'
+
 import type { Target } from '../../system/host/types'
+import type { ConfigSchema } from './schema'
 
 /**
  * The project's `.ft.json`: which providers ft may reach and which model each role uses.
  */
-export interface Config {
-    /** Providers by id: a Pi built-in id, or a custom endpoint. */
-    providers: Record<string, Provider>
-    /** Named model choices; `code` is the default role. */
-    roles: Record<string, Role>
-}
+export type Config = Static<typeof ConfigSchema>
 
 /**
  * The project's `.ft/lock.json`: the pinned runner, read by the shim before ft starts.
