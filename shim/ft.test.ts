@@ -7,6 +7,7 @@ import {
     mkdtempSync,
     readFileSync,
     readdirSync,
+    realpathSync,
     rmSync,
     symlinkSync,
     utimesSync,
@@ -17,11 +18,12 @@ import { join, resolve } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { fakeGh as buildFakeGh } from './tests/fakes/gh'
+
 const shim = resolve('shim/ft')
 const installer = resolve('install.sh')
 const version = '0.1.0'
 const target = 'linux-x64'
-const shells = ['sh', ...(spawnSync('dash', ['-c', ':']).status === 0 ? ['dash'] : [])]
 const runner = `#!/bin/sh
 if [ "\${1:-}" = --version ]; then
     printf '%s\\n' "\${FAKE_SMOKE_VERSION:-0.1.0}"
@@ -32,56 +34,7 @@ printf 'PATH=%s\\n' "$PATH"
 printf 'arg=<%s>\\n' "$@"
 `
 
-/*
- * Inline vendor double for gh's release view/download and auth status/token commands.
- * Release workflow asset names and the real gh CLI argument format are its backstop.
- */
-const fakeGh = `#!/bin/sh
-printf '%s\\n' "$*" >> "$FAKE_CALLS"
-if [ "$1 $2" = 'auth token' ]; then
-    printf '%s\\n' 'fake-token-must-not-leak'
-    echo 'fake-auth-token-stderr-must-not-leak' >&2
-    exit "\${FAKE_AUTH_TOKEN_EXIT:-1}"
-fi
-if [ "\${FAKE_GH_FAIL:-}" = keychain ]; then
-    echo 'HTTP 401: The token is invalid' >&2
-    exit 1
-fi
-if [ "\${FAKE_GH_FAIL:-}" = auth ]; then
-    echo 'To get started with GitHub CLI, please run: gh auth login' >&2
-    exit 4
-fi
-if [ "\${FAKE_GH_FAIL:-}" = download ]; then
-    echo 'HTTP 500: unavailable' >&2
-    exit 1
-fi
-case "$1 $2" in
-    'auth status') exit 0 ;;
-    'release view') printf '{"tagName":"v0.1.0"}\\n'; exit 0 ;;
-    'release download') ;;
-    *) echo 'unexpected gh command' >&2; exit 9 ;;
-esac
-shift 2
-patterns=
-destination=
-while [ "$#" -gt 0 ]; do
-    case $1 in
-        -p) patterns="$patterns $2"; shift 2 ;;
-        -D) destination=$2; shift 2 ;;
-        -R) [ "$2" = superbuilders/ft ] || exit 9; shift 2 ;;
-        v0.1.0) shift ;;
-        *) exit 9 ;;
-    esac
-done
-if [ -n "\${FAKE_DELAY:-}" ]; then sleep "$FAKE_DELAY"; fi
-if [ "\${FAKE_BLOCK:-}" = yes ]; then
-    # No child process: signal tests must not leave a sleeper behind.
-    while :; do :; done
-fi
-for asset in $patterns; do
-    cat "$FAKE_FIXTURES/$asset" > "$destination/$asset" || exit 1
-done
-`
+const fakeGh = buildFakeGh({ version })
 
 /** The host's copies of the tools the launcher may call, looked up once for every test's PATH. */
 const hostTools = [
@@ -107,6 +60,14 @@ const hostTools = [
 
     return located.status === 0 ? [[utility, located.stdout.trim()] as const] : []
 })
+
+const shPath = hostTools.find(([utility]) => utility === 'sh')?.[1]
+const dashPath = hostTools.find(([utility]) => utility === 'dash')?.[1]
+const shells = ['sh']
+
+if (shPath && dashPath && realpathSync(shPath) !== realpathSync(dashPath)) {
+    shells.push('dash')
+}
 
 let root: string
 let project: string
@@ -310,7 +271,7 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stdout).toContain('arg=<pin>')
         expect(result.stdout).toContain(`PATH=${fallback}:`)
         expect(ghCalls()).toEqual([
-            'release view -R superbuilders/ft --json tagName',
+            'release view -R superbuilders/ft --json tagName -q .tagName',
             expect.stringContaining('-p SHA256SUMS -D '),
             expect.stringContaining(`-p ft-${target} -D `),
         ])
@@ -429,7 +390,7 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stdout).toContain('FT_CONFIG=unset')
         expect(result.stdout).toContain('arg=<pin>\narg=<0.2.0>')
         expect(ghCalls()).toEqual([
-            'release view -R superbuilders/ft --json tagName',
+            'release view -R superbuilders/ft --json tagName -q .tagName',
             expect.stringContaining('-p SHA256SUMS -D '),
             expect.stringContaining(`-p ft-${target} -D `),
         ])
@@ -442,7 +403,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code, result.stderr).toBe(0)
         expect(result.stdout).toContain('arg=<init>\narg=<--user>')
-        expect(ghCalls()[0]).toBe('release view -R superbuilders/ft --json tagName')
+        expect(ghCalls()[0]).toBe('release view -R superbuilders/ft --json tagName -q .tagName')
     })
 
     it('uses the personal config where the directory has none', async () => {
@@ -743,7 +704,7 @@ describe('installer via sh', () => {
         expect(result.stdout).toContain('  https://github.com/superbuilders/ft#readme\n')
         expect(ghCalls()).toEqual([
             'auth status',
-            'release view -R superbuilders/ft --json tagName',
+            'release view -R superbuilders/ft --json tagName -q .tagName',
             expect.stringContaining(
                 `release download v0.1.0 -R superbuilders/ft -p ft-shim -p SHA256SUMS -p ft-${target} -p schema.json -D `,
             ),

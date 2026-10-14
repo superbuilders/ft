@@ -11,30 +11,8 @@ import { init } from './init'
 
 const SHIM = '#!/bin/sh\necho shim\n'
 const SCHEMA = '{"title":".ft.json"}\n'
-const assets: Record<string, string> = {}
 let root: string
 let output: string
-
-vi.mock('../../system/process/subprocess', () => ({
-    /**
-     * Act as gh release download: every -p asset into the -D folder, failing on a missing one.
-     * @param argv - the gh command line
-     * @returns gh's empty stdout
-     */
-    commandOutput: async (argv: string[]) => {
-        const { writeFile: write } = await import('node:fs/promises')
-        const folder = argv[argv.indexOf('-D') + 1] ?? ''
-        const names = argv.flatMap((arg, index) => (arg === '-p' ? [argv[index + 1] ?? ''] : []))
-
-        if (names.some(name => assets[name] === undefined)) {
-            throw new Error('gh failed')
-        }
-
-        await Promise.all(names.map(name => write(join(folder, name), assets[name] ?? '')))
-
-        return ''
-    },
-}))
 
 /**
  * Hash text the way a release manifest does.
@@ -48,7 +26,8 @@ function sha(text: string): string {
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ft-init-'))
     output = ''
-    Object.assign(assets, {
+
+    const assets = {
         'schema.json': SCHEMA,
         'ft-shim': SHIM,
         SHA256SUMS: `${[
@@ -56,7 +35,14 @@ beforeEach(async () => {
             `${sha(SCHEMA)}  schema.json`,
             `${sha(SHIM)}  ft-shim`,
         ].join('\n')}\n`,
-    })
+    }
+    const downloaded = join(root, 'release')
+
+    await mkdir(downloaded)
+    await Promise.all(
+        Object.entries(assets).map(([name, text]) => writeFile(join(downloaded, name), text)),
+    )
+    vi.stubEnv('FT_RELEASE_DIR', downloaded)
     await mkdir(join(root, 'repo', '.git'), { recursive: true })
     vi.spyOn(process, 'cwd').mockReturnValue(join(root, 'repo'))
     vi.spyOn(process.stdout, 'write').mockImplementation(chunk => {
@@ -101,6 +87,7 @@ it('sets ft up for one person, copying a shared config', async () => {
     await init('0.2.0', { user: true, from: shared })
 
     expect(existsSync(join(root, 'config/ft/.ft/lock.json'))).toBe(true)
+    expect(await readFile(join(root, 'config/ft/.ft/schema.json'), 'utf8')).toBe(SCHEMA)
     expect(existsSync(join(root, 'config/ft/.ft/ft'))).toBe(false)
     expect(JSON.parse(await readFile(join(root, 'config/ft/.ft.json'), 'utf8')).$schema).toBe(
         './.ft/schema.json',
@@ -120,22 +107,4 @@ it('spells the npm script with -- so ft keeps its own flags', async () => {
     await init('0.2.0', {})
 
     expect(output).toMatch(/Run as +npm run ft --/)
-})
-
-it('reads the release the installer downloaded instead of calling gh', async () => {
-    const downloaded = join(root, 'downloaded')
-
-    await mkdir(downloaded)
-    await Promise.all(
-        Object.entries(assets).map(([name, text]) => writeFile(join(downloaded, name), text)),
-    )
-
-    for (const name of Object.keys(assets)) {
-        delete assets[name]
-    }
-
-    vi.stubEnv('FT_RELEASE_DIR', downloaded)
-    await init('0.2.0', { user: true })
-
-    expect(existsSync(join(root, 'config/ft/.ft/schema.json'))).toBe(true)
 })

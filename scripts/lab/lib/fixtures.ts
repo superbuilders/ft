@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { fakeGh } from '../../../shim/tests/fakes/gh'
 import { PI_SHA256, PI_VERSION, TOOL_RELEASES } from '../../../src/pi/runtime/constants'
 import { installArchive } from '../../../src/system/install/install'
 import { digest, labChecksums } from './build'
@@ -81,9 +82,7 @@ export async function archiveServer(
 
         if (!existsSync(path)) {
             await fetchArchive(asset, directory)
-        }
-
-        if ((await digest(path)) !== asset.sha256) {
+        } else if ((await digest(path)) !== asset.sha256) {
             throw new PrerequisiteError(`Runtime archive checksum mismatch: ${path}`)
         }
     }
@@ -210,9 +209,7 @@ export async function configure(context: Context, build: Build, gateway?: string
 }
 
 /**
- * Install the shim tests' gh double, generalized only for content-identified versions.
- * Its substituted interface is gh auth status/release view/release download;
- * shim/ft.test.ts and the real-release scenario are the backstops.
+ * Install the shared gh double with stdout downloads and an interruption checkpoint.
  * @param context - scratch bin, calls and project
  * @returns completion of fixture creation
  */
@@ -225,40 +222,7 @@ export async function scratchFixtures(context: Context): Promise<void> {
     )
     await writeFile(
         join(context.directory, 'bin', 'gh'),
-        `#!/bin/sh
-printf '%s\\n' "$*" >> "$FAKE_CALLS"
-case "$1 $2" in
-    'auth status') exit 0 ;;
-    'release view') printf '{"tagName":"v%s"}\\n' "$FAKE_VERSION"; exit 0 ;;
-    'release download') ;;
-    *) echo 'unexpected gh command' >&2; exit 9 ;;
-esac
-shift 2
-patterns=
-destination=
-while [ "$#" -gt 0 ]; do
-    case $1 in
-        -p) patterns="$patterns $2"; shift 2 ;;
-        -D) destination=$2; shift 2 ;;
-        -O) [ "$2" = - ] || exit 9; destination=-; shift 2 ;;
-        -R) [ "$2" = superbuilders/ft ] || exit 9; shift 2 ;;
-        "v$FAKE_VERSION") shift ;;
-        *) exit 9 ;;
-    esac
-done
-for asset in $patterns; do
-    if [ "\${LAB_DOWNLOAD_CHECKPOINT:-}" != '' ]; then
-        printf partial > "$destination/$asset"
-        printf '%s\\n' "$$" > "$LAB_DOWNLOAD_CHECKPOINT"
-        while :; do :; done
-    fi
-    if [ "$destination" = - ]; then
-        cat "$FAKE_FIXTURES/$asset" || exit 1
-    else
-        cat "$FAKE_FIXTURES/$asset" > "$destination/$asset" || exit 1
-    fi
-done
-`,
+        fakeGh({ stdout: true, checkpoint: true }),
         { mode: 0o755 },
     )
     context.env.E2E_SECRET = DUMMY_KEY

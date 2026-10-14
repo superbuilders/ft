@@ -94,8 +94,7 @@ gh_call() {
 if [ "$#" -eq 1 ]; then
     version=${1#v}
 else
-    gh_call release view -R superbuilders/ft --json tagName >"$stage/release.json"
-    tag=$(sed -n 's/.*"tagName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$stage/release.json")
+    tag=$(gh_call release view -R superbuilders/ft --json tagName -q .tagName) || exit $?
     case $tag in
         v*) version=${tag#v} ;;
         *) fail 2 'latest release has an invalid tag' ;;

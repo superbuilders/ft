@@ -11,7 +11,6 @@ import { pin } from './pin'
 
 const SCHEMA = '{"title":".ft.json"}\n'
 const SHIM = '#!/bin/sh\n'
-const assets: Record<string, string> = {}
 let root: string
 
 /**
@@ -25,41 +24,32 @@ function sha(text: string): string {
 
 vi.mock('../../system/process/subprocess', () => ({
     /**
-     * Act as gh: the newest tag for release view, else every -p asset into the -D folder,
-     * failing on a missing one.
-     * @param argv - the gh command line
-     * @returns gh's empty stdout
+     * Supply the newest tag; FT_RELEASE_DIR serves all release assets.
+     * @returns the latest release tag
      */
-    commandOutput: async (argv: string[]) => {
-        if (argv.includes('view')) {
-            return 'v0.3.0\n'
-        }
-
-        const { writeFile: write } = await import('node:fs/promises')
-        const folder = argv[argv.indexOf('-D') + 1] ?? ''
-        const names = argv.flatMap((arg, index) => (arg === '-p' ? [argv[index + 1] ?? ''] : []))
-
-        if (names.some(name => assets[name] === undefined)) {
-            throw new Error('gh failed')
-        }
-
-        await Promise.all(names.map(name => write(join(folder, name), assets[name] ?? '')))
-
-        return ''
-    },
+    commandOutput: async () => 'v0.3.0\n',
 }))
 
 /**
- * Serve one release's assets in place of gh.
+ * Write one release's assets into the local release folder.
  * @param schemaDigest - the digest the manifest lists for schema.json
+ * @returns completion of fixture creation
  */
-function release(schemaDigest: string): void {
-    Object.assign(assets, { 'schema.json': SCHEMA, 'ft-shim': SHIM })
-    assets.SHA256SUMS = `${[
+async function release(schemaDigest: string): Promise<void> {
+    const sums = `${[
         ...TARGETS.map((target, index) => `${String(index).repeat(64)}  ft-${target}`),
         `${schemaDigest}  schema.json`,
         `${sha(SHIM)}  ft-shim`,
     ].join('\n')}\n`
+    const directory = join(root, 'release')
+
+    await mkdir(directory)
+    await Promise.all(
+        Object.entries({ 'schema.json': SCHEMA, 'ft-shim': SHIM, SHA256SUMS: sums }).map(
+            ([name, text]) => writeFile(join(directory, name), text),
+        ),
+    )
+    vi.stubEnv('FT_RELEASE_DIR', directory)
 }
 
 beforeEach(async () => {
@@ -78,7 +68,7 @@ afterEach(async () => {
 })
 
 it("writes the release's checksums and its checked schema beside the repository's config", async () => {
-    release(sha(SCHEMA))
+    await release(sha(SCHEMA))
     await writeFile(join(root, '.ft.json'), '{}\n')
     await pin('0.2.0', {})
 
@@ -91,7 +81,7 @@ it("writes the release's checksums and its checked schema beside the repository'
 })
 
 it('pins the personal config with --user, and leaves the repository alone', async () => {
-    release(sha(SCHEMA))
+    await release(sha(SCHEMA))
     await mkdir(join(root, 'config/ft'), { recursive: true })
     await writeFile(join(root, 'config/ft/.ft.json'), '{}\n')
     await pin('0.2.0', { user: true })
@@ -104,13 +94,13 @@ it.each([
     [{}, 'set this repository up with ft init'],
     [{ user: true }, 'set it up with ft init --user'],
 ])('refuses a scope that is not set up (%o)', async (options, message) => {
-    release(sha(SCHEMA))
+    await release(sha(SCHEMA))
     await expect(pin('0.2.0', options)).rejects.toThrow(message)
     expect(existsSync(join(root, '.ft'))).toBe(false)
 })
 
 it('points a bare pin at --user where the personal config is the one in use', async () => {
-    release(sha(SCHEMA))
+    await release(sha(SCHEMA))
     await mkdir(join(root, 'config/ft'), { recursive: true })
     await writeFile(join(root, 'config/ft/.ft.json'), '{}\n')
     await expect(pin('0.2.0', {})).rejects.toThrow('pin that with ft pin --user 0.2.0')
@@ -118,7 +108,7 @@ it('points a bare pin at --user where the personal config is the one in use', as
 })
 
 it('pins the newest release when no version is given', async () => {
-    release(sha(SCHEMA))
+    await release(sha(SCHEMA))
     await writeFile(join(root, '.ft.json'), '{}\n')
     await pin(undefined, {})
 
@@ -126,7 +116,7 @@ it('pins the newest release when no version is given', async () => {
 })
 
 it('refuses a schema that does not match the release manifest', async () => {
-    release('f'.repeat(64))
+    await release('f'.repeat(64))
     await writeFile(join(root, '.ft.json'), '{}\n')
     await expect(pin('0.2.0', {})).rejects.toThrow('schema.json does not match its checksum')
 })
