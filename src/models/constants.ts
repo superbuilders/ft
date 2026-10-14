@@ -30,6 +30,15 @@ export const DEFAULT_COMPACT_AT = 400_000
 /** The context window Pi assumes for a model whose entry gives none. */
 export const PI_DEFAULT_CONTEXT_WINDOW = 128_000
 
+/** The latest conversation Pi keeps word for word when it compacts, in tokens. */
+const PI_KEEP_RECENT_TOKENS = 20_000
+
+/**
+ * The lowest compaction point ft accepts: twice what Pi keeps, so a compacted run has as much room
+ * again to work before it compacts next, instead of compacting every turn.
+ */
+export const MIN_COMPACT_AT = 2 * PI_KEEP_RECENT_TOKENS
+
 /** The room Pi keeps free for the model's reply by default; ft never compacts later than Pi would. */
 export const PI_DEFAULT_RESERVE_TOKENS = 16_384
 

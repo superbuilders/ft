@@ -1,6 +1,6 @@
 import { Type } from 'typebox'
 
-import { KNOWN_APIS, THINKING_LEVELS } from './constants'
+import { KNOWN_APIS, MIN_COMPACT_AT, THINKING_LEVELS } from './constants'
 
 const EnvSchema = Type.Object(
     { env: Type.String({ pattern: '^[A-Za-z_][A-Za-z0-9_]*$' }) },
@@ -49,9 +49,8 @@ export const ModelSchema = Type.Object(
         contextWindow: Type.Optional(Type.Number()),
         compactAt: Type.Optional(
             Type.Integer({
-                minimum: 1,
-                description:
-                    'Tokens of conversation at which Pi summarizes older turns to keep the run going (default 400000). Pi keeps the latest 20000 tokens and the summary, so a value near that compacts almost every turn. ft never compacts later than the context window allows.',
+                minimum: MIN_COMPACT_AT,
+                description: `Tokens of conversation at which Pi summarizes older turns to keep the run going (default 400000, at least ${MIN_COMPACT_AT}: Pi keeps the latest 20000 tokens word for word, so a lower value would compact every turn). ft never compacts later than the context window allows.`,
             }),
         ),
         maxTokens: Type.Optional(Type.Number()),

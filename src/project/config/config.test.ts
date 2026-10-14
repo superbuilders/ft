@@ -160,6 +160,15 @@ describe('config', () => {
             },
             'more than once',
         ],
+        [
+            {
+                ...valid,
+                providers: {
+                    gateway: { ...gateway, models: [{ id: 'model-a', compactAt: 8000 }] },
+                },
+            },
+            'compactAt',
+        ],
         [{ ...valid, roles: { code: { model: 'model-a' } } }, 'provider/model'],
         [{ ...valid, roles: { code: { model: 'gateway/missing' } } }, 'has no model missing'],
         [
