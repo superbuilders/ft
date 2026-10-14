@@ -25,6 +25,8 @@ export interface JudgeState {
     lastText: string
     /** Last assistant errorMessage, if present. */
     modelError: string | null
+    /** Whether Pi's own detector reads the last assistant message as a context-window overflow. */
+    contextOverflow: boolean
     /** First framing or event-shape failure, if any. */
     protocolError: string | null
     /** Number of scheduled assistant and summarization retries. */

@@ -79,6 +79,7 @@ describe('the report', () => {
         const status = statusWith({
             outcome: 'model_error',
             error: "This model's maximum context length is 272000 tokens",
+            contextOverflow: true,
             answer: null,
             partial: '/repo/.ft/runs/review-k3x2/partial.md',
         })
@@ -99,7 +100,7 @@ describe('the report', () => {
         })
 
         expect(renderReport(status, 'model_error', null)).toContain(
-            'Next: The provider rejected the key. Check providers.gateway.key in the config',
+            'Next: The provider refused the request: the key in providers.gateway.key is wrong, or it may not use this model.',
         )
         expect(
             renderReport(

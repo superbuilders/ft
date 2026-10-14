@@ -3,7 +3,7 @@ import { isAbsolute, relative } from 'node:path'
 import { commandName } from '../../system/process/self'
 import { PLAIN } from '../../system/terminal/style'
 import { EXIT_CODES, INLINE_ANSWER_MAX, NEXT_STEPS } from './constants'
-import { AUTH_REJECTED, CONTEXT_OVERFLOW } from './patterns'
+import { AUTH_REJECTED } from './patterns'
 import { readKept } from './store'
 
 import type { Style } from '../../system/terminal/types'
@@ -246,7 +246,7 @@ function stepKey(
         return state
     }
 
-    if (CONTEXT_OVERFLOW.test(status.error ?? '')) {
+    if (status.contextOverflow) {
         return 'context_overflow'
     }
 

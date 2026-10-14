@@ -1,7 +1,11 @@
 import { StringDecoder } from 'node:string_decoder'
 
+import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
+
 import { emptyProgress } from '../../project/runs/store'
 import { track } from './progress'
+
+import type { AssistantMessage } from '@earendil-works/pi-ai'
 
 import type { Progress } from '../../project/runs/types'
 import type { JudgeState, Verdict } from './types'
@@ -21,6 +25,7 @@ export function createJudge(progress: Progress = emptyProgress()): JudgeState {
         text: '',
         lastText: '',
         modelError: null,
+        contextOverflow: false,
         protocolError: null,
         retryCount: 0,
         compactionCount: 0,
@@ -106,6 +111,8 @@ function record(state: JudgeState, line: string): boolean {
                 state.lastText = state.text.trim() ? state.text : state.lastText
                 state.modelError =
                     typeof message.errorMessage === 'string' ? message.errorMessage : null
+                /* Pi keeps one pattern list per provider's wording; ft reuses it rather than keep its own. */
+                state.contextOverflow = isContextOverflow(message as unknown as AssistantMessage)
             }
         }
 

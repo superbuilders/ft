@@ -23,6 +23,7 @@ describe('recorded Pi 1.1.0 protocol', () => {
         parser.end()
         expect(judgeOutcome(state, 0, null)).toBe(outcome)
         expect(state.retryCount).toBe(retries)
+        expect(state.contextOverflow).toBe(name === 'overflow')
 
         if (outcome === 'success') {
             expect(state.text).toBe('Verified café\u2028answer')

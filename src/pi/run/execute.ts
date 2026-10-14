@@ -217,6 +217,7 @@ export async function execute(dir: string): Promise<Status> {
         retryCount: state.retryCount,
         compactionCount: state.compactionCount,
         toolErrorCount: state.toolErrorCount,
+        contextOverflow: state.contextOverflow,
     }
 
     if (interrupted) {

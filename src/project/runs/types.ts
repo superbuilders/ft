@@ -126,6 +126,8 @@ export interface Status extends Progress {
     durationMs: number
     /** Why the run failed; null while running and on success. */
     error: string | null
+    /** Whether the failure was the model's context window overflowing; absent in runs from before ft recorded it. */
+    contextOverflow?: boolean
     /** Absolute path of the answer; null unless the run succeeded. */
     answer: string | null
     /** Absolute path of the last unfinished answer text kept from a failed run; null otherwise. */
