@@ -1,7 +1,7 @@
 import { appendFile } from 'node:fs/promises'
 
 import { messageText } from '../events/progress'
-import { STEER_ID_PREFIX, STEER_MAX_CHARS } from './constants'
+import { STEER_ID_PREFIX, STEER_MAX_CHARS, STILL_STARTING } from './constants'
 
 import type { PiControl } from '../process/types'
 import type { SteerReceipt, SteerRecord, SteerState } from './types'
@@ -148,14 +148,18 @@ export function createSteering(log: string): Steering {
             },
         },
         submit(message) {
-            if (!open || !write) {
-                return Promise.resolve({ state: 'refused', reason: 'the run is not taking steers' })
+            if (!open) {
+                return Promise.resolve({ state: 'refused', reason: 'the run has just finished' })
+            }
+
+            if (!write) {
+                return Promise.resolve({ state: 'refused', reason: STILL_STARTING })
             }
 
             if (!message.trim() || message.length > STEER_MAX_CHARS) {
                 return Promise.resolve({
                     state: 'refused',
-                    reason: `a steer needs 1 to ${STEER_MAX_CHARS} characters`,
+                    reason: `the message must be 1 to ${STEER_MAX_CHARS} characters`,
                 })
             }
 

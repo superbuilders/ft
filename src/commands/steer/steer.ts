@@ -1,5 +1,6 @@
 import { hostname } from 'node:os'
 
+import { STILL_STARTING } from '../../pi/run/constants'
 import { sendSteer } from '../../pi/run/steering'
 import { projectRoot } from '../../project/config/config'
 import { findRuns, stateOf } from '../../project/runs/store'
@@ -36,13 +37,13 @@ export async function steer(
     } else if (status.host !== hostname()) {
         receipt = { state: 'refused', reason: `the run is on ${status.host}; steer it there` }
     } else if (!status.control) {
-        receipt = { state: 'refused', reason: 'the run is not taking steers yet; try again' }
+        receipt = { state: 'refused', reason: STILL_STARTING }
     } else {
         const text = message === '-' ? await new Response(Bun.stdin.stream()).text() : message
 
         receipt = await sendSteer(status.control, text).catch(() => ({
             state: 'refused' as const,
-            reason: 'the run stopped taking steers',
+            reason: 'the run has just finished',
         }))
     }
 

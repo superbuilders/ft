@@ -112,7 +112,7 @@ it('marks steers still on their way undelivered once Pi settles, and refuses lat
     })
     expect(await steering.submit('second')).toEqual({
         state: 'refused',
-        reason: 'the run is not taking steers',
+        reason: 'the run has just finished',
     })
     await steering.close('done')
 

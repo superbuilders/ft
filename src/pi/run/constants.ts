@@ -9,6 +9,9 @@ export const CONTROL_SOCKET = 'control.sock'
 /** Longest steering message accepted, in characters; a longer instruction belongs in a new brief. */
 export const STEER_MAX_CHARS = 20_000
 
+/** Why a run just starting refuses a steer: Pi has not taken its brief yet. */
+export const STILL_STARTING = 'the run is still starting; try again in a few seconds'
+
 /** Pi's command id for one steer, so its response is matched to the steer. */
 export const STEER_ID_PREFIX = 'steer-'
 
