@@ -36,7 +36,7 @@ async function setup() {
          * Read the log once every record is written.
          * @returns its records
          */
-        async records(): Promise<SteerRecord[]> {
+        async records(this: void): Promise<SteerRecord[]> {
             const text = await readFile(log, 'utf8').catch(() => '')
 
             return text

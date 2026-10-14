@@ -83,7 +83,7 @@ export async function runPi(input: {
         }
 
         try {
-            child.stdin.write(line)
+            void child.stdin.write(line)
             void Promise.resolve(child.stdin.flush()).catch(() => {})
         } catch {
             /* Pi may close stdin early; its exit and protocol still determine the verdict. */
