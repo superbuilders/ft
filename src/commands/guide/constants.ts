@@ -17,7 +17,7 @@ ft also tells the delegate that it works for another agent, that nobody can answ
 
 \`ft run\` waits, then prints a report: the verdict, the tools used and files written, what to do next if it failed, and where the answer is saved with its length in lines. Read the answer file when you need it; \`ft show <id>\` prints it too. Exit code 0 means the model returned a final answer, not that the answer is right.
 
-Options: \`--name review\` (the run id's prefix), \`--role <role>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--deadline <seconds>\`, \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--json\`.
+Options: \`--name review\` (the run id's prefix), \`--role <role>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--cwd <dir>\` (the folder the run works in, such as a worktree; the run is still recorded and watched from here), \`--deadline <seconds>\`, \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--json\`.
 
 ## Run several at once, or anything long
 

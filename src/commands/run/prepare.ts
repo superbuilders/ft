@@ -1,4 +1,4 @@
-import { readFile, rm } from 'node:fs/promises'
+import { readFile, rm, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { chooseModel } from '../../pi/run/model'
@@ -53,6 +53,22 @@ async function readBrief(brief: string): Promise<string> {
 }
 
 /**
+ * The folder a run works in: the caller's, or the one --cwd names.
+ * @param dir - the --cwd value, relative to the working directory
+ * @returns its absolute path
+ */
+async function runFolder(dir: string | undefined): Promise<string> {
+    const folder = resolve(dir ?? '.')
+    const found = await stat(folder).catch(() => null)
+
+    if (!found?.isDirectory()) {
+        throw new Error(`--cwd ${dir} is not a folder`)
+    }
+
+    return folder
+}
+
+/**
  * Check everything that can be checked before work starts, for every brief, then create one run
  * per brief: its folder, its request, its brief and a first status. A mistake in any brief leaves
  * no run behind. Any file at --out goes first, so that path holds an answer only when this run
@@ -76,7 +92,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
     const deadline = deadlineSeconds(options.deadline)
     const request: Request = {
         profile: options.profile ?? 'read',
-        cwd: process.cwd(),
+        cwd: await runFolder(options.cwd),
         ...(options.role ? { role: options.role } : {}),
         ...(options.model ? { model: options.model } : {}),
         ...(options.thinking ? { thinking: options.thinking } : {}),

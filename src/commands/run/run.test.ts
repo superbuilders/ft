@@ -52,6 +52,11 @@ it('prints the refusal as JSON when asked', async () => {
 it.each([
     ['--name', { name: 'review' }, '--name and --out work only with a single brief'],
     ['a missing brief', {}, 'gone.md'],
+    [
+        'a --cwd that is not a folder',
+        { cwd: '/no/such/folder' },
+        '--cwd /no/such/folder is not a folder',
+    ],
 ])('starts no run when one of several briefs fails (%s)', async (_case, options, error) => {
     const root = await mkdtemp(join(tmpdir(), 'ft-start-'))
     const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
