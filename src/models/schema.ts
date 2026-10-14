@@ -47,6 +47,13 @@ export const ModelSchema = Type.Object(
         cost: Type.Optional(PiObject),
         promptCache: Type.Optional(PiObject),
         contextWindow: Type.Optional(Type.Number()),
+        compactAt: Type.Optional(
+            Type.Integer({
+                minimum: 1,
+                description:
+                    'Tokens of conversation at which Pi summarizes older turns to keep the run going (default 400000). Pi keeps the latest 20000 tokens and the summary, so a value near that compacts almost every turn. ft never compacts later than the context window allows.',
+            }),
+        ),
         maxTokens: Type.Optional(Type.Number()),
         samplingParams: Type.Optional(PiObject),
         samplingParamsByThinkingLevel: Type.Optional(PiObject),

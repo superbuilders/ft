@@ -6,7 +6,7 @@ import { expect, it } from 'vitest'
 
 import { prepareAgent } from './agent'
 
-it("writes only the run's provider, with ft's key command and without ft-only fields", async () => {
+it("writes only the run's provider, with ft's key command, without ft-only fields, and the compaction reserve", async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ft-agent-'))
 
     try {
@@ -18,11 +18,12 @@ it("writes only the run's provider, with ft's key command and without ft-only fi
                     key: { env: 'GATEWAY_KEY' },
                     baseUrl: { env: 'GATEWAY_URL' },
                     api: 'openai-completions',
-                    models: [{ id: 'search', adapter: 'sonar', maxTokens: 8192 }],
+                    models: [{ id: 'search', adapter: 'sonar', compactAt: 1000, maxTokens: 8192 }],
                 },
                 baseUrl: 'http://127.0.0.1:1234',
             },
             'context',
+            650_000,
         )
         const models = JSON.parse(await readFile(join(agent, 'models.json'), 'utf8'))
 
@@ -37,6 +38,9 @@ it("writes only the run's provider, with ft's key command and without ft-only fi
             },
         })
         expect(JSON.parse(await readFile(join(agent, 'auth.json'), 'utf8'))).toEqual({})
+        expect(JSON.parse(await readFile(join(agent, 'settings.json'), 'utf8')).compaction).toEqual(
+            { reserveTokens: 650_000 },
+        )
     } finally {
         await rm(dir, { recursive: true, force: true })
     }

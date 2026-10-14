@@ -4,6 +4,7 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { finished } from 'node:stream/promises'
 
+import { compactionReserve } from '../../models/models'
 import { loadConfig } from '../../project/config/config'
 import { collectContext } from '../../project/context/context'
 import { getKey } from '../../project/key/key'
@@ -83,6 +84,7 @@ async function drive(
             scratch,
             { id: selected.provider, provider, ...(target ? { baseUrl: target } : {}) },
             context,
+            compactionReserve(selected, provider),
         )
         const socket = join(scratch, 'key.sock')
 

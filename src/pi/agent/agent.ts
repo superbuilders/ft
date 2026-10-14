@@ -28,7 +28,7 @@ function piProvider(run: AgentProvider): Record<string, unknown> {
         ...fields,
         ...(run.baseUrl ? { baseUrl: run.baseUrl } : {}),
         apiKey: `!${[...selfCommand(), 'key', run.id].map(quote).join(' ')}`,
-        ...(models ? { models: models.map(({ adapter, ...model }) => model) } : {}),
+        ...(models ? { models: models.map(({ adapter, compactAt, ...model }) => model) } : {}),
     }
 }
 
@@ -37,12 +37,14 @@ function piProvider(run: AgentProvider): Record<string, unknown> {
  * @param dir - per-run directory
  * @param run - the run's provider and the URL Pi should send its requests to
  * @param context - bounded project instructions
+ * @param reserveTokens - context Pi keeps free, which sets when it compacts
  * @returns private agent and temp paths
  */
 export async function prepareAgent(
     dir: string,
     run: AgentProvider,
     context: string,
+    reserveTokens: number,
 ): Promise<{ agent: string; tmp: string; contextPath: string }> {
     const agent = join(dir, 'agent')
     const tmp = join(dir, 'tmp')
@@ -51,7 +53,7 @@ export async function prepareAgent(
     await mkdir(tmp, { mode: 0o700 })
 
     for (const [name, contents] of Object.entries({
-        'settings.json': FROZEN_SETTINGS,
+        'settings.json': { ...FROZEN_SETTINGS, compaction: { reserveTokens } },
         'models.json': { providers: { [run.id]: piProvider(run) } },
         'auth.json': {},
         'models-store.json': {},

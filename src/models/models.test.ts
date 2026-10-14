@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { findModel, resolveRole } from './models'
+import { builtinContextWindow } from './catalog'
+import { compactionReserve, findModel, resolveRole } from './models'
 
 import type { Provider } from './types'
 
@@ -36,6 +37,48 @@ describe('findModel', () => {
             expect(() => findModel(providers, ref)).toThrow()
         },
     )
+})
+
+describe('compactionReserve', () => {
+    const custom: Provider = { key: { env: 'KEY' }, api: 'openai-completions' }
+
+    it('turns the 400000-token default into the reserve Pi takes: the window minus it', () => {
+        const selected = { provider: 'p', model: 'm', entry: { id: 'm', contextWindow: 1_050_000 } }
+
+        expect(compactionReserve(selected, custom)).toBe(650_000)
+    })
+
+    it("uses the entry's compactAt", () => {
+        const selected = {
+            provider: 'p',
+            model: 'm',
+            entry: { id: 'm', contextWindow: 1_000_000, compactAt: 250_000 },
+        }
+
+        expect(compactionReserve(selected, custom)).toBe(750_000)
+    })
+
+    it('never compacts later than Pi would on a window smaller than the compaction point', () => {
+        const selected = { provider: 'p', model: 'm', entry: { id: 'm', contextWindow: 200_000 } }
+
+        expect(compactionReserve(selected, custom)).toBe(16_384)
+    })
+
+    it("finds the window in the provider's overrides, then Pi's catalog, then Pi's default", () => {
+        const window = builtinContextWindow('groq', 'llama-3.1-8b-instant') ?? 0
+
+        expect(
+            compactionReserve(
+                { provider: 'p', model: 'm' },
+                { ...custom, modelOverrides: { m: { contextWindow: 900_000 } } },
+            ),
+        ).toBe(500_000)
+        expect(compactionReserve({ provider: 'groq', model: 'llama-3.1-8b-instant' }, custom)).toBe(
+            Math.max(16_384, window - 400_000),
+        )
+        expect(window).toBeGreaterThan(0)
+        expect(compactionReserve({ provider: 'p', model: 'm' }, custom)).toBe(16_384)
+    })
 })
 
 describe('resolveRole', () => {

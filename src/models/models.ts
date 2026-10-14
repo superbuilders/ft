@@ -1,5 +1,12 @@
-import { isBuiltinModel, isBuiltinProvider } from './catalog'
-import { DEFAULT_ROLE, EXAMPLE_CONFIG, THINKING_LEVELS } from './constants'
+import { builtinContextWindow, isBuiltinModel, isBuiltinProvider } from './catalog'
+import {
+    DEFAULT_COMPACT_AT,
+    DEFAULT_ROLE,
+    EXAMPLE_CONFIG,
+    PI_DEFAULT_CONTEXT_WINDOW,
+    PI_DEFAULT_RESERVE_TOKENS,
+    THINKING_LEVELS,
+} from './constants'
 
 import type { Role, Provider, Selection, Thinking } from './types'
 
@@ -54,6 +61,27 @@ export function findModel(providers: Record<string, Provider>, ref: string): Sel
     }
 
     return { provider, model, ...(entry ? { entry } : {}) }
+}
+
+/**
+ * The room Pi keeps free in the context window, which sets when it compacts: Pi summarizes once the
+ * conversation outgrows the window minus this reserve, so compacting at N tokens means a reserve of
+ * window - N. The window is looked up where Pi looks: the model's entry, the provider's overrides,
+ * then Pi's catalog.
+ * @param selected - the run's model
+ * @param provider - the model's provider config
+ * @returns Pi's reserveTokens setting
+ */
+export function compactionReserve(selected: Selection, provider: Provider): number {
+    const override = provider.modelOverrides?.[selected.model]?.contextWindow
+    const window =
+        selected.entry?.contextWindow ??
+        (typeof override === 'number' ? override : undefined) ??
+        builtinContextWindow(selected.provider, selected.model) ??
+        PI_DEFAULT_CONTEXT_WINDOW
+    const compactAt = selected.entry?.compactAt ?? DEFAULT_COMPACT_AT
+
+    return Math.max(PI_DEFAULT_RESERVE_TOKENS, window - compactAt)
 }
 
 /**

@@ -24,6 +24,15 @@ export const KNOWN_APIS = [
     'pi-messages',
 ] as const satisfies readonly KnownApi[]
 
+/** How long a run's conversation grows, in tokens, before Pi summarizes its older turns. */
+export const DEFAULT_COMPACT_AT = 400_000
+
+/** The context window Pi assumes for a model whose entry gives none. */
+export const PI_DEFAULT_CONTEXT_WINDOW = 128_000
+
+/** The room Pi keeps free for the model's reply by default; ft never compacts later than Pi would. */
+export const PI_DEFAULT_RESERVE_TOKENS = 16_384
+
 /** The role a run uses when the caller names neither a role nor a model. */
 export const DEFAULT_ROLE = 'code'
 
