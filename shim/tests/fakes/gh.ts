@@ -66,6 +66,10 @@ ${stdout ? '        -O) [ "$2" = - ] || exit 9; destination=-; shift 2 ;;\n' : '
         *) exit 9 ;;
     esac
 done
+if [ "\${FAKE_BLOCK:-}" = yes ]; then
+    # No child process: signal tests must not leave a sleeper behind.
+    while :; do :; done
+fi
 if [ "$command" = view ]; then
     if [ "$query" = yes ]; then
         printf 'v%s\\n' "$version"
@@ -75,10 +79,6 @@ if [ "$command" = view ]; then
     exit 0
 fi
 if [ -n "\${FAKE_DELAY:-}" ]; then sleep "$FAKE_DELAY"; fi
-if [ "\${FAKE_BLOCK:-}" = yes ]; then
-    # No child process: signal tests must not leave a sleeper behind.
-    while :; do :; done
-fi
 for asset in $patterns; do
 ${
     checkpoint

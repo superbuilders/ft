@@ -660,6 +660,19 @@ describe.each(shells)('shim via %s', shell => {
         expectClean()
     })
 
+    it('stops a bootstrap while gh is still looking up the latest release', async () => {
+        const { child, result } = start(shell, ['pin', '0.2.0'], { FAKE_BLOCK: 'yes' })
+
+        await waitFor(() => ghCalls().length === 1)
+        child.kill('SIGTERM')
+
+        const finished = await result
+
+        expect(finished.code).toBe(143)
+        expect(existsSync(finalPath())).toBe(false)
+        expectClean()
+    })
+
     it.each(['missing owner', 'live pid', 'another host'])(
         'waits for a lock with %s without stealing it',
         async holder => {

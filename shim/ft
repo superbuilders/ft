@@ -180,7 +180,9 @@ gh_call() {
 if [ "$bootstrap" = yes ]; then
     require_gh
     new_stage
-    tag=$(gh_call release view -R superbuilders/ft --json tagName -q .tagName) || exit $?
+    # Not $(gh_call ...): a subshell would hide active_pid from cleanup and hold off the TERM trap.
+    gh_call release view -R superbuilders/ft --json tagName -q .tagName >"$stage/tag" || exit $?
+    tag=$(cat "$stage/tag")
     case $tag in
         v*) version=${tag#v} ;;
         *) fail 2 'latest release has an invalid tag' ;;
@@ -253,7 +255,7 @@ if [ ! -f "$runner/ft" ]; then
     smoke=$(cat "$stage/smoke.stdout") || fail 1 'cannot read runner version check result'
     [ "$smoke" = "$version" ] || fail 1 'runner version check failed (unexpected version)'
     mv "$stage/ft-$target" "$stage/ft" || fail 1 'cannot prepare runner'
-    rm -f "$stage/gh.stderr" "$stage/smoke.stdout" "$stage/smoke.stderr" "$stage/SHA256SUMS" || fail 1 'cannot clean staging metadata'
+    rm -f "$stage/gh.stderr" "$stage/smoke.stdout" "$stage/smoke.stderr" "$stage/SHA256SUMS" "$stage/tag" || fail 1 'cannot clean staging metadata'
     mkdir -p "$cache/runner/$version" || fail 1 'cannot create cache directories'
     mv "$stage" "$runner" || fail 1 'cannot publish runner'
     stage=
