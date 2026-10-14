@@ -66,18 +66,20 @@ export function findModel(providers: Record<string, Provider>, ref: string): Sel
 /**
  * The room Pi keeps free in the context window, which sets when it compacts: Pi summarizes once the
  * conversation outgrows the window minus this reserve, so compacting at N tokens means a reserve of
- * window - N. The window is looked up where Pi looks: the model's entry, the provider's overrides,
- * then Pi's catalog.
+ * window - N. The window is the one Pi resolves: the provider's override wins; otherwise an entry's
+ * own window, which Pi defaults to 128000 rather than the catalog's; otherwise the catalog's.
  * @param selected - the run's model
  * @param provider - the model's provider config
  * @returns Pi's reserveTokens setting
  */
 export function compactionReserve(selected: Selection, provider: Provider): number {
     const override = provider.modelOverrides?.[selected.model]?.contextWindow
+    const configured = selected.entry
+        ? selected.entry.contextWindow
+        : builtinContextWindow(selected.provider, selected.model)
     const window =
-        selected.entry?.contextWindow ??
         (typeof override === 'number' ? override : undefined) ??
-        builtinContextWindow(selected.provider, selected.model) ??
+        configured ??
         PI_DEFAULT_CONTEXT_WINDOW
     const compactAt = selected.entry?.compactAt ?? DEFAULT_COMPACT_AT
 

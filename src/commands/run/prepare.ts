@@ -58,7 +58,11 @@ async function readBrief(brief: string): Promise<string> {
  * @returns its absolute path
  */
 async function runFolder(dir: string | undefined): Promise<string> {
-    const folder = resolve(dir ?? '.')
+    if (dir === undefined) {
+        return process.cwd()
+    }
+
+    const folder = resolve(dir)
     const found = await stat(folder).catch(() => null)
 
     if (!found?.isDirectory()) {

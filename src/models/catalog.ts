@@ -18,11 +18,15 @@ export function isBuiltinProvider(id: string): id is KnownProvider {
  * @returns the window in tokens, or undefined when the catalog does not list the model
  */
 export function builtinContextWindow(provider: string, model: string): number | undefined {
-    if (!isBuiltinProvider(provider) || !isBuiltinModel(provider, model)) {
+    if (!isBuiltinProvider(provider)) {
         return undefined
     }
 
-    return (getBuiltinModel(provider, model as never) as { contextWindow?: number }).contextWindow
+    const entry = getBuiltinModel(provider, model as never) as
+        | { id?: string; contextWindow?: number }
+        | undefined
+
+    return entry?.id === model ? entry.contextWindow : undefined
 }
 
 /**

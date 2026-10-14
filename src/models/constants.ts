@@ -31,7 +31,7 @@ export const DEFAULT_COMPACT_AT = 400_000
 export const PI_DEFAULT_CONTEXT_WINDOW = 128_000
 
 /** The latest conversation Pi keeps word for word when it compacts, in tokens. */
-const PI_KEEP_RECENT_TOKENS = 20_000
+export const PI_KEEP_RECENT_TOKENS = 20_000
 
 /**
  * The lowest compaction point ft accepts: twice what Pi keeps, so a compacted run has as much room

@@ -64,6 +64,17 @@ describe('compactionReserve', () => {
         expect(compactionReserve(selected, custom)).toBe(16_384)
     })
 
+    it("lets the provider's override beat the entry's window, as Pi does", () => {
+        const selected = { provider: 'p', model: 'm', entry: { id: 'm', contextWindow: 200_000 } }
+
+        expect(
+            compactionReserve(selected, {
+                ...custom,
+                modelOverrides: { m: { contextWindow: 1_000_000 } },
+            }),
+        ).toBe(600_000)
+    })
+
     it("finds the window in the provider's overrides, then Pi's catalog, then Pi's default", () => {
         const window = builtinContextWindow('groq', 'llama-3.1-8b-instant') ?? 0
 
