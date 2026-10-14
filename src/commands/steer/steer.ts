@@ -36,10 +36,7 @@ export async function steer(
     } else if (status.host !== hostname()) {
         receipt = { state: 'refused', reason: `the run is on ${status.host}; steer it there` }
     } else if (!status.control) {
-        receipt = {
-            state: 'refused',
-            reason: 'the run is not taking steers (it is still starting, or an ft without steering started it)',
-        }
+        receipt = { state: 'refused', reason: 'the run is not taking steers yet; try again' }
     } else {
         const text = message === '-' ? await new Response(Bun.stdin.stream()).text() : message
 
