@@ -132,6 +132,10 @@ export interface Status extends Progress {
     answer: string | null
     /** Absolute path of the last unfinished answer text kept from a failed run; null otherwise. */
     partial: string | null
+    /** The socket `ft steer` talks to, while the run takes steers; absent otherwise. */
+    control?: string
+    /** How many steers reached the model and how many did not; absent when none were sent. */
+    steers?: { delivered: number; undelivered: number }
 }
 
 /**

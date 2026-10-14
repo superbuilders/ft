@@ -77,3 +77,18 @@ it('lists a file only once its write succeeds', () => {
 
     expect(tracker.progress.files).toEqual(['src/kept.ts'])
 })
+
+describe('a run recorded through Pi 1.1.0 in RPC mode and steered twice', () => {
+    it('lists each delivered steer in order, timed from the first message', async () => {
+        const steps = storyOf(await stub('steered'))
+
+        expect(steps.map(step => step.text)).toEqual([
+            'bash: sleep 20; echo slept',
+            'steered: And after that, the word BETA.',
+            'steered: Also end your reply with the word ALPHA.',
+            'read: src/version.ts',
+            expect.stringMatching(/^answered \(\d+ words\)$/),
+        ])
+        expect(steps.every(step => step.at !== null)).toBe(true)
+    })
+})

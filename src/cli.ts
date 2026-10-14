@@ -12,6 +12,7 @@ import { exec, run, start, thinkingHelp } from './commands/run/run'
 import { schema } from './commands/schema/schema'
 import { show } from './commands/show/show'
 import { skill } from './commands/skill/skill'
+import { steer } from './commands/steer/steer'
 import { stop } from './commands/stop/stop'
 import { uninstall } from './commands/uninstall/uninstall'
 import { upgrade } from './commands/upgrade/upgrade'
@@ -91,6 +92,15 @@ program
     .description("Show a run's steps and its answer")
     .option('--json', 'print the run status as JSON')
     .action(show)
+program
+    .command('steer <id> <message>')
+    .description(
+        'Send a running run a message; its model reads it after its current tool calls (- reads stdin)',
+    )
+    .option('--json', 'print the receipt as JSON')
+    .action(async (id: string, message: string, options: { json?: boolean }) => {
+        process.exitCode = await steer(id, message, options)
+    })
 program
     .command('stop <ids...>')
     .description('Cancel one or more runs')

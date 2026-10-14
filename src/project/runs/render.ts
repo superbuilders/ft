@@ -2,7 +2,7 @@ import { isAbsolute, relative } from 'node:path'
 
 import { commandName } from '../../system/process/self'
 import { PLAIN } from '../../system/terminal/style'
-import { EXIT_CODES, INLINE_ANSWER_MAX, NEXT_STEPS } from './constants'
+import { EXIT_CODES, INLINE_ANSWER_MAX, NEXT_STEPS, RUN_FILES } from './constants'
 import { AUTH_REJECTED } from './patterns'
 import { readKept } from './store'
 
@@ -194,25 +194,36 @@ export function headline(status: Status, state: State, style = PLAIN): string {
 }
 
 /**
- * List what the run used and changed.
+ * List what the run used and changed, and the steers it was sent.
  * @param status - run status
- * @returns a sentence, or null when the run called no tools
+ * @returns sentences, or null when the run called no tools and was not steered
  */
 function activityLine(status: Status): string | null {
     const tools = Object.entries(status.tools)
         .toSorted(([, a], [, b]) => b - a)
         .map(([name, calls]) => `${name} ${calls}`)
+    const sentences: string[] = []
 
-    if (tools.length === 0) {
-        return null
+    if (tools.length > 0) {
+        sentences.push(`Tools: ${tools.join(', ')}.`)
     }
 
-    const wrote =
-        status.files.length > 0
-            ? ` Wrote ${status.files.join(', ')}${status.profile === 'write' ? ' (edits made through bash are not listed)' : ''}.`
-            : ''
+    if (status.files.length > 0) {
+        sentences.push(
+            `Wrote ${status.files.join(', ')}${status.profile === 'write' ? ' (edits made through bash are not listed)' : ''}.`,
+        )
+    }
 
-    return `Tools: ${tools.join(', ')}.${wrote}`
+    if (status.steers) {
+        const missed =
+            status.steers.undelivered > 0
+                ? `, ${status.steers.undelivered} not delivered (${RUN_FILES.steers} says why)`
+                : ''
+
+        sentences.push(`Steers: ${status.steers.delivered} delivered${missed}.`)
+    }
+
+    return sentences.length > 0 ? sentences.join(' ') : null
 }
 
 /**

@@ -42,3 +42,36 @@ export interface Judged {
     /** The protocol or model error behind a failed verdict. */
     error: string | null
 }
+
+/**
+ * Where one steering message stands: sent to Pi, queued by Pi, seen by the model, or never.
+ */
+export type SteerState = 'sent' | 'queued' | 'delivered' | 'undelivered' | 'refused'
+
+/**
+ * One line of a run's steers.jsonl: a steering message changing state.
+ */
+export interface SteerRecord {
+    /** The steer's number in this run, from 1. */
+    id: number
+    /** When the state changed (ISO 8601). */
+    at: string
+    /** The state it reached. */
+    state: SteerState
+    /** The message, on its first record. */
+    message?: string
+    /** Why it was refused or not delivered. */
+    reason?: string
+}
+
+/**
+ * What `ft steer` hears back.
+ */
+export interface SteerReceipt {
+    /** The steer's number in this run; absent when it was refused before getting one. */
+    id?: number
+    /** Queued, already delivered, or refused or undelivered with a reason. */
+    state: SteerState
+    /** Why it was refused or not delivered. */
+    reason?: string
+}

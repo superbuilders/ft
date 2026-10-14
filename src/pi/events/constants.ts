@@ -1,3 +1,6 @@
+/** The id ft gives the prompt command that carries the brief, so its response is told apart. */
+export const BRIEF_COMMAND_ID = 'brief'
+
 /** Longest one-line activity description kept in status. */
 export const ACTIVITY_MAX = 100
 

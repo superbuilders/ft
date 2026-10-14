@@ -3,7 +3,8 @@ import { StringDecoder } from 'node:string_decoder'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 
 import { emptyProgress } from '../../project/runs/store'
-import { track } from './progress'
+import { BRIEF_COMMAND_ID } from './constants'
+import { textOf, track } from './progress'
 
 import type { AssistantMessage } from '@earendil-works/pi-ai'
 
@@ -17,7 +18,7 @@ import type { JudgeState, Verdict } from './types'
  */
 export function createJudge(progress: Progress = emptyProgress()): JudgeState {
     return {
-        header: false,
+        accepted: false,
         started: false,
         settled: false,
         aborted: false,
@@ -36,12 +37,17 @@ export function createJudge(progress: Progress = emptyProgress()): JudgeState {
 }
 
 /**
- * Consume an authoritative JSON event.
+ * Consume one authoritative record: a session event, or Pi's response to a command ft sent.
  * @param state - mutable run judge
  * @param line - one LF-delimited record
+ * @param observe - sees every well-formed record after the judge
  * @returns whether the run's visible progress changed; failures are recorded in state
  */
-function record(state: JudgeState, line: string): boolean {
+function record(
+    state: JudgeState,
+    line: string,
+    observe: (event: Record<string, unknown>) => void,
+): boolean {
     try {
         const event = JSON.parse(line) as Record<string, unknown>
 
@@ -49,12 +55,12 @@ function record(state: JudgeState, line: string): boolean {
             throw new Error('expected a JSON event object with a type')
         }
 
-        if (!state.header && event.type !== 'session') {
-            throw new Error('missing initial session header')
-        }
+        if (event.type === 'response' && event.id === BRIEF_COMMAND_ID) {
+            if (event.success !== true) {
+                throw new Error(`Pi refused the brief: ${textOf(event.error, 'no reason given')}`)
+            }
 
-        if (event.type === 'session') {
-            state.header = true
+            state.accepted = true
         }
 
         if (event.type === 'agent_start') {
@@ -116,7 +122,11 @@ function record(state: JudgeState, line: string): boolean {
             }
         }
 
-        return track(state, event)
+        const changed = track(state, event)
+
+        observe(event)
+
+        return changed
     } catch (error) {
         state.protocolError ??= error instanceof Error ? error.message : 'Malformed protocol'
 
@@ -128,11 +138,13 @@ function record(state: JudgeState, line: string): boolean {
  * Build a UTF-8-safe streaming JSONL consumer; LF alone delimits records.
  * @param state - judge to update
  * @param changed - called once per chunk whose events changed the run's visible progress
+ * @param observe - sees every well-formed record, in order
  * @returns chunk and EOF consumers
  */
 export function eventParser(
     state: JudgeState,
     changed: () => void = () => {},
+    observe: (event: Record<string, unknown>) => void = () => {},
 ): { push: (chunk: Buffer) => void; end: () => void } {
     const decoder = new StringDecoder('utf8')
     /* The unfinished record's pieces, joined once its LF arrives, so a long record is not rescanned per chunk. */
@@ -149,7 +161,7 @@ export function eventParser(
                 const line = pending.join('') + text.slice(start, lf)
 
                 pending = []
-                progressed = record(state, line.replace(/\r$/, '')) || progressed
+                progressed = record(state, line.replace(/\r$/, ''), observe) || progressed
                 start = lf + 1
                 lf = text.indexOf('\n', start)
             }
@@ -190,7 +202,7 @@ export function judgeOutcome(
         return 'runtime_error'
     }
 
-    if (!state.header || !state.started || !state.settled || state.aborted) {
+    if (!state.accepted || !state.started || !state.settled || state.aborted) {
         return 'incomplete'
     }
 

@@ -49,9 +49,28 @@ function assistantTurn(message: Record<string, unknown>): { text: string; calls:
 }
 
 /**
+ * The plain text of a user message, whichever shape Pi gives its content.
+ * @param content - a message's content: a string or content blocks
+ * @returns the text blocks joined
+ */
+function userText(content: unknown): string {
+    if (typeof content === 'string') {
+        return content
+    }
+
+    return Array.isArray(content)
+        ? (content as Record<string, unknown>[])
+              .filter(block => block.type === 'text' && typeof block.text === 'string')
+              .map(block => block.text as string)
+              .join('')
+        : ''
+}
+
+/**
  * Turn Pi's event stream into the steps a person reads: what the model said between tool calls,
- * each call with its duration or failure, retries and compactions, and how it ended. Tool events
- * carry no clock, so a call takes the time of the model message that asked for it.
+ * each call with its duration or failure, steers it was sent, retries and compactions, and how it
+ * ended. Tool events carry no clock, so a call takes the time of the model message that asked for
+ * it. Times count from the session header, or from the first message when there is none (RPC mode).
  * @param events - the run's events.jsonl
  * @returns steps in order
  */
@@ -60,6 +79,7 @@ export function storyOf(events: string): Step[] {
     const calls = new Map<string, Step>()
     let start: number | null = null
     let now: number | null = null
+    let briefSeen = false
 
     for (const line of events.split('\n')) {
         const event = parse(line)
@@ -79,7 +99,18 @@ export function storyOf(events: string): Step[] {
             const message = (event.message ?? {}) as Record<string, unknown>
 
             if (typeof message.timestamp === 'number') {
+                start ??= message.timestamp
                 now = message.timestamp
+            }
+
+            /* The first user message is the brief; every later one is a steer Pi delivered. */
+            if (message.role === 'user' && briefSeen) {
+                steps.push({
+                    at: start !== null && now !== null ? Math.max(0, now - start) : null,
+                    text: oneLine(`steered: ${userText(message.content)}`),
+                })
+            } else if (message.role === 'user') {
+                briefSeen = true
             }
 
             if (message.role === 'assistant') {

@@ -13,6 +13,7 @@ export const RUN_FILES = {
     stderr: 'stderr.log',
     answer: 'answer.md',
     partial: 'partial.md',
+    steers: 'steers.jsonl',
 } as const
 
 /** Random characters after the name in a run id: enough that parallel starts do not collide. */

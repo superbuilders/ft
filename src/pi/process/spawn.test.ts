@@ -8,20 +8,43 @@ import { expect, it } from 'vitest'
 import { createJudge } from '../events/judge'
 import { runPi } from './spawn'
 
-it('drains both streams while writing a large brief and closing stdin', async () => {
+/*
+ * A Pi stand-in for RPC mode: answers each command, delivers a steer as a user message and settles,
+ * and exits only when ft closes its stdin.
+ */
+const FAKE_RPC_PI = String.raw`#!/usr/bin/env bun
+const decoder = new TextDecoder()
+const out = record => process.stdout.write(JSON.stringify(record) + '\n')
+let buffered = ''
+for await (const chunk of Bun.stdin.stream()) {
+    buffered += decoder.decode(chunk, { stream: true })
+    for (let lf = buffered.indexOf('\n'); lf >= 0; lf = buffered.indexOf('\n')) {
+        const command = JSON.parse(buffered.slice(0, lf))
+        buffered = buffered.slice(lf + 1)
+        const data = command.type === 'prompt' ? { disposition: 'started', bytes: Buffer.byteLength(command.message) } : { disposition: 'queued' }
+        out({ id: command.id, type: 'response', command: command.type, success: true, data })
+        if (command.type === 'prompt') out({ type: 'agent_start' })
+        if (command.type === 'steer') {
+            out({ type: 'message_end', message: { role: 'user', content: [{ type: 'text', text: command.message }] } })
+            out({ type: 'agent_settled', aborted: false })
+        }
+    }
+}
+process.stderr.write('diagnostic')
+process.exitCode = 7
+`
+
+it('sends a large brief as an RPC prompt, passes a control steer, and closes stdin once Pi settles', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ft-pi-stream-'))
 
     try {
         const pi = join(root, 'pi')
-        const brief = 'brief café '.repeat(100_000)
-        const chunks: Buffer[] = []
+        const brief = 'brief caf\u00e9\u2028'.repeat(100_000)
+        const events: Record<string, unknown>[] = []
         const diagnostics: Buffer[] = []
+        let write: ((line: string) => void) | undefined
 
-        await writeFile(
-            pi,
-            '#!/usr/bin/env bun\nconst text = await Bun.stdin.text(); process.stdout.write(text); process.stderr.write("diagnostic"); process.exitCode = 7\n',
-            { mode: 0o700 },
-        )
+        await writeFile(pi, FAKE_RPC_PI, { mode: 0o700 })
 
         const result = await runPi({
             pi,
@@ -35,17 +58,38 @@ it('drains both streams while writing a large brief and closing stdin', async ()
             tmp: root,
             contextPath: join(root, 'context.md'),
             state: createJudge(),
+            control: {
+                attach(writer) {
+                    write = writer
+                },
+                observe(event) {
+                    events.push(event)
+
+                    if (event.type === 'agent_start') {
+                        write?.(
+                            `${JSON.stringify({ id: 'steer-1', type: 'steer', message: 'also check X' })}\n`,
+                        )
+                    }
+                },
+            },
             signal: new AbortController().signal,
-            events: chunk => chunks.push(chunk),
+            events: () => {},
             stderr: chunk => diagnostics.push(chunk),
         })
 
         expect(result).toEqual({ code: 7, signal: null })
-
-        const output = Buffer.concat(chunks)
-
-        expect(output.byteLength).toBe(Buffer.byteLength(brief))
-        expect(output.toString('utf8') === brief).toBe(true)
+        expect(events.find(event => event.id === 'brief')?.data).toEqual({
+            disposition: 'started',
+            bytes: Buffer.byteLength(brief),
+        })
+        expect(events.map(event => event.type)).toEqual([
+            'response',
+            'response',
+            'agent_start',
+            'response',
+            'message_end',
+            'agent_settled',
+        ])
         expect(Buffer.concat(diagnostics).toString('utf8')).toBe('diagnostic')
     } finally {
         await rm(root, { recursive: true, force: true })

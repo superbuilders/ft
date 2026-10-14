@@ -60,6 +60,7 @@ ft watch <id> <id> <id>          # print each report as its run finishes
 ft show <id>                     # every step of one run, and its answer
 ft list                          # recent runs
 ft roles                         # the roles configured here
+ft steer <id> "also check X"     # tell a running run something new
 ft stop <id>                     # cancel a run
 ```
 

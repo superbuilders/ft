@@ -1,14 +1,18 @@
 import { descendantGroups, signalGroups } from '../../system/process/process-groups'
+import { BRIEF_COMMAND_ID } from '../events/constants'
 import { eventParser } from '../events/judge'
 import { KILL_GRACE_MS } from './constants'
 import { piEnvironment } from './environment'
 
 import type { Selection } from '../../models/types'
 import type { JudgeState } from '../events/types'
+import type { PiControl } from './types'
 
 /**
- * Run the pinned Pi in a process group while draining both pipes continuously.
- * @param input - explicit runtime, prompt, state and output sinks
+ * Run the pinned Pi in a process group while draining both pipes continuously. Pi runs in RPC
+ * mode: the brief goes in as a prompt command and stdin stays open, so a control can steer the
+ * run, until Pi settles and stdin closes, which ends Pi.
+ * @param input - explicit runtime, prompt, state, output sinks and an optional control
  * @returns Pi's exit status and signal
  */
 export async function runPi(input: {
@@ -24,6 +28,7 @@ export async function runPi(input: {
     contextPath: string
     state: JudgeState
     progress?: () => void
+    control?: PiControl
     signal: AbortSignal
     events: (chunk: Buffer) => void
     stderr: (chunk: Buffer) => void
@@ -31,9 +36,8 @@ export async function runPi(input: {
     input.signal.throwIfAborted()
 
     const flags = [
-        '-p',
         '--mode',
-        'json',
+        'rpc',
         '--no-session',
         '--no-approve',
         '--no-extensions',
@@ -66,7 +70,55 @@ export async function runPi(input: {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: piEnvironment(input.env, input.agent, input.tmp, input.toolDirs),
     })
-    const parser = eventParser(input.state, input.progress)
+    let open = true
+
+    /**
+     * Send one command line to Pi while its stdin is open.
+     * @param line - an LF-terminated JSON command
+     * @returns nothing
+     */
+    function send(line: string): void {
+        if (!open) {
+            return
+        }
+
+        try {
+            child.stdin.write(line)
+            void Promise.resolve(child.stdin.flush()).catch(() => {})
+        } catch {
+            /* Pi may close stdin early; its exit and protocol still determine the verdict. */
+        }
+    }
+
+    /**
+     * Close Pi's stdin, which asks Pi to shut down once it is idle.
+     * @returns nothing
+     */
+    function close(): void {
+        if (open) {
+            open = false
+            void Promise.resolve()
+                .then(() => child.stdin.end())
+                .catch(() => {})
+        }
+    }
+
+    const parser = eventParser(input.state, input.progress, event => {
+        input.control?.observe(event)
+
+        /* Settled means Pi will not continue on its own; a refused or unstarted brief never runs. */
+        const refused =
+            event.type === 'response' &&
+            event.id === BRIEF_COMMAND_ID &&
+            (event.success !== true ||
+                !['started', 'queued'].includes(
+                    String((event.data as Record<string, unknown> | undefined)?.disposition),
+                ))
+
+        if (event.type === 'agent_settled' || refused) {
+            close()
+        }
+    })
 
     /**
      * Terminate Pi's process group, then kill whatever is left once the grace period ends.
@@ -105,17 +157,15 @@ export async function runPi(input: {
             input.stderr(Buffer.from(bytes))
         }
     })()
-    const stdin = (async () => {
-        try {
-            await child.stdin.write(input.brief)
-            await child.stdin.end()
-        } catch {
-            /* Pi may close stdin early; its exit and protocol still determine the verdict. */
-        }
-    })()
+
+    /* Several steers delivered at one boundary reach the model together, in the order sent. */
+    send(`${JSON.stringify({ type: 'set_steering_mode', mode: 'all' })}\n`)
+    send(`${JSON.stringify({ id: BRIEF_COMMAND_ID, type: 'prompt', message: input.brief })}\n`)
+    input.control?.attach(send)
 
     try {
-        await Promise.all([child.exited, stdout, stderr, stdin])
+        await Promise.all([child.exited, stdout, stderr])
+        close()
         parser.end()
 
         return { code: child.exitCode, signal: child.signalCode }

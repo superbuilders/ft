@@ -75,6 +75,24 @@ describe('the report', () => {
         )
     })
 
+    it('counts steers, and says where to read why one never arrived', () => {
+        /**
+         * The report's activity line for a run sent these steers.
+         * @param steers - delivered and undelivered counts
+         * @returns the line after the headline
+         */
+        function report(steers: Status['steers']): string | undefined {
+            return renderReport(statusWith({ tools: { read: 1 }, steers }), 'success', 'x\n').split(
+                '\n',
+            )[1]
+        }
+
+        expect(report({ delivered: 2, undelivered: 0 })).toBe('Tools: read 1. Steers: 2 delivered.')
+        expect(report({ delivered: 0, undelivered: 1 })).toBe(
+            'Tools: read 1. Steers: 0 delivered, 1 not delivered (steers.jsonl says why).',
+        )
+    })
+
     it('says what to do about a context overflow and keeps the partial answer', () => {
         const status = statusWith({
             outcome: 'model_error',

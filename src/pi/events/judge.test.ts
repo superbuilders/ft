@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest'
 
 import { createJudge, eventParser, judgeOutcome } from './judge'
 
+/** Pi's response accepting the brief's prompt command. */
+const ACCEPTED = {
+    id: 'brief',
+    type: 'response',
+    command: 'prompt',
+    success: true,
+    data: { disposition: 'started' },
+}
+
 describe('recorded Pi 1.1.0 protocol', () => {
     it.each([
         ['success', 'success', 0],
@@ -57,7 +66,7 @@ describe('recorded Pi 1.1.0 protocol', () => {
         parser.push(
             Buffer.from(
                 `${[
-                    { type: 'session' },
+                    ACCEPTED,
                     { type: 'agent_start' },
                     { type: 'compaction_start', reason: 'overflow' },
                     { type: 'tool_execution_end', isError: true },
@@ -87,5 +96,31 @@ describe('recorded Pi 1.1.0 protocol', () => {
         expect(judgeOutcome(state, 1, null)).toBe('runtime_error')
         state.settled = false
         expect(judgeOutcome(state, 0, null)).toBe('incomplete')
+    })
+
+    it('fails a brief Pi refuses, and a run whose brief Pi never accepted', () => {
+        const refused = createJudge()
+        const parser = eventParser(refused)
+
+        parser.push(
+            Buffer.from(
+                `${JSON.stringify({ ...ACCEPTED, success: false, error: 'bad prompt' })}\n`,
+            ),
+        )
+        parser.end()
+        expect(judgeOutcome(refused, 0, null)).toBe('protocol_error')
+        expect(refused.protocolError).toBe('Pi refused the brief: bad prompt')
+
+        const unaccepted = createJudge()
+
+        Object.assign(unaccepted, {
+            started: true,
+            settled: true,
+            stopReason: 'stop',
+            text: 'answer',
+        })
+        expect(judgeOutcome(unaccepted, 0, null)).toBe('incomplete')
+        unaccepted.accepted = true
+        expect(judgeOutcome(unaccepted, 0, null)).toBe('success')
     })
 })

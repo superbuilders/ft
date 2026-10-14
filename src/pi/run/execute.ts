@@ -18,11 +18,13 @@ import { serveGateway } from '../gateway/gateway'
 import { filterEnvironment } from '../process/environment'
 import { runPi } from '../process/spawn'
 import { installRuntime } from '../runtime/runtime'
-import { CANCEL_SIGNALS, RUN_PROFILES } from './constants'
+import { CANCEL_SIGNALS, CONTROL_SOCKET, RUN_PROFILES } from './constants'
 import { chooseModel } from './model'
+import { createSteering, serveSteering } from './steering'
 
 import type { Outcome, Request, Status } from '../../project/runs/types'
 import type { JudgeState } from '../events/types'
+import type { Steering } from './steering'
 import type { Judged } from './types'
 
 /**
@@ -35,6 +37,7 @@ import type { Judged } from './types'
  * @param control - how the run is steered from outside
  * @param control.signal - cancellation
  * @param control.touch - publishes a status change
+ * @param control.steering - messages from `ft steer`, passed to Pi while it works
  * @returns Pi's exit and the judged outcome
  */
 async function drive(
@@ -42,9 +45,9 @@ async function drive(
     status: Status,
     state: JudgeState,
     phase: { failure: Outcome },
-    control: { signal: AbortSignal; touch: () => void },
+    control: { signal: AbortSignal; touch: () => void; steering: Steering },
 ): Promise<Judged> {
-    const { signal, touch } = control
+    const { signal, touch, steering } = control
     const { dir } = status
     const config = await loadConfig(process.cwd())
     const { selected, provider, baseUrl, adapter, tools } = chooseModel(request, config.config)
@@ -64,6 +67,7 @@ async function drive(
     const stderr = createWriteStream(join(dir, RUN_FILES.stderr), { mode: 0o600 })
     let scratch: string | undefined
     let closeKey: (() => Promise<void>) | undefined
+    let closeSteering: (() => Promise<void>) | undefined
     let gateway: ReturnType<typeof serveGateway> | undefined
 
     try {
@@ -93,6 +97,12 @@ async function drive(
 
         env.FT_KEY_SOCKET = socket
 
+        const controlSocket = join(scratch, CONTROL_SOCKET)
+
+        closeSteering = serveSteering(controlSocket, steering)
+        status.control = controlSocket
+        touch()
+
         const result = await runPi({
             ...runtime,
             ...privatePaths,
@@ -103,6 +113,7 @@ async function drive(
             env,
             state,
             progress: touch,
+            control: steering.control,
             signal,
             events: chunk => {
                 events.write(chunk)
@@ -119,6 +130,9 @@ async function drive(
             error: state.protocolError ?? state.modelError,
         }
     } finally {
+        delete status.control
+        await steering.close('the run ended before the model read it')
+        await closeSteering?.()
         await closeKey?.()
         await gateway?.stop()
 
@@ -149,6 +163,7 @@ export async function execute(dir: string): Promise<Status> {
     const controller = new AbortController()
     const state = createJudge(status)
     const live = publisher(status)
+    const steering = createSteering(join(dir, RUN_FILES.steers))
     const phase: { failure: Outcome } = { failure: 'configuration_error' }
     let judged: Judged | undefined
     let failure: string | undefined
@@ -191,6 +206,7 @@ export async function execute(dir: string): Promise<Status> {
         judged = await drive(request, status, state, phase, {
             signal: controller.signal,
             touch: live.touch,
+            steering,
         })
     } catch (error) {
         failure = error instanceof Error ? error.message : 'Runner failed'
@@ -217,6 +233,11 @@ export async function execute(dir: string): Promise<Status> {
         compactionCount: state.compactionCount,
         toolErrorCount: state.toolErrorCount,
         contextOverflow: state.contextOverflow,
+    }
+    const steers = steering.counts()
+
+    if (steers.delivered + steers.undelivered > 0) {
+        decided.steers = steers
     }
 
     if (interrupted) {

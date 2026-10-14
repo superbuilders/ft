@@ -9,8 +9,8 @@ export type Verdict = 'success' | 'model_error' | 'incomplete' | 'protocol_error
  * Mutable protocol evidence; only authoritative messages supply answer text.
  */
 export interface JudgeState {
-    /** Whether the JSON session header has been parsed. */
-    header: boolean
+    /** Whether Pi accepted the brief's prompt command. */
+    accepted: boolean
     /** Whether an agent_start record has been observed. */
     started: boolean
     /** Whether the agent finished automatic recovery work. */
