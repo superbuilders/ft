@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { runStep } from '../../lib/run-step'
@@ -113,6 +113,7 @@ export async function local(
         : join(LAB_ROOT, 'cache')
     const results: Result[] = []
     let compiled: Promise<Build> | undefined
+    let fixture: Promise<ReturnType<typeof Bun.serve>> | undefined
     const pinned = pinnedBunVersion().then(version => requirePinnedBun(Bun.version, version))
 
     /* A rejected prerequisite is consumed by each result, not an unhandled promise. */
@@ -121,25 +122,36 @@ export async function local(
     try {
         for (const scenario of scenarios) {
             results.push(
-                await runOne(scenario, options, argv, buildCache, async result => {
-                    await pinned
-                    compiled ??= phase(result, 'build', () =>
-                        options.artifacts ? prebuilt(options.artifacts) : build(buildCache),
-                    )
+                await runOne(scenario, options, argv, buildCache, {
+                    build: async result => {
+                        await pinned
+                        compiled ??= phase(result, 'build', () =>
+                            options.artifacts ? prebuilt(options.artifacts) : build(buildCache),
+                        )
 
-                    return compiled
+                        return compiled
+                    },
+                    archives: (compiledBuild, directory) => {
+                        fixture ??= archiveServer(compiledBuild, directory)
+
+                        return fixture
+                    },
                 }),
             )
         }
     } finally {
-        if (options.cold) {
-            try {
+        try {
+            const server = await fixture?.catch(() => undefined)
+
+            await server?.stop(true)
+
+            if (options.cold) {
                 await rm(join(buildCache, '..'), { recursive: true, force: true })
-            } catch (error) {
-                for (const result of results) {
-                    result.cleanup = { outcome: 'failed', error: String(error) }
-                    result.outcome = 'lab_error'
-                }
+            }
+        } catch (error) {
+            for (const result of results) {
+                result.cleanup = { outcome: 'failed', error: String(error) }
+                result.outcome = 'lab_error'
             }
         }
     }
@@ -153,7 +165,9 @@ export async function local(
  * @param options - scratch lifecycle options
  * @param argv - literal ad hoc ft arguments
  * @param buildCache - invocation-wide build/runtime cache root
- * @param prepare - once-per-host compiler and prerequisite preparation
+ * @param prepare - shared invocation prerequisites
+ * @param prepare.build - once-per-host compiler and prerequisite preparation
+ * @param prepare.archives - invocation-wide archive verification and loopback server
  * @returns persisted scenario result
  */
 async function runOne(
@@ -161,7 +175,10 @@ async function runOne(
     options: Options,
     argv: string[],
     buildCache: string,
-    prepare: (result: Result) => Promise<Build>,
+    prepare: {
+        build: (result: Result) => Promise<Build>
+        archives: (build: Build, directory: string) => Promise<ReturnType<typeof Bun.serve>>
+    },
 ): Promise<Result> {
     const result = resultFor(scenario, options.host === 'air' ? 'air' : 'local')
     const directory = join(LAB_ROOT, 'runs', result.runId)
@@ -173,7 +190,7 @@ async function runOne(
     try {
         prerequisites(scenario, options, argv)
 
-        const compiled = await prepare(result)
+        const compiled = await prepare.build(result)
 
         await mkdir(directory, { recursive: true, mode: 0o700 })
         await chmod(directory, 0o700)
@@ -224,11 +241,10 @@ async function runOne(
             !(scenario === 'exec' && !argv.includes('run'))
 
         if (needsRuntime) {
-            fixture = await phase(result, 'fixtures', () =>
-                archiveServer(compiled, archiveDirectory),
+            const server = await phase(result, 'fixtures', () =>
+                prepare.archives(compiled, archiveDirectory),
             )
-
-            const port = Number(fixture.port)
+            const port = Number(server.port)
 
             await runtimeTransport(run, port)
 
@@ -376,13 +392,4 @@ async function adHoc(context: Context, argv: string[]): Promise<void> {
  */
 export function resultCode(result: Result | Aggregate): number {
     return { passed: 0, failed: 1, prerequisite_error: 2, lab_error: 3 }[result.outcome]
-}
-
-/**
- * Read a retained result without emitting any child stdout.
- * @param path - result JSON path
- * @returns parsed result
- */
-export async function readResult(path: string): Promise<Result> {
-    return JSON.parse(await readFile(path, 'utf8')) as Result
 }

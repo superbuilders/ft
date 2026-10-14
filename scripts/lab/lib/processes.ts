@@ -144,6 +144,24 @@ export function signalGroup(pid: number, signal: NodeJS.Signals): void {
 }
 
 /**
+ * Find executing owned processes in one process-table snapshot, excluding inert zombies.
+ * @param pids - owned process ids in evidence order
+ * @returns owned ids still executing
+ */
+export async function runningPids(pids: number[]): Promise<number[]> {
+    const output = await command(['ps', '-eo', 'pid=,stat='])
+    const running = new Set(
+        output.stdout.split('\n').flatMap(line => {
+            const [pid, state] = line.trim().split(/\s+/)
+
+            return state && !state.startsWith('Z') ? [Number(pid)] : []
+        }),
+    )
+
+    return pids.filter(pid => running.has(pid))
+}
+
+/**
  * Wait for fixture evidence, never choose interruption timing by a fixed sleep.
  * @param predicate - checkpoint query
  * @returns completion when ready, bounded by a deadline

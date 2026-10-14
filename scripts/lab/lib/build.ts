@@ -95,6 +95,7 @@ export async function build(cache: string, salt = ''): Promise<Build> {
     const version = `${packageVersion}-lab.${hash.digest('hex').slice(0, 16)}`
     const directory = join(cache, 'builds', version)
     const binary = join(directory, `ft-${target}`)
+    let sha256: string | undefined
 
     if (!existsSync(join(directory, 'SHA256SUMS'))) {
         const stage = `${directory}.${crypto.randomUUID()}`
@@ -119,11 +120,13 @@ export async function build(cache: string, salt = ''): Promise<Build> {
                 await command(['codesign', '--force', '--sign', '-', output])
             }
 
-            await completeRelease(stage, target)
+            const stagedDigest = await completeRelease(stage, target)
+
             await mkdir(join(cache, 'builds'), { recursive: true })
 
             try {
                 await rename(stage, directory)
+                sha256 = stagedDigest
             } catch (error) {
                 if (!existsSync(join(directory, 'SHA256SUMS'))) {
                     throw error
@@ -134,7 +137,8 @@ export async function build(cache: string, salt = ''): Promise<Build> {
         }
     }
 
-    const sha256 = await digest(binary)
+    sha256 ??= await digest(binary)
+
     const sums = await readFile(join(directory, 'SHA256SUMS'), 'utf8')
     const reported = await command([binary, '--version'])
 

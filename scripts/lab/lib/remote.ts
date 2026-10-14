@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 import { AIR_TOOLCHAIN, LAB_ROOT } from './constants'
-import { phase, readResult, resultFor } from './local'
+import { phase, resultFor } from './local'
 import { command, PrerequisiteError, start } from './processes'
 import { pinnedBunVersion } from './toolchain'
 
@@ -188,36 +188,25 @@ fi`
         for (const candidate of candidates) {
             const copy = join(LAB_ROOT, 'results', `air-${candidate.runId}.json`)
 
-            await command(['rsync', '-az', `air:${LAB_ROOT}/results/${candidate.runId}.json`, copy])
-
-            const copied = await readResult(copy)
-
-            if (
-                copied.runId !== candidate.runId ||
-                copied.host !== 'air' ||
-                copied.scenario !== candidate.scenario
-            ) {
-                throw new Error('Copied remote result identity mismatch')
-            }
-
-            results.push(copied)
+            await writeFile(copy, JSON.stringify(candidate, null, 4), { mode: 0o600 })
+            results.push(candidate)
 
             if (!options.keep) {
                 try {
-                    await phase(copied, 'remote-cleanup', () =>
+                    await phase(candidate, 'remote-cleanup', () =>
                         command(['ssh', 'air', `rm -rf ${LAB_ROOT}/runs/${candidate.runId}`]),
                     )
-                    copied.cleanup = { outcome: 'removed' }
-                    copied.keptPaths = []
+                    candidate.cleanup = { outcome: 'removed' }
+                    candidate.keptPaths = []
                 } catch (error) {
-                    copied.cleanup = { outcome: 'failed', error: String(error) }
+                    candidate.cleanup = { outcome: 'failed', error: String(error) }
                     throw error
                 }
             }
 
             if (results.length === 1) {
                 Object.assign(
-                    copied.phases,
+                    candidate.phases,
                     Object.fromEntries(
                         Object.entries(result.phases).map(([name, ms]) => [
                             `transport-${name}`,
@@ -227,7 +216,7 @@ fi`
                 )
             }
 
-            await writeFile(copy, JSON.stringify(copied, null, 4))
+            await writeFile(copy, JSON.stringify(candidate, null, 4))
         }
     } catch (error) {
         for (const [index, scenario] of scenarios.entries()) {

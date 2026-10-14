@@ -9,7 +9,7 @@ import { build, digest } from './build'
 import { ANSWER, DUMMY_KEY, LOOPBACK_SCENARIOS } from './constants'
 import { archives, calls, configure } from './fixtures'
 import { modelServer } from './model'
-import { check, checkpoint, command, signalGroup, start } from './processes'
+import { check, checkpoint, command, runningPids, signalGroup, start } from './processes'
 
 import type { Status } from '../../../src/project/runs/types'
 import type { Capture, Context } from './types'
@@ -484,22 +484,6 @@ export async function descendants(
 }
 
 /**
- * Check whether a recorded process is still running, excluding inert zombies.
- * @param pid - owned process id
- * @returns whether the process still executes
- */
-async function running(pid: number): Promise<boolean> {
-    const result = await start(
-        undefined,
-        ['ps', '-p', String(pid), '-o', 'stat='],
-        process.cwd(),
-        process.env,
-    ).result
-
-    return result.code === 0 && result.stdout.trim() !== '' && !result.stdout.trim().startsWith('Z')
-}
-
-/**
  * Signal a harness-style process group after Pi actually launches a long-running tool.
  * @param context - private process ownership and runtime
  * @returns completion of both signal checks
@@ -531,22 +515,17 @@ export async function cancelGroup(context: Context): Promise<void> {
             const status = recorded(await child.result)
 
             check(context.result, `${signal}-cancelled`, 'cancelled', status?.outcome ?? null)
-            await checkpoint(async () => {
-                const states = await Promise.all(owned.map(row => running(row.pid)))
 
-                return !states.some(Boolean)
+            const pids = owned.map(row => row.pid)
+            let survivors = pids
+
+            await checkpoint(async () => {
+                survivors = await runningPids(pids)
+
+                return survivors.length === 0
             }).catch(() => {})
 
-            const survivors = await Promise.all(
-                owned.map(async row => ((await running(row.pid)) ? row.pid : null)),
-            )
-
-            check(
-                context.result,
-                `${signal}-no-descendants`,
-                [],
-                survivors.filter(pid => pid !== null),
-            )
+            check(context.result, `${signal}-no-descendants`, [], survivors)
         } finally {
             for (const row of owned) {
                 signalGroup(row.group, 'SIGKILL')
