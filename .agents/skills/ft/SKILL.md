@@ -26,7 +26,7 @@ Before starting, say in a line what you are handing off and why. While it works,
 3. Wait without blocking if you can: run the `ft watch` command that `ft start` prints in the background, in a way that tells you when it exits, and keep working meanwhile. If you cannot, run it with `--timeout <seconds>`; while it exits 75, keep the reports it printed and call it again with the ids it names.
 4. Read the reports. Each names the answer's file and length (a failed run may have none); read the answers you need.
 5. Treat the answer as a claim. Check it against the code. After a write run, read `git diff` before keeping anything; ft never commits. A partial answer from a failed run may be only a progress note.
-6. Tell the user what came back, what you verified, and what remains unchecked. If the run failed, say whether anything usable came back and what you will do next. End with the run id, which opens with `ft show <id>`.
+6. Tell the user what came back, what you verified, and what remains unchecked. If the run failed, say whether anything usable came back and what you will do next. Leave out run ids and `ft show` commands unless the user asks for them.
 
 ## When not to
 
