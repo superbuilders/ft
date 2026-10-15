@@ -15,7 +15,7 @@ export interface RunOptions {
     /** Requested Pi thinking level. */
     thinking?: string
     /** Folder the run's tools work in, relative to the working directory; defaults to it. */
-    cwd?: string
+    workdir?: string
     /** Optional wall-clock deadline in seconds. */
     deadline?: string
     /** Print the status as JSON instead of the report. */

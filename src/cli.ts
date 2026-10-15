@@ -39,7 +39,10 @@ function runOptions(command: Command): Command {
         .option('--model <ref>', 'provider/model, instead of a role')
         .option('--profile <profile>', 'tool profile: read (default) or write')
         .option('--thinking <level>', thinkingHelp())
-        .option('--cwd <dir>', 'folder the run works in, such as a worktree (default: this one)')
+        .option(
+            '--workdir <dir>',
+            'folder the run works in, such as a worktree (default: this one)',
+        )
         .option('--deadline <seconds>', 'stop the run after this long')
         .option(
             '--out <path>',

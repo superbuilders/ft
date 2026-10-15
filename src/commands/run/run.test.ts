@@ -53,9 +53,9 @@ it.each([
     ['--name', { name: 'review' }, '--name and --out work only with a single brief'],
     ['a missing brief', {}, 'gone.md'],
     [
-        'a --cwd that is not a folder',
-        { cwd: '/no/such/folder' },
-        '--cwd /no/such/folder is not a folder',
+        'a --workdir that is not a folder',
+        { workdir: '/no/such/folder' },
+        '--workdir /no/such/folder is not a folder',
     ],
 ])('starts no run when one of several briefs fails (%s)', async (_case, options, error) => {
     const root = await mkdtemp(join(tmpdir(), 'ft-start-'))

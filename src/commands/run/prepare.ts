@@ -53,8 +53,8 @@ async function readBrief(brief: string): Promise<string> {
 }
 
 /**
- * The folder a run works in: the caller's, or the one --cwd names.
- * @param dir - the --cwd value, relative to the working directory
+ * The folder a run works in: the caller's, or the one --workdir names.
+ * @param dir - the --workdir value, relative to the working directory
  * @returns its absolute path
  */
 async function runFolder(dir: string | undefined): Promise<string> {
@@ -66,7 +66,7 @@ async function runFolder(dir: string | undefined): Promise<string> {
     const found = await stat(folder).catch(() => null)
 
     if (!found?.isDirectory()) {
-        throw new Error(`--cwd ${dir} is not a folder`)
+        throw new Error(`--workdir ${dir} is not a folder`)
     }
 
     return folder
@@ -96,7 +96,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
     const deadline = deadlineSeconds(options.deadline)
     const request: Request = {
         profile: options.profile ?? 'read',
-        cwd: await runFolder(options.cwd),
+        cwd: await runFolder(options.workdir),
         ...(options.role ? { role: options.role } : {}),
         ...(options.model ? { model: options.model } : {}),
         ...(options.thinking ? { thinking: options.thinking } : {}),
