@@ -1,6 +1,6 @@
 ---
 name: ft
-description: Hand a bounded task to another model through ft (a second opinion, a parallel review, web research, or a scoped change you will review). Use when the user asks for a delegate, a second model, or parallel reviews, or when a self-contained task would cost this session more context than its answer is worth.
+description: Hand a bounded task to a subagent that ft runs on another model (a second opinion, a parallel review, web research, or a scoped change you will review). Use when the user asks for a delegate, a second model, or parallel reviews, or when a self-contained task would cost this session more context than its answer is worth.
 ---
 
 # ft
@@ -15,9 +15,9 @@ Try plain `ft guide` first. Only if the shell says `ft` is not found, run it the
 
 ## Talking to the user
 
-Call it "another model" on first mention, then refer to the work: "the review", "the investigation", "the proposed change". ft is the tool, not the author. Name the model only when it matters; role names, profiles and exit codes are command details.
+Call them subagents, then refer to the work: "the review", "the investigation", "the proposed change". ft is the tool, not the author. Name the model only when it matters, such as when it changes how far to trust an answer; role names, profiles and exit codes are command details.
 
-Before starting, say in a line what you are handing off and why. While it works, update the user only when there is something useful to say, such as what you are doing meanwhile or a delay that changes the plan. Do not invent progress. A watch timeout ends your wait, not the model's work.
+Before starting, say in a line what the subagents will do and why, as the work rather than the routing: "Five subagents are reviewing the branch in parallel, one angle each", not "I'm giving the check to another model as five separate reviews". While it works, update the user only when there is something useful to say, such as what you are doing meanwhile or a delay that changes the plan. Do not invent progress. A watch timeout ends your wait, not the model's work.
 
 ## The loop
 

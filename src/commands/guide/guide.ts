@@ -57,7 +57,7 @@ export async function guide(runnerVersion: string): Promise<void> {
     const read = RUN_PROFILES.read?.tools ?? []
     const write = RUN_PROFILES.write?.tools ?? []
     const text = [
-        `# ft ${runnerVersion}: hand a bounded task to another model`,
+        `# ft ${runnerVersion}: hand a bounded task to a subagent on another model`,
         '',
         `ft runs one brief on one model in a separate, pinned Pi coding-agent session (Pi ${PI_VERSION}). The delegate does not see your conversation, but it works in your working tree. ft records each run under .ft/runs/<id>/. Use it for a second opinion, a parallel review, web research, or a scoped change you will review yourself.`,
         '',
