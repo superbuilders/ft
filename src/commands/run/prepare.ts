@@ -5,8 +5,9 @@ import { chooseModel } from '../../pi/run/model'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
 import { getKey } from '../../project/key/key'
+import { DEFAULT_KEEP_DAYS } from '../../project/runs/constants'
 import { openRun } from '../../project/runs/lifecycle'
-import { runName } from '../../project/runs/store'
+import { pruneRuns, runName } from '../../project/runs/store'
 import { platformTarget } from '../../system/host/host'
 import { DEADLINE_MAX_SECONDS } from './constants'
 
@@ -125,5 +126,11 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
         await rm(resolve(options.out), { force: true })
     }
 
-    return Promise.all(runs.map(run => openRun(config.workspace, run)))
+    /* New runs are too young to prune, so cleanup need not hold them up. */
+    const [statuses] = await Promise.all([
+        Promise.all(runs.map(run => openRun(config.workspace, run))),
+        pruneRuns(config.workspace, config.config.runs?.keepDays ?? DEFAULT_KEEP_DAYS),
+    ])
+
+    return statuses
 }

@@ -1,10 +1,10 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { briefTitle, createRun, findRuns, runName, stateOf, writeStatus } from './store'
+import { briefTitle, createRun, findRuns, pruneRuns, runName, stateOf, writeStatus } from './store'
 import settled from './tests/stubs/status.json'
 
 import type { Status } from './types'
@@ -73,6 +73,48 @@ describe('finding a run', () => {
 
     it('says how to list runs when none matches', async () => {
         await expect(findRuns(root, ['nope'])).rejects.toThrow(/ft list shows them/)
+    })
+})
+
+describe('pruning old runs', () => {
+    const old = new Date(Date.now() - 20 * 86_400_000).toISOString()
+
+    beforeEach(async () => {
+        const runs = {
+            'old-aaaa': statusWith({ updatedAt: old }),
+            'new-bbbb': statusWith({ updatedAt: new Date().toISOString() }),
+            'busy-cccc': statusWith({
+                updatedAt: old,
+                outcome: 'running',
+                pid: process.pid,
+                host: hostname(),
+            }),
+        }
+
+        for (const [id, status] of Object.entries(runs)) {
+            const { dir } = await createRun(root, id)
+
+            /* writeStatus would stamp updatedAt with now. */
+            await writeFile(join(dir, 'status.json'), JSON.stringify({ ...status, id, dir }))
+        }
+    })
+
+    it('deletes finished runs past the limit and keeps new and running ones', async () => {
+        await pruneRuns(root, 14)
+
+        const left = await readdir(join(root, '.ft/runs'))
+
+        expect(left.map(name => name.split('-')[0]).toSorted()).toEqual([
+            '.gitignore',
+            'busy',
+            'new',
+        ])
+    })
+
+    it('keeps every run at 0', async () => {
+        await pruneRuns(root, 0)
+
+        expect(await readdir(join(root, '.ft/runs'))).toHaveLength(4)
     })
 })
 

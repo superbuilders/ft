@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import { basename, extname, join } from 'node:path'
 
@@ -243,6 +243,27 @@ export async function findRuns(root: string, refs: string[]): Promise<Status[]> 
     const ids = await runIds(root)
 
     return Promise.all(refs.map(ref => pick(ids, ref, root)))
+}
+
+/**
+ * Delete finished runs last updated more than `days` ago. A running run keeps writing its status,
+ * so it is never that old.
+ * @param root - project root
+ * @param days - age limit in days; 0 keeps every run
+ * @returns completion
+ */
+export async function pruneRuns(root: string, days: number): Promise<void> {
+    if (days === 0) {
+        return
+    }
+
+    const cutoff = Date.now() - days * 86_400_000
+    const statuses = await listRuns(root)
+    const expired = statuses.filter(
+        status => Date.parse(status.updatedAt) < cutoff && stateOf(status) !== 'running',
+    )
+
+    await Promise.all(expired.map(status => rm(status.dir, { recursive: true, force: true })))
 }
 
 /**

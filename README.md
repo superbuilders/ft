@@ -68,6 +68,12 @@ The report names the run's id and where its answer is saved; `ft start` prints t
 
 By default a run uses the `read` profile, which tells the model not to change files. That is an instruction, not a sandbox: the model can still run shell commands. Pass `--profile write` for changes your agent will review. ft never commits. Each run keeps its brief, its steps and its answer in `.ft/runs/<id>/` in the repository you ran it from.
 
+Each new run deletes finished runs older than 14 days. To keep them longer, set a number of days in your config, or `0` to keep every run:
+
+```json
+"runs": { "keepDays": 30 }
+```
+
 ## Let your agents use ft
 
 Agents learn ft from a skill, a short file that tells them when and how to delegate. Nothing installs it unasked.

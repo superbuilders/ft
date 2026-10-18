@@ -13,6 +13,20 @@ export const ConfigSchema = Type.Object(
         roles: Type.Record(Type.String({ minLength: 1 }), RoleSchema, {
             description: 'Named model choices for ft run --role. code is the default role.',
         }),
+        runs: Type.Optional(
+            Type.Object(
+                {
+                    keepDays: Type.Optional(
+                        Type.Integer({
+                            minimum: 0,
+                            description:
+                                'Days a finished run is kept. Each new run deletes older ones; 0 keeps every run. Default 14.',
+                        }),
+                    ),
+                },
+                { additionalProperties: false, description: 'What ft keeps of past runs.' },
+            ),
+        ),
     },
     { additionalProperties: false },
 )

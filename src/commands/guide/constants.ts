@@ -63,5 +63,5 @@ ft needs the network, and writes under ~/.cache/ft and this repository's .ft/. I
 
 ## A run's folder: .ft/runs/<id>/
 
-Each run keeps brief.md (the task), request.json (the options) and status.json (updated while it runs). events.jsonl holds Pi's raw events and stderr.log its stderr; a run that failed early may have neither. A successful run saves answer.md, and a failed one saves partial.md if the model wrote anything. The runs folder ignores itself in git.
+Each run keeps brief.md (the task), request.json (the options) and status.json (updated while it runs). events.jsonl holds Pi's raw events and stderr.log its stderr; a run that failed early may have neither. A successful run saves answer.md, and a failed one saves partial.md if the model wrote anything. The runs folder ignores itself in git. A new run deletes finished runs older than the config's runs.keepDays (14 days by default), so copy out anything worth keeping longer.
 `

@@ -4,6 +4,9 @@ export const RUNS_DIR = '.ft/runs'
 /** Written into the runs folder so it ignores itself without touching the project's .gitignore. */
 export const RUNS_GITIGNORE = '*\n'
 
+/** Days a finished run is kept when the config's runs.keepDays does not say. */
+export const DEFAULT_KEEP_DAYS = 14
+
 /** Files inside one run's folder. */
 export const RUN_FILES = {
     request: 'request.json',
