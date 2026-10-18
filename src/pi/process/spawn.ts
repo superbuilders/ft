@@ -30,7 +30,7 @@ export async function runPi(input: {
     progress?: () => void
     control?: PiControl
     signal: AbortSignal
-    events: (chunk: Buffer) => void
+    events: (line: string) => void
     stderr: (chunk: Buffer) => void
 }): Promise<{ code: number | null; signal: string | null }> {
     input.signal.throwIfAborted()
@@ -103,14 +103,19 @@ export async function runPi(input: {
         }
     }
 
-    const parser = eventParser(input.state, input.progress, event => {
-        input.control?.observe(event)
+    const parser = eventParser(
+        input.state,
+        input.progress,
+        event => {
+            input.control?.observe(event)
 
-        /* Settled means Pi will not continue on its own. */
-        if (event.type === 'agent_settled') {
-            close()
-        }
-    })
+            /* Settled means Pi will not continue on its own. */
+            if (event.type === 'agent_settled') {
+                close()
+            }
+        },
+        input.events,
+    )
 
     /**
      * Terminate Pi's process group, then kill whatever is left once the grace period ends.
@@ -138,10 +143,7 @@ export async function runPi(input: {
 
     const stdout = (async () => {
         for await (const bytes of child.stdout) {
-            const chunk = Buffer.from(bytes)
-
-            input.events(chunk)
-            parser.push(chunk)
+            parser.push(Buffer.from(bytes))
 
             /* A run that failed before Pi took the brief has nothing left to wait for. */
             if (input.state.protocolError && !input.state.accepted) {

@@ -59,6 +59,29 @@ describe('recorded Pi 1.1.0 protocol', () => {
         }
     })
 
+    it("keeps every line for the run's record except the events that repeat a message", () => {
+        const kept: string[] = []
+        const parser = eventParser(createJudge(), undefined, undefined, line => kept.push(line))
+        const lines = [
+            '{"type":"agent_start"}',
+            '{"type":"message_start"}',
+            '{"type":"message_update"}',
+            '{"type":"turn_end"}',
+            '{"type":"agent_end"}',
+            'not-json',
+            '{"type":"tool_execution_start"}',
+        ]
+
+        parser.push(Buffer.from(`${lines.join('\n')}\n{"type":"unterminated`))
+        parser.end()
+        expect(kept).toEqual([
+            '{"type":"agent_start"}',
+            'not-json',
+            '{"type":"tool_execution_start"}',
+            '{"type":"unterminated',
+        ])
+    })
+
     it('counts compaction and tool errors without making recovered success fail', () => {
         const state = createJudge()
         const parser = eventParser(state)

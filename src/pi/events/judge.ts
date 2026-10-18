@@ -3,7 +3,7 @@ import { StringDecoder } from 'node:string_decoder'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 
 import { emptyProgress } from '../../project/runs/store'
-import { ACCEPTED_DISPOSITIONS, BRIEF_COMMAND_ID } from './constants'
+import { ACCEPTED_DISPOSITIONS, BRIEF_COMMAND_ID, UNRECORDED_EVENTS } from './constants'
 import { textOf, track } from './progress'
 
 import type { AssistantMessage } from '@earendil-works/pi-ai'
@@ -41,19 +41,23 @@ export function createJudge(progress: Progress = emptyProgress()): JudgeState {
  * @param state - mutable run judge
  * @param line - one LF-delimited record
  * @param observe - sees every well-formed record after the judge
- * @returns whether the run's visible progress changed; failures are recorded in state
+ * @returns whether the run's visible progress changed, and the record's type if it had one; failures are recorded in state
  */
 function record(
     state: JudgeState,
     line: string,
     observe: (event: Record<string, unknown>) => void,
-): boolean {
+): { changed: boolean; type: string | null } {
+    let type: string | null = null
+
     try {
         const event = JSON.parse(line) as Record<string, unknown>
 
         if (!event || Array.isArray(event) || typeof event.type !== 'string') {
             throw new Error('expected a JSON event object with a type')
         }
+
+        type = event.type
 
         if (event.type === 'response' && event.id === BRIEF_COMMAND_ID) {
             const disposition = (event.data as Record<string, unknown> | undefined)?.disposition
@@ -132,11 +136,11 @@ function record(
 
         observe(event)
 
-        return changed
+        return { changed, type }
     } catch (error) {
         state.protocolError ??= error instanceof Error ? error.message : 'Malformed protocol'
 
-        return false
+        return { changed: false, type }
     }
 }
 
@@ -145,12 +149,14 @@ function record(
  * @param state - judge to update
  * @param changed - called once per chunk whose events changed the run's visible progress
  * @param observe - sees every well-formed record, in order
+ * @param keep - receives each line worth recording, malformed ones included
  * @returns chunk and EOF consumers
  */
 export function eventParser(
     state: JudgeState,
     changed: () => void = () => {},
     observe: (event: Record<string, unknown>) => void = () => {},
+    keep: (line: string) => void = () => {},
 ): { push: (chunk: Buffer) => void; end: () => void } {
     const decoder = new StringDecoder('utf8')
     /* The unfinished record's pieces, joined once its LF arrives, so a long record is not rescanned per chunk. */
@@ -164,10 +170,16 @@ export function eventParser(
             let progressed = false
 
             while (lf >= 0) {
-                const line = pending.join('') + text.slice(start, lf)
+                const line = (pending.join('') + text.slice(start, lf)).replace(/\r$/, '')
+                const result = record(state, line, observe)
 
                 pending = []
-                progressed = record(state, line.replace(/\r$/, ''), observe) || progressed
+                progressed = result.changed || progressed
+
+                if (!result.type || !UNRECORDED_EVENTS.includes(result.type)) {
+                    keep(line)
+                }
+
                 start = lf + 1
                 lf = text.indexOf('\n', start)
             }
@@ -181,7 +193,10 @@ export function eventParser(
             }
         },
         end() {
-            if (pending.join('') + decoder.end()) {
+            const rest = pending.join('') + decoder.end()
+
+            if (rest) {
+                keep(rest)
                 state.protocolError ??= 'Unterminated JSONL record'
             }
         },

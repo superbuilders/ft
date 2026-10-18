@@ -117,8 +117,8 @@ async function drive(
             progress: touch,
             control: steering.control,
             signal,
-            events: chunk => {
-                events.write(chunk)
+            events: line => {
+                events.write(`${line}\n`)
             },
             stderr: chunk => {
                 stderr.write(chunk)
