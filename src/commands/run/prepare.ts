@@ -128,8 +128,8 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
 
     /* New runs are too young to prune, so cleanup need not hold them up. */
     const [statuses] = await Promise.all([
-        Promise.all(runs.map(run => openRun(config.workspace, run))),
-        pruneRuns(config.workspace, config.config.runs?.keepDays ?? DEFAULT_KEEP_DAYS),
+        Promise.all(runs.map(run => openRun(config.runs, run))),
+        pruneRuns(config.runs, config.config.runs?.keepDays ?? DEFAULT_KEEP_DAYS),
     ])
 
     return statuses

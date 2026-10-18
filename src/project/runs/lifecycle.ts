@@ -12,13 +12,13 @@ import type { OpenRun, Status } from './types'
 /**
  * Create a run with everything a reader needs before it starts: its folder, the brief, the
  * request, and a first status that says it is running.
- * @param root - project root
+ * @param runs - the runs folder
  * @param input - what the run is and how it was asked for
  * @returns the new run's first status
  */
-export async function openRun(root: string, input: OpenRun): Promise<Status> {
+export async function openRun(runs: string, input: OpenRun): Promise<Status> {
     const { brief, request, selected } = input
-    const { id, dir } = await createRun(root, input.name)
+    const { id, dir } = await createRun(runs, input.name)
     const now = new Date().toISOString()
     const status: Status = {
         schemaVersion: 2,

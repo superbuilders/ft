@@ -2,7 +2,7 @@ import { hostname } from 'node:os'
 
 import { STILL_STARTING } from '../../pi/run/constants'
 import { sendSteer } from '../../pi/run/steering'
-import { projectRoot } from '../../project/config/config'
+import { runsFolder } from '../../project/config/config'
 import { findRuns, stateOf } from '../../project/runs/store'
 import { commandName } from '../../system/process/self'
 import { styleFor } from '../../system/terminal/style'
@@ -23,7 +23,7 @@ export async function steer(
     options: { json?: boolean },
 ): Promise<number> {
     const style = styleFor(process.stdout)
-    const [status] = await findRuns(projectRoot(), [id])
+    const [status] = await findRuns(runsFolder(), [id])
     let receipt: SteerReceipt
 
     if (!status) {

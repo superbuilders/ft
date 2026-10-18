@@ -10,21 +10,11 @@ import {
     ID_NAME_MAX,
     ID_SUFFIX_LENGTH,
     RUN_FILES,
-    RUNS_DIR,
     RUNS_GITIGNORE,
     TITLE_MAX,
 } from './constants'
 
 import type { Progress, Request, State, Status } from './types'
-
-/**
- * The project's runs folder.
- * @param root - project root, the directory holding .ft.json
- * @returns absolute runs folder
- */
-function runsRoot(root: string): string {
-    return join(root, RUNS_DIR)
-}
 
 /**
  * Choose the readable part of a run id: the caller's name, else the brief file's name.
@@ -80,13 +70,11 @@ export function emptyProgress(): Progress {
 
 /**
  * Make a run's folder under a new id, retrying on the rare collision.
- * @param root - project root
+ * @param runs - the runs folder
  * @param name - readable part of the id
  * @returns the id and absolute folder
  */
-export async function createRun(root: string, name: string): Promise<{ id: string; dir: string }> {
-    const runs = runsRoot(root)
-
+export async function createRun(runs: string, name: string): Promise<{ id: string; dir: string }> {
     await mkdir(runs, { recursive: true })
 
     if (!existsSync(join(runs, '.gitignore'))) {
@@ -173,12 +161,11 @@ export function stateOf(status: Status): State {
 
 /**
  * Every run in the project that has a status, newest first.
- * @param root - project root
+ * @param runs - the runs folder
  * @returns statuses
  */
-export async function listRuns(root: string): Promise<Status[]> {
-    const runs = runsRoot(root)
-    const ids = await runIds(root)
+export async function listRuns(runs: string): Promise<Status[]> {
+    const ids = await runIds(runs)
     const statuses = await Promise.all(ids.map(id => readStatus(join(runs, id))))
 
     return statuses
@@ -188,12 +175,10 @@ export async function listRuns(root: string): Promise<Status[]> {
 
 /**
  * The names of the run folders, which are the run ids.
- * @param root - project root
+ * @param runs - the runs folder
  * @returns folder names, in no particular order
  */
-async function runIds(root: string): Promise<string[]> {
-    const runs = runsRoot(root)
-
+async function runIds(runs: string): Promise<string[]> {
     if (!existsSync(runs)) {
         return []
     }
@@ -207,11 +192,10 @@ async function runIds(root: string): Promise<string[]> {
  * Resolve one reference, reading only the statuses of the folders it could name.
  * @param ids - every run folder name
  * @param ref - id or id prefix
- * @param root - project root
+ * @param runs - the runs folder
  * @returns the run's status
  */
-async function pick(ids: string[], ref: string, root: string): Promise<Status> {
-    const runs = runsRoot(root)
+async function pick(ids: string[], ref: string, runs: string): Promise<Status> {
     const named = ids.includes(ref) ? [ref] : ids.filter(id => id.startsWith(ref))
     const statuses = await Promise.all(named.map(id => readStatus(join(runs, id))))
     const matches = statuses.filter((status): status is Status => status !== null)
@@ -235,30 +219,30 @@ async function pick(ids: string[], ref: string, root: string): Promise<Status> {
 
 /**
  * Find runs by their ids or unambiguous starts of them, listing the runs folder once.
- * @param root - project root
+ * @param runs - the runs folder
  * @param refs - ids or id prefixes
  * @returns the runs' statuses, in the order asked
  */
-export async function findRuns(root: string, refs: string[]): Promise<Status[]> {
-    const ids = await runIds(root)
+export async function findRuns(runs: string, refs: string[]): Promise<Status[]> {
+    const ids = await runIds(runs)
 
-    return Promise.all(refs.map(ref => pick(ids, ref, root)))
+    return Promise.all(refs.map(ref => pick(ids, ref, runs)))
 }
 
 /**
  * Delete finished runs last updated more than `days` ago. A running run keeps writing its status,
  * so it is never that old.
- * @param root - project root
+ * @param runs - the runs folder
  * @param days - age limit in days; 0 keeps every run
  * @returns completion
  */
-export async function pruneRuns(root: string, days: number): Promise<void> {
+export async function pruneRuns(runs: string, days: number): Promise<void> {
     if (days === 0) {
         return
     }
 
     const cutoff = Date.now() - days * 86_400_000
-    const statuses = await listRuns(root)
+    const statuses = await listRuns(runs)
     const expired = statuses.filter(
         status => Date.parse(status.updatedAt) < cutoff && stateOf(status) !== 'running',
     )

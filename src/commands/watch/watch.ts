@@ -1,4 +1,4 @@
-import { projectRoot } from '../../project/config/config'
+import { runsFolder } from '../../project/config/config'
 import { exitCode, jsonLine, renderTable, settledOutput, tally } from '../../project/runs/render'
 import { findRuns, listRuns, readStatus, stateOf } from '../../project/runs/store'
 import { commandName } from '../../system/process/self'
@@ -60,10 +60,10 @@ export async function watch(
     ids: string[],
     options: { timeout?: string; json?: boolean },
 ): Promise<number> {
-    const root = projectRoot()
+    const runs = runsFolder()
     const limit = Date.now() + timeoutMs(options.timeout)
     const named = ids.length > 0
-    const found = named ? await findRuns(root, ids) : await listRuns(root)
+    const found = named ? await findRuns(runs, ids) : await listRuns(runs)
     const targets = named ? found : found.filter(status => stateOf(status) === 'running')
 
     if (targets.length === 0) {

@@ -1,5 +1,8 @@
 export const CONFIG_FILE = '.ft.json'
 
+/** A project with its own config keeps runs here, beside the lock, so its people and agents reach them by a relative path. */
+export const RUNS_DIR = '.ft/runs'
+
 /** Pinned runner version and checksums, beside the config; only `ft pin` writes it. */
 export const LOCK_FILE = '.ft/lock.json'
 

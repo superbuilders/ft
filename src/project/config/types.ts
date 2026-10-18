@@ -26,8 +26,10 @@ export interface ResolvedConfig {
     path: string
     /** Directory containing the selected config; a key command runs here. */
     root: string
-    /** Where runs live and instructions are read from (see workspaceOf). */
+    /** Where instructions are read from (see workspaceOf). */
     workspace: string
+    /** Absolute folder this workspace's runs live in (see runsOf). */
+    runs: string
     /** Validated on-disk configuration. */
     config: Config
 }

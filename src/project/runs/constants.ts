@@ -1,6 +1,3 @@
-/** Runs live in the project, beside the lock, so humans and agents reach them by a relative path. */
-export const RUNS_DIR = '.ft/runs'
-
 /** Written into the runs folder so it ignores itself without touching the project's .gitignore. */
 export const RUNS_GITIGNORE = '*\n'
 

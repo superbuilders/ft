@@ -66,7 +66,7 @@ ft stop <id>                     # cancel a run
 
 The report names the run's id and where its answer is saved; `ft start` prints the ids and the `ft watch` command to use.
 
-By default a run uses the `read` profile, which tells the model not to change files. That is an instruction, not a sandbox: the model can still run shell commands. Pass `--profile write` for changes your agent will review. ft never commits. Each run keeps its brief, its steps and its answer in `.ft/runs/<id>/` in the repository you ran it from.
+By default a run uses the `read` profile, which tells the model not to change files. That is an instruction, not a sandbox: the model can still run shell commands. Pass `--profile write` for changes your agent will review. ft never commits. Each run keeps its brief, its steps and its answer in a folder of its own, which the report names: `.ft/runs/<id>/` in a repository with its own `.ft.json`, and `~/.local/state/ft/runs/` otherwise, so ft adds nothing to a repository that never set it up.
 
 Each new run deletes finished runs older than 14 days. To keep them longer, set a number of days in your config, or `0` to keep every run:
 

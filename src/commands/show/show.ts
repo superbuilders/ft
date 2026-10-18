@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { storyOf } from '../../pi/events/story'
-import { projectRoot } from '../../project/config/config'
+import { runsFolder } from '../../project/config/config'
 import { RUN_FILES } from '../../project/runs/constants'
 import {
     ago,
@@ -46,7 +46,7 @@ function stepLine(step: Step, style: Style): string {
  * @returns completion
  */
 export async function show(id: string, options: { json?: boolean }): Promise<void> {
-    const [status] = await findRuns(projectRoot(), [id])
+    const [status] = await findRuns(runsFolder(), [id])
 
     if (!status) {
         return

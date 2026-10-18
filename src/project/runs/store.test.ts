@@ -49,7 +49,7 @@ it('keeps runs out of git and gives each its own folder', async () => {
 
     expect(first.id).toMatch(/^review-[0-9a-f]{4}$/)
     expect(second.id).not.toBe(first.id)
-    expect(await readFile(join(root, '.ft/runs/.gitignore'), 'utf8')).toBe('*\n')
+    expect(await readFile(join(root, '.gitignore'), 'utf8')).toBe('*\n')
 })
 
 describe('finding a run', () => {
@@ -102,7 +102,7 @@ describe('pruning old runs', () => {
     it('deletes finished runs past the limit and keeps new and running ones', async () => {
         await pruneRuns(root, 14)
 
-        const left = await readdir(join(root, '.ft/runs'))
+        const left = await readdir(root)
 
         expect(left.map(name => name.split('-')[0]).toSorted()).toEqual([
             '.gitignore',
@@ -114,7 +114,7 @@ describe('pruning old runs', () => {
     it('keeps every run at 0', async () => {
         await pruneRuns(root, 0)
 
-        expect(await readdir(join(root, '.ft/runs'))).toHaveLength(4)
+        expect(await readdir(root)).toHaveLength(4)
     })
 })
 

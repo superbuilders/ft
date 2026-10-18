@@ -5,7 +5,7 @@ description: Hand a bounded task to a subagent that ft runs on another model (a 
 
 # ft
 
-`ft` runs one brief on one model in a separate Pi agent session, in your working tree, and records the run under `.ft/runs/<id>/`.
+`ft` runs one brief on one model in a separate Pi agent session, in your working tree, and records the run in a folder that its report names.
 
 Run `ft guide` once per session, before your first ft command. Skip it if you already ran it in this session. It prints the manual for the ft version in use here (the roles, how to write a brief, the run and watch commands, and exit codes), and it wins over anything you remember about ft.
 

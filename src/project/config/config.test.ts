@@ -47,9 +47,10 @@ describe('config', () => {
         const loaded = await loadConfig(nested)
 
         expect(loaded.root).toBe(root)
+        expect(loaded.runs).toBe(join(root, '.ft', 'runs'))
     })
 
-    it('falls back to the personal config, with runs in the repository around cwd', async () => {
+    it('falls back to the personal config, keeping runs for the repository around cwd in the state folder', async () => {
         const root = await mkdtemp(join(tmpdir(), 'ft-config-'))
         const nested = join(root, 'repo', 'src')
 
@@ -59,12 +60,16 @@ describe('config', () => {
         await mkdir(nested)
         await writeFile(join(root, 'config', 'ft', '.ft.json'), JSON.stringify(valid))
         vi.stubEnv('XDG_CONFIG_HOME', join(root, 'config'))
+        vi.stubEnv('XDG_STATE_HOME', join(root, 'state'))
 
         const loaded = await loadConfig(nested)
 
         expect(loaded.path).toBe(join(root, 'config', 'ft', '.ft.json'))
         expect(loaded.root).toBe(join(root, 'config', 'ft'))
         expect(loaded.workspace).toBe(join(root, 'repo'))
+        expect(loaded.runs).toBe(
+            join(root, 'state', 'ft', 'runs', join(root, 'repo').slice(1).replaceAll('/', '-')),
+        )
     })
 
     it('has a repository scope only inside a git repository or a project config', async () => {

@@ -59,7 +59,7 @@ export async function guide(runnerVersion: string): Promise<void> {
     const text = [
         `# ft ${runnerVersion}: hand a bounded task to a subagent on another model`,
         '',
-        `ft runs one brief on one model in a separate, pinned Pi coding-agent session (Pi ${PI_VERSION}). The delegate does not see your conversation, but it works in your working tree. ft records each run under .ft/runs/<id>/. Use it for a second opinion, a parallel review, web research, or a scoped change you will review yourself.`,
+        `ft runs one brief on one model in a separate, pinned Pi coding-agent session (Pi ${PI_VERSION}). The delegate does not see your conversation, but it works in your working tree. ft records each run in its own folder, which every report names. Use it for a second opinion, a parallel review, web research, or a scoped change you will review yourself.`,
         '',
         'Commands here are written `ft ...`. If this repository runs ft through a package script (such as `bun ft`, or `npm run ft --` with npm) or `.ft/ft`, write every command that way.',
         '',

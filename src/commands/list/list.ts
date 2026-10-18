@@ -1,4 +1,4 @@
-import { projectRoot } from '../../project/config/config'
+import { runsFolder } from '../../project/config/config'
 import { jsonLine, renderTable } from '../../project/runs/render'
 import { listRuns, stateOf } from '../../project/runs/store'
 import { commandName } from '../../system/process/self'
@@ -13,7 +13,7 @@ import { RECENT_RUNS } from './constants'
  * @returns completion
  */
 export async function list(options: { all?: boolean; json?: boolean }): Promise<void> {
-    const statuses = await listRuns(projectRoot())
+    const statuses = await listRuns(runsFolder())
     const listed = statuses.map(status => ({
         status,
         state: stateOf(status),

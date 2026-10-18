@@ -34,6 +34,14 @@ export function cacheRoot(): string {
 }
 
 /**
+ * Resolve the state directory, which holds the runs of repositories set up only by the personal config.
+ * @returns absolute ft state root
+ */
+export function stateRoot(): string {
+    return resolvePath(process.env.XDG_STATE_HOME || join(homeDirectory(), '.local', 'state'), 'ft')
+}
+
+/**
  * Resolve the personal config directory, used where a project has no `.ft.json` of its own.
  * @returns absolute ft config directory
  */

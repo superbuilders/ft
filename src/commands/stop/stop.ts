@@ -1,6 +1,6 @@
 import { hostname } from 'node:os'
 
-import { projectRoot } from '../../project/config/config'
+import { runsFolder } from '../../project/config/config'
 import { findRuns, stateOf } from '../../project/runs/store'
 import { commandName } from '../../system/process/self'
 import { styleFor } from '../../system/terminal/style'
@@ -14,7 +14,7 @@ export async function stop(ids: string[]): Promise<number> {
     const style = styleFor(process.stdout)
     let code = 0
 
-    for (const status of await findRuns(projectRoot(), ids)) {
+    for (const status of await findRuns(runsFolder(), ids)) {
         const state = stateOf(status)
 
         if (state !== 'running') {

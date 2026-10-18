@@ -59,9 +59,11 @@ A role whose model is configured as tool-free (such as a web-research model) run
 
 ## Running ft from a sandboxed or permission-checked shell
 
-ft needs the network, and writes under ~/.cache/ft and this repository's .ft/. If your shell blocks either, ask once for ft to run outside those limits, for every ft command rather than one call. Make \`ft ...\` the whole command (no \`cd\`, pipes or \`&&\` around it), so a permission granted for ft covers every call.
+ft needs the network, and writes under ~/.cache/ft, ~/.local/state/ft and this repository's .ft/. If your shell blocks any of them, ask once for ft to run outside those limits, for every ft command rather than one call. Make \`ft ...\` the whole command (no \`cd\`, pipes or \`&&\` around it), so a permission granted for ft covers every call.
 
-## A run's folder: .ft/runs/<id>/
+## A run's folder
+
+In a repository with its own .ft.json, a run's folder is .ft/runs/<id>/, beside it. Under your personal config alone it is ~/.local/state/ft/runs/<repository path>/<id>/, so a repository that never set ft up gains no folder. Every report names the folder's files by path.
 
 Each run keeps brief.md (the task), request.json (the options) and status.json (updated while it runs). events.jsonl holds Pi's raw events and stderr.log its stderr; a run that failed early may have neither. A successful run saves answer.md, and a failed one saves partial.md if the model wrote anything. The runs folder ignores itself in git. A new run deletes finished runs older than the config's runs.keepDays (14 days by default), so copy out anything worth keeping longer.
 `
