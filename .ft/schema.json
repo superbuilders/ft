@@ -283,6 +283,18 @@
                 }
             },
             "description": "Named model choices for ft run --role. code is the default role."
+        },
+        "runs": {
+            "type": "object",
+            "properties": {
+                "keepDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Days a finished run is kept. Each new run deletes older ones; 0 keeps every run. Default 14."
+                }
+            },
+            "additionalProperties": false,
+            "description": "What ft keeps of past runs."
         }
     },
     "additionalProperties": false
