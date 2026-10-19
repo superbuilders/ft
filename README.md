@@ -68,10 +68,10 @@ The report names the run's id and where its answer is saved; `ft start` prints t
 
 By default a run uses the `read` profile, which tells the model not to change files. That is an instruction, not a sandbox: the model can still run shell commands. Pass `--profile write` for changes your agent will review. ft never commits. Each run keeps its brief, its steps and its answer in a folder of its own, which the report names: `.ft/runs/<id>/` in a repository with its own `.ft.json`, and `~/.local/state/ft/runs/` otherwise, so ft adds nothing to a repository that never set it up.
 
-Each new run deletes finished runs older than 14 days. To keep them longer, set a number of days in your config, or `0` to keep every run:
+Each new run deletes finished runs older than 14 days. To keep them longer, set a number of days in your config, or `0` to keep every run. To keep runs somewhere else, set `dir`: a relative path is read from the repository root, and `~` means your home. In your personal config, an absolute path gets one folder per repository.
 
 ```json
-"runs": { "keepDays": 30 }
+"runs": { "keepDays": 30, "dir": "~/ft-runs" }
 ```
 
 ## Let your agents use ft

@@ -6,7 +6,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { EXAMPLE_CONFIG } from '../../models/constants'
 import { resolveRole } from '../../models/models'
-import { findConfig, loadConfig, resolveBaseUrl, scopeRoot, validateConfig } from './config'
+import {
+    findConfig,
+    loadConfig,
+    resolveBaseUrl,
+    runsFolder,
+    scopeRoot,
+    validateConfig,
+} from './config'
 
 const directories: string[] = []
 const gateway = {
@@ -69,6 +76,50 @@ describe('config', () => {
         expect(loaded.workspace).toBe(join(root, 'repo'))
         expect(loaded.runs).toBe(
             join(root, 'state', 'ft', 'runs', join(root, 'repo').slice(1).replaceAll('/', '-')),
+        )
+    })
+
+    it('puts runs in runs.dir: relative from the workspace, absolute as is', async () => {
+        const root = await mkdtemp(join(tmpdir(), 'ft-config-'))
+
+        /**
+         * Write a project config with this runs.dir and load it.
+         * @param dir - the runs.dir to set
+         * @returns the runs folder the config resolves to
+         */
+        async function runsFor(dir: string): Promise<string> {
+            await writeFile(join(root, '.ft.json'), JSON.stringify({ ...valid, runs: { dir } }))
+
+            const loaded = await loadConfig(root)
+
+            return loaded.runs
+        }
+
+        directories.push(root)
+        vi.stubEnv('HOME', join(root, 'home'))
+        expect(await runsFor('/var/ft')).toBe('/var/ft')
+        expect(await runsFor('~/ft-runs')).toBe(join(root, 'home', 'ft-runs'))
+        expect(await runsFor('tmp/runs')).toBe(join(root, 'tmp', 'runs'))
+        vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
+        expect(runsFolder()).toBe(join(root, 'tmp', 'runs'))
+    })
+
+    it('keeps one folder per repository in an absolute runs.dir of the personal config', async () => {
+        const root = await mkdtemp(join(tmpdir(), 'ft-config-'))
+
+        directories.push(root)
+        await mkdir(join(root, 'config', 'ft'), { recursive: true })
+        await mkdir(join(root, 'repo', '.git'), { recursive: true })
+        await writeFile(
+            join(root, 'config', 'ft', '.ft.json'),
+            JSON.stringify({ ...valid, runs: { dir: join(root, 'runs') } }),
+        )
+        vi.stubEnv('XDG_CONFIG_HOME', join(root, 'config'))
+
+        const loaded = await loadConfig(join(root, 'repo'))
+
+        expect(loaded.runs).toBe(
+            join(root, 'runs', join(root, 'repo').slice(1).replaceAll('/', '-')),
         )
     })
 

@@ -1,11 +1,11 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 
 import { isBuiltinProvider } from '../../models/catalog'
 import { findModel } from '../../models/models'
 import { repositoryRoot } from '../../system/files/repository-root'
-import { configRoot, stateRoot } from '../../system/host/host'
+import { configRoot, homeDirectory, stateRoot } from '../../system/host/host'
 import { CONFIG_FILE, FORBIDDEN_PROVIDER_FIELDS, RUNS_DIR } from './constants'
 import { configValidator } from './schema'
 
@@ -67,23 +67,46 @@ function workspaceOf(path: string, cwd: string): string {
 }
 
 /**
- * Where a workspace's runs live: in a project that has its own config, beside it, where its team
- * set ft up; under the personal config, in this person's state folder, so a repository that never
- * set ft up gains no folder.
+ * Where a workspace's runs live. By default, in a project that has its own config, beside it, where
+ * its team set ft up; under the personal config, in this person's state folder, so a repository that
+ * never set ft up gains no folder. The config's runs.dir moves them: a relative path stays inside the
+ * workspace, and an absolute one shared by the personal config keeps one folder per repository.
  * @param path - absolute config path
  * @param workspace - the workspace the runs belong to
+ * @param dir - the config's runs.dir, if it sets one
  * @returns absolute runs folder
  */
-function runsOf(path: string, workspace: string): string {
+function runsOf(path: string, workspace: string, dir?: string): string {
+    const chosen = dir?.replace(/^~(?=\/|$)/, () => homeDirectory())
+
+    if (chosen !== undefined && !isAbsolute(chosen)) {
+        return resolve(workspace, chosen)
+    }
+
     if (!isPersonal(path)) {
-        return join(workspace, RUNS_DIR)
+        return chosen ?? join(workspace, RUNS_DIR)
     }
 
     return join(
-        stateRoot(),
-        'runs',
+        chosen ?? join(stateRoot(), 'runs'),
         workspace.replaceAll(/[^A-Za-z0-9._-]+/g, '-').replace(/^-/, ''),
     )
+}
+
+/**
+ * Read runs.dir from a config that may not be valid, so a broken config still finds its runs.
+ * @param path - absolute config path
+ * @returns the folder it names, or undefined
+ */
+function unvalidatedRunsDir(path: string): string | undefined {
+    try {
+        const parsed = JSON.parse(readFileSync(path, 'utf8')) as { runs?: { dir?: unknown } } | null
+        const dir = parsed?.runs?.dir
+
+        return typeof dir === 'string' && dir ? dir : undefined
+    } catch {
+        return undefined
+    }
 }
 
 /**
@@ -136,7 +159,7 @@ export function runsFolder(): string {
         throw noConfig()
     }
 
-    return runsOf(found, workspaceOf(found, process.cwd()))
+    return runsOf(found, workspaceOf(found, process.cwd()), unvalidatedRunsDir(found))
 }
 
 /**
@@ -339,12 +362,13 @@ export async function loadConfig(cwd: string, user = false): Promise<ResolvedCon
     }
 
     const workspace = workspaceOf(path, cwd)
+    const config = validateConfig(JSON.parse(await readFile(path, 'utf8')))
 
     return {
         path,
         root: dirname(path),
         workspace,
-        runs: runsOf(path, workspace),
-        config: validateConfig(JSON.parse(await readFile(path, 'utf8'))),
+        runs: runsOf(path, workspace, config.runs?.dir),
+        config,
     }
 }

@@ -63,7 +63,7 @@ ft needs the network, and writes under ~/.cache/ft, ~/.local/state/ft and this r
 
 ## A run's folder
 
-In a repository with its own .ft.json, a run's folder is .ft/runs/<id>/, beside it. Under your personal config alone it is ~/.local/state/ft/runs/<repository path>/<id>/, so a repository that never set ft up gains no folder. Every report names the folder's files by path.
+In a repository with its own .ft.json, a run's folder is .ft/runs/<id>/, beside it. Under your personal config alone it is ~/.local/state/ft/runs/<repository path>/<id>/, so a repository that never set ft up gains no folder. The config's runs.dir moves them. Every report names the folder's files by path.
 
 Each run keeps brief.md (the task), request.json (the options) and status.json (updated while it runs). events.jsonl holds Pi's raw events and stderr.log its stderr; a run that failed early may have neither. A successful run saves answer.md, and a failed one saves partial.md if the model wrote anything. The runs folder ignores itself in git. A new run deletes finished runs older than the config's runs.keepDays (14 days by default), so copy out anything worth keeping longer.
 `

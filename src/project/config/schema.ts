@@ -16,6 +16,13 @@ export const ConfigSchema = Type.Object(
         runs: Type.Optional(
             Type.Object(
                 {
+                    dir: Type.Optional(
+                        Type.String({
+                            minLength: 1,
+                            description:
+                                'Folder the runs go in. A relative path is read from the repository root, and ~ means your home. Under the personal config an absolute path gets one folder per repository. Default: .ft/runs beside a project config, ~/.local/state/ft/runs under the personal config.',
+                        }),
+                    ),
                     keepDays: Type.Optional(
                         Type.Integer({
                             minimum: 0,
@@ -24,7 +31,10 @@ export const ConfigSchema = Type.Object(
                         }),
                     ),
                 },
-                { additionalProperties: false, description: 'What ft keeps of past runs.' },
+                {
+                    additionalProperties: false,
+                    description: 'Where ft keeps past runs, and for how long.',
+                },
             ),
         ),
     },
