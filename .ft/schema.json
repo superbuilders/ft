@@ -287,6 +287,11 @@
         "runs": {
             "type": "object",
             "properties": {
+                "dir": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Folder the runs go in. A relative path is read from the repository root, and ~ means your home. Under the personal config an absolute path gets one folder per repository. Default: .ft/runs beside a project config, ~/.local/state/ft/runs under the personal config."
+                },
                 "keepDays": {
                     "type": "integer",
                     "minimum": 0,
@@ -294,7 +299,7 @@
                 }
             },
             "additionalProperties": false,
-            "description": "What ft keeps of past runs."
+            "description": "Where ft keeps past runs, and for how long."
         }
     },
     "additionalProperties": false
