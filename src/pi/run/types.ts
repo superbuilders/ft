@@ -103,4 +103,8 @@ export interface SchemaChild {
     schema: unknown
     /** Whether it applies to the same value as its parent, as allOf's entries do. */
     same: boolean
+    /** Whether it is a definition, which applies only where a reference points. */
+    definition: boolean
+    /** Its JSON pointer below the parent, such as `/properties/name`. */
+    pointer: string
 }

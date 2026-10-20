@@ -324,12 +324,10 @@ export const SAME_VALUE_LISTS: readonly string[] = ['allOf', 'anyOf', 'oneOf']
 export const SAME_VALUE_KEYWORDS: readonly string[] = ['not', 'if', 'then', 'else']
 
 /** Keywords holding a map of named subschemas, each for a part of the value or a definition. */
-export const SCHEMA_MAPS: readonly string[] = [
-    'properties',
-    'patternProperties',
-    'definitions',
-    '$defs',
-]
+export const SCHEMA_MAPS: readonly string[] = ['properties', 'patternProperties']
+
+/** Keywords holding a map of named definitions, which apply only where a reference points. */
+export const DEFINITION_MAPS: readonly string[] = ['definitions', '$defs']
 
 /** Keywords whose one subschema applies to a part of the value, such as each item. */
 export const CHILD_KEYWORDS: readonly string[] = [

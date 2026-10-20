@@ -2,7 +2,7 @@ import { readFile, rm, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { chooseModel } from '../../pi/run/model'
-import { compileOutputSchema } from '../../pi/run/output'
+import { compileOutputSchema } from '../../pi/run/schema'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
 import { getKey } from '../../project/key/key'

@@ -21,13 +21,8 @@ import { runPi } from '../process/spawn'
 import { installRuntime } from '../runtime/runtime'
 import { CANCEL_SIGNALS, CONTROL_SOCKET, OUTPUT_CORRECTIONS_MAX, RUN_PROFILES } from './constants'
 import { chooseModel } from './model'
-import {
-    checkOutput,
-    compileOutputSchema,
-    correctionMessage,
-    outputInstructions,
-    problemList,
-} from './output'
+import { checkOutput, correctionMessage, outputInstructions, problemList } from './output'
+import { compileOutputSchema } from './schema'
 import { createSteering, serveSteering } from './steering'
 
 import type { Validator } from 'typebox/schema'
