@@ -25,7 +25,7 @@ async function roles(): Promise<string[]> {
 
         return entries.map(
             ([name, role]) =>
-                `- ${name}${name === DEFAULT_ROLE ? ' (default)' : ''}: ${role.model}${role.thinking ? `, thinking ${role.thinking}` : ''}. ${role.description ?? ROLE_FALLBACK_DESCRIPTION}`,
+                `- ${name}${name === DEFAULT_ROLE ? ' (default)' : ''}: ${role.model}${role.thinking ? `, thinking ${role.thinking}` : ''}${role.maxTurns ? `, at most ${role.maxTurns} turns` : ''}. ${role.description ?? ROLE_FALLBACK_DESCRIPTION}`,
         )
     } catch (error) {
         return [

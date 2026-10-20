@@ -1,6 +1,7 @@
 import { readFile, rm, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
+import { DEFAULT_ROLE } from '../../models/constants'
 import { chooseModel } from '../../pi/run/model'
 import { compileOutputSchema } from '../../pi/run/schema'
 import { PI_VERSION } from '../../pi/runtime/constants'
@@ -154,7 +155,10 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
 
     const config = await loadConfig(process.cwd())
     const deadline = deadlineSeconds(options.deadline)
-    const maxTurns = turnLimit(options.maxTurns)
+    /* A role's limit belongs to the role, so a run on --model has none. */
+    const maxTurns =
+        turnLimit(options.maxTurns) ??
+        (options.model ? undefined : config.config.roles[options.role ?? DEFAULT_ROLE]?.maxTurns)
     const schema = await outputSchema(options.outputSchema)
     const request: Request = {
         profile: options.profile ?? 'read',

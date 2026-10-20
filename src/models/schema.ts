@@ -105,6 +105,13 @@ export const RoleSchema = Type.Object(
             description: 'provider/model: a configured provider id and one of its model ids.',
         }),
         thinking: Type.Optional(Type.Enum(THINKING_LEVELS, { description: 'Pi thinking level.' })),
+        maxTurns: Type.Optional(
+            Type.Integer({
+                minimum: 1,
+                description:
+                    'Stop a run when the model starts more turns than this; --max-turns overrides it. Default: no limit.',
+            }),
+        ),
         description: Type.Optional(
             Type.String({
                 minLength: 1,
