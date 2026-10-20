@@ -68,14 +68,25 @@ export async function openRun(runs: string, input: OpenRun): Promise<Status> {
 export function publisher(status: Status): { touch: () => void; flush: () => Promise<void> } {
     let timer: ReturnType<typeof setTimeout> | undefined
     let writing = Promise.resolve()
+    let failed: unknown
 
     /**
-     * Queue one write behind any in flight, so writes never interleave.
+     * Queue one write behind any in flight, so writes never interleave. A failure is kept, not
+     * thrown: a later write may succeed, and only a flush reports it.
      * @returns the queued write
      */
     function write(): Promise<void> {
         status.durationMs = Date.now() - Date.parse(status.startedAt)
-        writing = writing.then(() => writeStatus(status)).catch(() => {})
+        writing = writing
+            .then(() => writeStatus(status))
+            .then(
+                () => {
+                    failed = undefined
+                },
+                (error: unknown) => {
+                    failed = error
+                },
+            )
 
         return writing
     }
@@ -91,6 +102,10 @@ export function publisher(status: Status): { touch: () => void; flush: () => Pro
             clearTimeout(timer)
             timer = undefined
             await write()
+
+            if (failed) {
+                throw failed
+            }
         },
     }
 }

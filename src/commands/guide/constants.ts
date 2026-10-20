@@ -17,7 +17,7 @@ ft also tells the delegate that it works for another agent, that nobody can answ
 
 \`ft run\` waits, then prints a report: the verdict, the tools used and files written, what to do next if it failed, and where the answer is saved with its length in lines. Read the answer file when you need it; \`ft show <id>\` prints it too. Exit code 0 means the model returned a final answer, not that the answer is right.
 
-Options: \`--name review\` (the run id's prefix), \`--role <role>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--workdir <dir>\` (the folder the run works in, such as a worktree; the run is still recorded and watched from here), \`--deadline <seconds>\`, \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--output-schema <file>\` (see Structured answers), \`--json\`.
+Options: \`--name review\` (the run id's prefix), \`--role <role>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--workdir <dir>\` (the folder the run works in, such as a worktree; the run is still recorded and watched from here), \`--deadline <seconds>\`, \`--max-turns <count>\` (stop the run when the model starts more turns than this; it keeps what the model wrote so far as a partial answer), \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--output-schema <file>\` (see Structured answers), \`--json\`.
 
 ## Run several at once, or anything long
 
@@ -58,7 +58,7 @@ A role whose model is configured as tool-free (such as a web-research model) run
 
 ## Reading results
 
-- Exit codes of \`ft run\` and of \`ft watch\`: 0 success; 1 model or runtime error, or a lost run; 2 configuration error; 3 incomplete or unreadable output, or an answer that never matched its output schema; 75 still running (\`ft watch\` timed out); 124 deadline reached; 130 cancelled. \`ft start\` exits 0 once its runs have started, which says nothing yet about their outcome (a run that already ended sets its own code).
+- Exit codes of \`ft run\` and of \`ft watch\`: 0 success; 1 model or runtime error, or a lost run; 2 configuration error; 3 incomplete or unreadable output, or an answer that never matched its output schema; 75 still running (\`ft watch\` timed out); 124 deadline or turn limit reached; 130 cancelled. \`ft start\` exits 0 once its runs have started, which says nothing yet about their outcome (a run that already ended sets its own code).
 - The answer is a claim, not a fact. Check it against the code, the tests or its cited sources. After a write run, read \`git diff\` before you accept it; ft never commits. When you report back, keep what the other model said apart from what you verified, and say what remains unchecked.
 - A failed or stopped run keeps the model's last message as a partial answer when it wrote one. It may be only a progress note, so do not present it as findings. The report says what to try next. A failed write run may already have changed files: check \`git diff\` and \`git status\` before you retry.
 - \`ft show <id>\` prints every step of a run, its timing, and the answer itself (cut at 20,000 characters; the file holds all of it). \`ft list\` shows the running runs and the 15 newest, \`ft list --all\` every run. \`ft stop <id>\` cancels one. Ids accept any unambiguous prefix.

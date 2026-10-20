@@ -131,3 +131,11 @@ it.each([
         return { briefs: [join(root, 'a.md')], options: { outputSchema: file } }
     }, error)
 })
+
+it.each(['0', '1.5', 'many'])('starts no run with --max-turns %s', async maxTurns => {
+    await expectRefused(async root => {
+        await writeFile(join(root, 'a.md'), 'First brief')
+
+        return { briefs: [join(root, 'a.md')], options: { maxTurns } }
+    }, '--max-turns must be a whole number above 0')
+})

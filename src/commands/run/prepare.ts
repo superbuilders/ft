@@ -37,6 +37,25 @@ function deadlineSeconds(deadline: string | undefined): number | undefined {
 }
 
 /**
+ * Validate the caller's turn limit.
+ * @param maxTurns - the count as typed
+ * @returns the count, or undefined when none was given
+ */
+function turnLimit(maxTurns: string | undefined): number | undefined {
+    if (maxTurns === undefined) {
+        return undefined
+    }
+
+    const count = Number(maxTurns)
+
+    if (!Number.isSafeInteger(count) || count <= 0) {
+        throw new Error('--max-turns must be a whole number above 0')
+    }
+
+    return count
+}
+
+/**
  * Read the brief from its file, or from stdin for `-`.
  * @param brief - path or `-`
  * @returns non-empty brief text
@@ -135,6 +154,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
 
     const config = await loadConfig(process.cwd())
     const deadline = deadlineSeconds(options.deadline)
+    const maxTurns = turnLimit(options.maxTurns)
     const schema = await outputSchema(options.outputSchema)
     const request: Request = {
         profile: options.profile ?? 'read',
@@ -143,6 +163,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
         ...(options.model ? { model: options.model } : {}),
         ...(options.thinking ? { thinking: options.thinking } : {}),
         ...(deadline === undefined ? {} : { deadline }),
+        ...(maxTurns === undefined ? {} : { maxTurns }),
         ...(options.out ? { out: resolve(options.out) } : {}),
         ...(schema ? { outputSchema: schema } : {}),
     }

@@ -246,7 +246,7 @@ export async function execute(dir: string): Promise<Status> {
     const output: OutputState = { corrections: 0 }
     let judged: Judged | undefined
     let failure: string | undefined
-    let interrupted: Outcome | undefined
+    let interrupted: { outcome: Outcome; error: string } | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
 
     Object.assign(status, { pid: process.pid, host: hostname() })
@@ -254,11 +254,12 @@ export async function execute(dir: string): Promise<Status> {
 
     /**
      * Record why the run stops, then stop Pi.
-     * @param outcome - timeout or cancellation
+     * @param outcome - timeout, for a deadline or turn limit, or cancellation
+     * @param error - the reason, as the run's error
      * @returns nothing
      */
-    function stop(outcome: 'timeout' | 'cancelled'): void {
-        interrupted ??= outcome
+    function stop(outcome: 'timeout' | 'cancelled', error: string): void {
+        interrupted ??= { outcome, error }
         controller.abort()
     }
 
@@ -267,7 +268,19 @@ export async function execute(dir: string): Promise<Status> {
      * @returns nothing
      */
     function cancel(): void {
-        stop('cancelled')
+        stop('cancelled', 'The run was stopped by a signal')
+    }
+
+    /**
+     * Publish progress, and stop the run once the model starts a turn beyond its limit.
+     * @returns nothing
+     */
+    function touch(): void {
+        live.touch()
+
+        if (request.maxTurns !== undefined && state.progress.turns > request.maxTurns) {
+            stop('timeout', `Turn limit reached (${request.maxTurns} turns)`)
+        }
     }
 
     for (const signal of CANCEL_SIGNALS) {
@@ -276,7 +289,7 @@ export async function execute(dir: string): Promise<Status> {
 
     if (request.deadline !== undefined) {
         timer = setTimeout(
-            () => stop('timeout'),
+            () => stop('timeout', 'Deadline exceeded'),
             Math.max(1, request.deadline * 1000 - (Date.now() - Date.parse(status.startedAt))),
         )
     }
@@ -284,7 +297,7 @@ export async function execute(dir: string): Promise<Status> {
     try {
         judged = await drive(request, status, state, phase, {
             signal: controller.signal,
-            touch: live.touch,
+            touch,
             steering,
             output,
         })
@@ -322,9 +335,8 @@ export async function execute(dir: string): Promise<Status> {
     }
 
     if (interrupted) {
-        decided.outcome = interrupted
-        decided.error =
-            interrupted === 'timeout' ? 'Deadline exceeded' : 'The run was stopped by a signal'
+        decided.outcome = interrupted.outcome
+        decided.error = interrupted.error
     }
 
     if (decided.outcome !== 'success') {

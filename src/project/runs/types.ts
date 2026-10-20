@@ -67,6 +67,8 @@ export interface Request {
     thinking?: string
     /** Wall-clock seconds before the run is stopped. */
     deadline?: number
+    /** Model turns the run may take before it is stopped. */
+    maxTurns?: number
     /** Absolute directory the run's tools work in. */
     cwd: string
     /** Absolute path that also receives the answer on success. */

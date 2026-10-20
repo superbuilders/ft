@@ -44,6 +44,7 @@ function runOptions(command: Command): Command {
             'folder the run works in, such as a worktree (default: this one)',
         )
         .option('--deadline <seconds>', 'stop the run after this long')
+        .option('--max-turns <count>', 'stop the run when the model starts more turns than this')
         .option(
             '--output-schema <file>',
             'a JSON Schema the final answer must match; the answer is saved as output.json',

@@ -68,7 +68,7 @@ export const NEXT_STEPS = {
     runtime_error:
         "ft or Pi failed while running the session. See <ft> show <id> and the run's stderr.log for details.",
     timeout:
-        'The run reached its deadline. Raise --deadline or narrow the brief, then start it again.',
+        'The run reached its deadline or turn limit. Raise --deadline or --max-turns, or narrow the brief, then start it again.',
     cancelled: 'The run was stopped by a signal. Start it again if it is still needed.',
     lost: "The run's process is gone and no outcome was saved. <ft> show <id> has the steps it took; start it again if it is still needed.",
 } as const
