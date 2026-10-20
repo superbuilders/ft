@@ -81,8 +81,31 @@ describe('compileOutputSchema', () => {
         ],
         [
             'a top level that refers to itself',
-            { type: 'object', $ref: '#' },
+            { type: 'object', allOf: [{ $ref: '#' }] },
             'refers to itself without end',
+        ],
+        [
+            'keywords beside a reference',
+            {
+                type: 'object',
+                $defs: { s: { type: 'string' } },
+                properties: { a: { $ref: '#/$defs/s', maxLength: 2 } },
+            },
+            'puts maxLength beside "$ref": #/$defs/s',
+        ],
+        [
+            'an $id below the top',
+            { type: 'object', properties: { x: { $id: 'child', type: 'string' } } },
+            'has an $id below its top level',
+        ],
+        [
+            'a reference into example data',
+            {
+                type: 'object',
+                examples: [{ type: 'strnig' }],
+                properties: { x: { $ref: '#/examples/0' } },
+            },
+            'not a schema: #/examples/0',
         ],
         [
             'a property that refers to itself',
@@ -137,6 +160,17 @@ describe('compileOutputSchema', () => {
                 .ok,
         ).toBe(true)
         expect(checkOutput('{"name":"a","children":[{"children":[]}]}', tree).ok).toBe(false)
+    })
+
+    it('accepts notes beside a reference', () => {
+        expect(() =>
+            compileOutputSchema({
+                type: 'object',
+                $id: 'https://x.test/answer.json',
+                $defs: { s: { type: 'string' } },
+                properties: { a: { $ref: '#/$defs/s', description: 'the name', title: 'Name' } },
+            }),
+        ).not.toThrow()
     })
 
     it('treats a $ref inside data, such as const or examples, as data', () => {
@@ -304,6 +338,18 @@ describe('checkOutput', () => {
             expect(!checked.ok && checked.problems[0]).toMatch(/^the JSON could not be read: /)
         },
     )
+
+    it('does not take an object from inside one in prose that never closes', () => {
+        const checked = checkOutput(`Here it is: {"result":${json}`, output)
+
+        expect(checked.ok).toBe(false)
+    })
+
+    it('still finds the object after a brace in prose that never closes', () => {
+        const checked = checkOutput(`Sets look like { a, b. Here it is: ${json}`, output)
+
+        expect(checked.ok && checked.value).toEqual(one)
+    })
 
     it('does not take an object from inside a broken one in prose', () => {
         const checked = checkOutput(`Here it is: {"result":${json},} Done.`, output)

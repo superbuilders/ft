@@ -11,6 +11,8 @@ import {
     SAME_VALUE_LISTS,
     SCHEMA_MAPS,
     SAME_VALUE_MAPS,
+    REFERENCE_NOTES,
+    JSON_OPENING_SPAN,
 } from './constants'
 
 import type { TLocalizedValidationError } from 'typebox/error'
@@ -18,6 +20,9 @@ import type { TLocalizedValidationError } from 'typebox/error'
 import type { OutputCheck, OutputSchema, SchemaChild } from './types'
 
 const META_SCHEMA = JSON.parse(OUTPUT_META_SCHEMA) as Record<string, unknown>
+
+/** How a JSON object opens: a brace, maybe space, then a key's quote. */
+const JSON_OPENING = /^\{\s*"/
 
 /**
  * Describe validation errors one per line, as a JSON pointer and what is wrong there. Two kinds
@@ -136,54 +141,87 @@ function sameValue(schema: Record<string, unknown>, node: unknown): unknown[] {
 }
 
 /**
- * Check every `$ref` in a schema. Each must point inside the schema (`#` or `#/...`) at a place
- * that exists, and no chain of them may lead back to where it started without moving into the
- * value, as `"$ref": "#"` at the top does: checking any answer against that never ends. A chain
- * that passes through a property or an array item is fine, since that is how a tree is described.
+ * Every schema in a schema, found through schema keywords only, so nothing inside data such as
+ * `examples` is one.
+ * @param schema - the whole schema
+ * @returns the schema objects, the whole schema first
+ */
+function positions(schema: Record<string, unknown>): Set<unknown> {
+    const found = new Set<unknown>()
+    const pending: unknown[] = [schema]
+
+    for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+        if (node && typeof node === 'object' && !found.has(node)) {
+            found.add(node)
+            pending.push(...children(node).map(child => child.schema))
+        }
+    }
+
+    return found
+}
+
+/**
+ * Check one schema's `$ref` and `$id`. A reference must be a pointer inside the schema (`#` or
+ * `#/...`) to another schema, and stand alone: draft-07 ignores keywords beside it, but the
+ * validator would apply them, so the two readings never get the chance to differ. An `$id` below
+ * the top would change what those pointers mean.
+ * @param schema - the whole schema
+ * @param schemas - every schema in it
+ * @param node - the schema to check
+ * @returns nothing; throws on a problem
+ */
+function checkReference(
+    schema: Record<string, unknown>,
+    schemas: Set<unknown>,
+    node: object,
+): void {
+    if (node !== schema && '$id' in node) {
+        throw new Error(
+            'the output schema has an $id below its top level, which ft does not support',
+        )
+    }
+
+    const reference = (node as { $ref?: unknown }).$ref
+
+    if (typeof reference !== 'string') {
+        return
+    }
+
+    if (reference !== '#' && !reference.startsWith('#/')) {
+        throw new Error(
+            `the output schema has a reference ft cannot follow (only "#" and "#/..." pointers inside the schema): ${reference}`,
+        )
+    }
+
+    const target = resolve(schema, reference)
+
+    if (target === undefined) {
+        throw new Error(`the output schema refers to a place it does not have: ${reference}`)
+    }
+
+    if (typeof target !== 'boolean' && !schemas.has(target)) {
+        throw new Error(`the output schema refers to something that is not a schema: ${reference}`)
+    }
+
+    const beside = Object.keys(node).filter(key => key !== '$ref' && !REFERENCE_NOTES.includes(key))
+
+    if (beside.length > 0) {
+        throw new Error(
+            `the output schema puts ${beside.join(', ')} beside "$ref": ${reference}, which JSON Schema draft-07 ignores; put the reference and the other keywords in an allOf`,
+        )
+    }
+}
+
+/**
+ * Check every `$ref` in a schema (see checkReference), and that no chain of them leads back to
+ * where it started without moving into the value, as `"$ref": "#"` at the top does: checking any
+ * answer against that never ends. A chain that passes through a property or an array item is
+ * fine, since that is how a tree is described.
  * @param schema - the whole schema
  * @returns nothing; throws on the first bad reference
  */
 function checkReferences(schema: Record<string, unknown>): void {
-    const nodes = new Set<unknown>()
-    const pending: unknown[] = [schema]
-
-    for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
-        if (!node || typeof node !== 'object' || nodes.has(node)) {
-            continue
-        }
-
-        nodes.add(node)
-
-        const reference = (node as { $ref?: unknown }).$ref
-
-        if (typeof reference === 'string') {
-            if (reference !== '#' && !reference.startsWith('#/')) {
-                throw new Error(
-                    `the output schema has a reference ft cannot follow (only "#" and "#/..." pointers inside the schema): ${reference}`,
-                )
-            }
-
-            const target = resolve(schema, reference)
-
-            if (target === undefined) {
-                throw new Error(
-                    `the output schema refers to a place it does not have: ${reference}`,
-                )
-            }
-
-            if (
-                typeof target !== 'boolean' &&
-                (!target || typeof target !== 'object' || Array.isArray(target))
-            ) {
-                throw new Error(
-                    `the output schema refers to something that is not a schema: ${reference}`,
-                )
-            }
-        }
-
-        pending.push(...children(node).map(child => child.schema), ...sameValue(schema, node))
-    }
-
+    const schemas = positions(schema)
     const state = new Map<unknown, 'open' | 'done'>()
 
     /**
@@ -207,7 +245,8 @@ function checkReferences(schema: Record<string, unknown>): void {
         state.set(node, 'done')
     }
 
-    nodes.forEach(follow)
+    schemas.forEach(node => checkReference(schema, schemas, node as object))
+    schemas.forEach(follow)
 }
 
 /**
@@ -345,8 +384,9 @@ function objectEnd(text: string, start: number): number {
 /**
  * Every top-level JSON object in prose, in order: from each opening brace, the search goes on after
  * the span that closes it, kept when it parses, so an object inside another, even a broken one, is
- * never a candidate of its own. Only a brace that never closes is retried from the next one. Braces
- * in the prose cost one failed start each, up to a limit.
+ * never a candidate of its own. A brace that never closes is retried from the next one, unless it
+ * opens like a JSON object, whose inside is the rest of the text. Braces in the prose cost one
+ * failed start each, up to a limit.
  * @param text - the answer
  * @returns the objects found, or undefined when the limit stopped the search before the end
  */
@@ -366,6 +406,11 @@ function objectsIn(text: string): Record<string, unknown>[] | undefined {
 
         if (parsed && 'value' in parsed) {
             found.push(parsed.value as Record<string, unknown>)
+        }
+
+        /* An object that opens like JSON and never closes holds the rest of the text. */
+        if (end < 0 && JSON_OPENING.test(text.slice(index, index + JSON_OPENING_SPAN))) {
+            return found
         }
 
         index = text.indexOf('{', end > 0 ? end : index + 1)

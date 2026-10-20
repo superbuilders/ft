@@ -45,7 +45,7 @@ When a script or a later step must read the answer, pass \`--output-schema revie
 
 ft reads the object from the message, or from a fence or prose around it when there is exactly one matching object. It never repairs broken JSON or picks between two different objects; instead it tells the model what is wrong and asks for the object alone, up to {corrections} times. A run that still has no matching object ends as \`invalid_output\` (exit code 3), with the problems in its error and the last message kept as partial.md. On success the answer is the object, saved as output.json (and at \`--out\`), and the report notes any corrections and whether the object came from prose.
 
-ft refuses a schema it would misread before starting any run: one that is not valid draft-07 JSON Schema, one with a keyword the draft does not define (such as a misspelt \`requird\`), or one whose \`$ref\` points outside the file or nowhere. With \`ft start\`, the schema applies to every brief.
+ft refuses a schema it would misread before starting any run: one that is not valid draft-07 JSON Schema, one with a keyword the draft does not define (such as a misspelt \`requird\`), or one whose \`$ref\` points outside the file, at nothing, or round in a loop that never reaches the answer. With \`ft start\`, the schema applies to every brief.
 
 ## Profiles
 

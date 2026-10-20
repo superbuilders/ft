@@ -342,3 +342,9 @@ export const CHILD_KEYWORDS: readonly string[] = [
 
 /** Keywords holding a map of subschemas that apply to the same value, each once a property is present. */
 export const SAME_VALUE_MAPS: readonly string[] = ['dependencies']
+
+/** Keywords that may sit beside "$ref", since they describe it without constraining the value. */
+export const REFERENCE_NOTES: readonly string[] = ['title', 'description', '$comment']
+
+/** How many characters after a brace to look at when telling a JSON object from a brace in prose. */
+export const JSON_OPENING_SPAN = 64
