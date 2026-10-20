@@ -3,32 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { checkOutput } from './output'
 import { compileOutputSchema } from './schema'
 
-const FINDINGS = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['findings'],
-    properties: {
-        findings: {
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['id', 'file', 'summary'],
-                properties: {
-                    id: { type: 'integer', minimum: 1 },
-                    file: { type: 'string', minLength: 1 },
-                    line: { type: 'integer' },
-                    summary: { type: 'string', minLength: 1 },
-                    fix: { type: 'string' },
-                },
-            },
-        },
-    },
-}
-
 describe('compileOutputSchema', () => {
-    it('accepts a findings schema, with $schema, local references and $defs', () => {
-        expect(compileOutputSchema(FINDINGS).Schema()).toBe(FINDINGS)
+    it('accepts a schema with $schema, local references and $defs, and keeps it as given', () => {
+        const plain = { type: 'object', properties: { name: { type: 'string' } } }
+
+        expect(compileOutputSchema(plain).Schema()).toBe(plain)
         expect(() =>
             compileOutputSchema({
                 $schema: 'http://json-schema.org/draft-07/schema#',

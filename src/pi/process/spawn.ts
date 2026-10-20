@@ -117,7 +117,8 @@ export async function runPi(input: {
                 let followUp: string | undefined
 
                 try {
-                    followUp = input.settled?.()
+                    /* A run being stopped gets no follow-up, whatever the hook would send. */
+                    followUp = input.signal.aborted ? undefined : input.settled?.()
                 } finally {
                     /* A hook that throws still ends Pi, which would otherwise wait with stdin open. */
                     if (followUp === undefined) {
@@ -152,11 +153,19 @@ export async function runPi(input: {
      */
     async function terminate(): Promise<void> {
         const groups = await descendantGroups(child.pid)
+        let grace: ReturnType<typeof setTimeout> | undefined
 
         /* Queued steers would otherwise run after the abort. */
         send(`${JSON.stringify({ type: 'clear_queue' })}\n`)
         send(`${JSON.stringify({ type: 'abort' })}\n`)
-        await Promise.race([child.exited, Bun.sleep(ABORT_GRACE_MS)])
+        /* A cleared timer, unlike a pending sleep, does not hold ft open after Pi exits. */
+        await Promise.race([
+            child.exited,
+            new Promise(resolve => {
+                grace = setTimeout(resolve, ABORT_GRACE_MS)
+            }),
+        ])
+        clearTimeout(grace)
         signalGroups(groups, 'SIGTERM')
         await Bun.sleep(KILL_GRACE_MS)
         signalGroups(groups, 'SIGKILL')

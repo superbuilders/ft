@@ -9,29 +9,39 @@ import { createJudge } from '../events/judge'
 import { runPi } from './spawn'
 
 /*
+ * What every Pi stand-in below shares: `out` writes one JSONL record, and `commands()` yields each
+ * JSONL command ft sends, until ft closes stdin.
+ */
+const FAKE_PI_PRELUDE = String.raw`const out = record => process.stdout.write(JSON.stringify(record) + '\n')
+async function* commands() {
+    const decoder = new TextDecoder()
+    let buffered = ''
+    for await (const chunk of Bun.stdin.stream()) {
+        buffered += decoder.decode(chunk, { stream: true })
+        for (let lf = buffered.indexOf('\n'); lf >= 0; lf = buffered.indexOf('\n')) {
+            yield JSON.parse(buffered.slice(0, lf))
+            buffered = buffered.slice(lf + 1)
+        }
+    }
+}
+`
+
+/*
  * A Pi stand-in for RPC mode: answers each command, delivers a steer as a user message and settles,
  * and exits only when ft closes its stdin.
  */
 const FAKE_RPC_PI = String.raw`#!/usr/bin/env bun
-const decoder = new TextDecoder()
-const out = record => process.stdout.write(JSON.stringify(record) + '\n')
-let buffered = ''
-for await (const chunk of Bun.stdin.stream()) {
-    buffered += decoder.decode(chunk, { stream: true })
-    for (let lf = buffered.indexOf('\n'); lf >= 0; lf = buffered.indexOf('\n')) {
-        const command = JSON.parse(buffered.slice(0, lf))
-        buffered = buffered.slice(lf + 1)
-        const data = command.type === 'prompt' ? { disposition: 'started', bytes: Buffer.byteLength(command.message) } : { disposition: 'queued' }
-        if (command.type === 'prompt' && process.env.FAKE_PI_REFUSE) {
-            out({ id: command.id, type: 'response', command: command.type, success: false, error: 'busy' })
-            continue
-        }
-        out({ id: command.id, type: 'response', command: command.type, success: true, data })
-        if (command.type === 'prompt') out({ type: 'agent_start' })
-        if (command.type === 'steer') {
-            out({ type: 'message_end', message: { role: 'user', content: [{ type: 'text', text: command.message }] } })
-            out({ type: 'agent_settled', aborted: false })
-        }
+${FAKE_PI_PRELUDE}for await (const command of commands()) {
+    const data = command.type === 'prompt' ? { disposition: 'started', bytes: Buffer.byteLength(command.message) } : { disposition: 'queued' }
+    if (command.type === 'prompt' && process.env.FAKE_PI_REFUSE) {
+        out({ id: command.id, type: 'response', command: command.type, success: false, error: 'busy' })
+        continue
+    }
+    out({ id: command.id, type: 'response', command: command.type, success: true, data })
+    if (command.type === 'prompt') out({ type: 'agent_start' })
+    if (command.type === 'steer') {
+        out({ type: 'message_end', message: { role: 'user', content: [{ type: 'text', text: command.message }] } })
+        out({ type: 'agent_settled', aborted: false })
     }
 }
 process.stderr.write('diagnostic')
@@ -198,32 +208,24 @@ it('reports a termination signal and kills detached tools that ignore SIGTERM', 
  * the FAKE_PI_ANSWERS list in order, and FAKE_PI_REFUSE_FOLLOW_UP refuses every prompt after the brief.
  */
 const FAKE_ANSWERING_PI = String.raw`#!/usr/bin/env bun
-const decoder = new TextDecoder()
-const out = record => process.stdout.write(JSON.stringify(record) + '\n')
-const answers = JSON.parse(process.env.FAKE_PI_ANSWERS)
+${FAKE_PI_PRELUDE}const answers = JSON.parse(process.env.FAKE_PI_ANSWERS)
 let prompts = 0
-let buffered = ''
-for await (const chunk of Bun.stdin.stream()) {
-    buffered += decoder.decode(chunk, { stream: true })
-    for (let lf = buffered.indexOf('\n'); lf >= 0; lf = buffered.indexOf('\n')) {
-        const command = JSON.parse(buffered.slice(0, lf))
-        buffered = buffered.slice(lf + 1)
-        if (command.type !== 'prompt') {
-            out({ id: command.id, type: 'response', command: command.type, success: true })
-            continue
-        }
-        if (prompts > 0 && process.env.FAKE_PI_REFUSE_FOLLOW_UP) {
-            out({ id: command.id, type: 'response', command: 'prompt', success: false, error: 'busy' })
-            continue
-        }
-        const text = answers[Math.min(prompts, answers.length - 1)]
-        prompts++
-        out({ id: command.id, type: 'response', command: 'prompt', success: true, data: { disposition: 'started' } })
-        out({ type: 'agent_start' })
-        out({ type: 'message_end', message: { role: 'user', content: [{ type: 'text', text: command.message }] } })
-        out({ type: 'message_end', message: { role: 'assistant', stopReason: 'stop', content: [{ type: 'text', text }] } })
-        out({ type: 'agent_settled', aborted: false })
+for await (const command of commands()) {
+    if (command.type !== 'prompt') {
+        out({ id: command.id, type: 'response', command: command.type, success: true })
+        continue
     }
+    if (prompts > 0 && process.env.FAKE_PI_REFUSE_FOLLOW_UP) {
+        out({ id: command.id, type: 'response', command: 'prompt', success: false, error: 'busy' })
+        continue
+    }
+    const text = answers[Math.min(prompts, answers.length - 1)]
+    prompts++
+    out({ id: command.id, type: 'response', command: 'prompt', success: true, data: { disposition: 'started' } })
+    out({ type: 'agent_start' })
+    out({ type: 'message_end', message: { role: 'user', content: [{ type: 'text', text: command.message }] } })
+    out({ type: 'message_end', message: { role: 'assistant', stopReason: 'stop', content: [{ type: 'text', text }] } })
+    out({ type: 'agent_settled', aborted: false })
 }
 `
 
@@ -331,23 +333,15 @@ it('ends Pi when the settle hook throws, instead of leaving it waiting', async (
  */
 const FAKE_ABORTABLE_PI = String.raw`#!/usr/bin/env bun
 const { appendFileSync } = require('node:fs')
-const decoder = new TextDecoder()
-const out = record => process.stdout.write(JSON.stringify(record) + '\n')
-let buffered = ''
-for await (const chunk of Bun.stdin.stream()) {
-    buffered += decoder.decode(chunk, { stream: true })
-    for (let lf = buffered.indexOf('\n'); lf >= 0; lf = buffered.indexOf('\n')) {
-        const command = JSON.parse(buffered.slice(0, lf))
-        buffered = buffered.slice(lf + 1)
-        appendFileSync(process.env.FAKE_PI_COMMANDS, command.type + '\n')
-        out({ id: command.id, type: 'response', command: command.type, success: true, data: { disposition: 'started' } })
-        if (command.type === 'prompt') {
-            out({ type: 'agent_start' })
-        }
-        if (command.type === 'abort') {
-            out({ type: 'message_end', message: { role: 'assistant', stopReason: 'aborted', content: [{ type: 'text', text: 'partial so far' }] } })
-            out({ type: 'agent_settled', aborted: true })
-        }
+${FAKE_PI_PRELUDE}for await (const command of commands()) {
+    appendFileSync(process.env.FAKE_PI_COMMANDS, command.type + '\n')
+    out({ id: command.id, type: 'response', command: command.type, success: true, data: { disposition: 'started' } })
+    if (command.type === 'prompt') {
+        out({ type: 'agent_start' })
+    }
+    if (command.type === 'abort') {
+        out({ type: 'message_end', message: { role: 'assistant', stopReason: 'aborted', content: [{ type: 'text', text: 'partial so far' }] } })
+        out({ type: 'agent_settled', aborted: true })
     }
 }
 `

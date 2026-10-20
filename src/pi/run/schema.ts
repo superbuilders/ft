@@ -44,11 +44,14 @@ function children(node: unknown): SchemaChild[] {
 
     return Object.entries(node).flatMap(([key, value]: [string, unknown]): SchemaChild[] => {
         const at = `/${segment(key)}`
-        const same = [...SAME_VALUE_KEYWORDS, ...SAME_VALUE_LISTS, ...SAME_VALUE_MAPS].includes(key)
+        const same =
+            SAME_VALUE_KEYWORDS.includes(key) ||
+            SAME_VALUE_LISTS.includes(key) ||
+            SAME_VALUE_MAPS.includes(key)
         const definition = DEFINITION_MAPS.includes(key)
         const list = (SAME_VALUE_LISTS.includes(key) || key === 'items') && Array.isArray(value)
         const map =
-            [...SCHEMA_MAPS, ...SAME_VALUE_MAPS, ...DEFINITION_MAPS].includes(key) &&
+            (SCHEMA_MAPS.includes(key) || SAME_VALUE_MAPS.includes(key) || definition) &&
             Boolean(value) &&
             typeof value === 'object' &&
             !Array.isArray(value)

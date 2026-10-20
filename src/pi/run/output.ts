@@ -174,9 +174,9 @@ function objectsIn(text: string): Record<string, unknown>[] | undefined {
         const end = containerEnd(text, index)
 
         if (end > 0) {
-            const parsed = parse(text.slice(index, end))
+            const parsed = text[index] === '{' ? parse(text.slice(index, end)) : {}
 
-            if ('value' in parsed && parsed.value && !Array.isArray(parsed.value)) {
+            if ('value' in parsed && parsed.value) {
                 found.push(parsed.value as Record<string, unknown>)
             }
 
