@@ -106,3 +106,13 @@ export type OutputCheck =
           /** What is wrong, one problem per entry, for a correction or the run's error. */
           problems: string[]
       }
+
+/**
+ * A subschema directly under a schema in an output schema.
+ */
+export interface SchemaChild {
+    /** The subschema. */
+    schema: unknown
+    /** Whether it applies to the same value as its parent, as allOf's entries do. */
+    same: boolean
+}

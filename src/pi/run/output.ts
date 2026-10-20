@@ -6,11 +6,15 @@ import {
     OUTPUT_META_SCHEMA,
     OUTPUT_PROBLEMS_SHOWN,
     OUTPUT_STARTS_MAX,
+    CHILD_KEYWORDS,
+    SAME_VALUE_KEYWORDS,
+    SAME_VALUE_LISTS,
+    SCHEMA_MAPS,
 } from './constants'
 
 import type { TLocalizedValidationError } from 'typebox/error'
 
-import type { OutputCheck, OutputSchema } from './types'
+import type { OutputCheck, OutputSchema, SchemaChild } from './types'
 
 const META_SCHEMA = JSON.parse(OUTPUT_META_SCHEMA) as Record<string, unknown>
 
@@ -40,35 +44,58 @@ function describe(errors: TLocalizedValidationError[]): string[] {
         })
         .map(error => `${error.instancePath || '(top level)'}: ${error.message}`)
 
+    if (lines.length === 0 && errors.length > 0) {
+        return [
+            ...new Set(
+                errors.map(
+                    error => `${error.instancePath || '(top level)'}: is not allowed by the schema`,
+                ),
+            ),
+        ]
+    }
+
     return [...new Set(lines)]
 }
 
 /**
- * Every `$ref` in a schema, wherever it sits.
- * @param node - a schema or any value inside one
- * @returns the reference strings
+ * The subschemas directly under a schema, found by keyword: data such as `const` or `examples` is
+ * not a schema, so a `$ref` key inside it is not a reference.
+ * @param node - a schema
+ * @returns each child schema, and whether it applies to the same value as its parent
  */
-function references(node: unknown): string[] {
-    if (Array.isArray(node)) {
-        return node.flatMap(references)
-    }
-
-    if (!node || typeof node !== 'object') {
+function children(node: unknown): SchemaChild[] {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) {
         return []
     }
 
-    return Object.entries(node).flatMap(([key, value]) =>
-        key === '$ref' && typeof value === 'string' ? [value] : references(value),
-    )
+    return Object.entries(node).flatMap(([key, value]: [string, unknown]): SchemaChild[] => {
+        if (SAME_VALUE_LISTS.includes(key) && Array.isArray(value)) {
+            return value.map(schema => ({ schema, same: true }))
+        }
+
+        if (SAME_VALUE_KEYWORDS.includes(key)) {
+            return [{ schema: value, same: true }]
+        }
+
+        if (SCHEMA_MAPS.includes(key) && value && typeof value === 'object') {
+            return Object.values(value).map(schema => ({ schema, same: false }))
+        }
+
+        if (key === 'items' && Array.isArray(value)) {
+            return value.map(schema => ({ schema, same: false }))
+        }
+
+        return CHILD_KEYWORDS.includes(key) ? [{ schema: value, same: false }] : []
+    })
 }
 
 /**
- * Whether a local reference (`#` or `#/a/b`) names a place inside the schema.
+ * The schema a local reference (`#` or `#/a/b`) names.
  * @param schema - the whole schema
  * @param reference - a `$ref` that starts with `#`
- * @returns true when every step of its JSON pointer exists
+ * @returns the schema it names, or undefined when a step of its JSON pointer is missing
  */
-function resolves(schema: Record<string, unknown>, reference: string): boolean {
+function resolve(schema: Record<string, unknown>, reference: string): unknown {
     const steps = reference
         .slice(1)
         .split('/')
@@ -78,13 +105,93 @@ function resolves(schema: Record<string, unknown>, reference: string): boolean {
 
     for (const step of steps) {
         if (!node || typeof node !== 'object' || !Object.hasOwn(node, step)) {
-            return false
+            return undefined
         }
 
         node = (node as Record<string, unknown>)[step]
     }
 
-    return true
+    return node
+}
+
+/**
+ * The schemas that apply to the same value as this one: its `$ref` target and its same-value
+ * children, such as allOf's entries. Checking a value follows these without moving into it.
+ * @param schema - the whole schema
+ * @param node - one schema inside it
+ * @returns those schemas
+ */
+function sameValue(schema: Record<string, unknown>, node: unknown): unknown[] {
+    const reference = (node as { $ref?: unknown }).$ref
+    const next = children(node)
+        .filter(child => child.same)
+        .map(child => child.schema)
+
+    return typeof reference === 'string' ? [...next, resolve(schema, reference)] : next
+}
+
+/**
+ * Check every `$ref` in a schema. Each must point inside the schema (`#` or `#/...`) at a place
+ * that exists, and no chain of them may lead back to where it started without moving into the
+ * value, as `"$ref": "#"` at the top does: checking any answer against that never ends. A chain
+ * that passes through a property or an array item is fine, since that is how a tree is described.
+ * @param schema - the whole schema
+ * @returns nothing; throws on the first bad reference
+ */
+function checkReferences(schema: Record<string, unknown>): void {
+    const nodes = new Set<unknown>()
+    const pending: unknown[] = [schema]
+
+    for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+        if (!node || typeof node !== 'object' || nodes.has(node)) {
+            continue
+        }
+
+        nodes.add(node)
+
+        const reference = (node as { $ref?: unknown }).$ref
+
+        if (typeof reference === 'string') {
+            if (reference !== '#' && !reference.startsWith('#/')) {
+                throw new Error(
+                    `the output schema has a reference ft cannot follow (only "#" and "#/..." pointers inside the schema): ${reference}`,
+                )
+            }
+
+            if (resolve(schema, reference) === undefined) {
+                throw new Error(
+                    `the output schema refers to a place it does not have: ${reference}`,
+                )
+            }
+        }
+
+        pending.push(...children(node).map(child => child.schema), ...sameValue(schema, node))
+    }
+
+    const state = new Map<unknown, 'open' | 'done'>()
+
+    /**
+     * Follow same-value links from one schema, failing on a loop.
+     * @param node - the schema
+     * @returns nothing
+     */
+    function follow(node: unknown): void {
+        if (!node || typeof node !== 'object' || state.get(node) === 'done') {
+            return
+        }
+
+        if (state.get(node) === 'open') {
+            throw new Error(
+                'the output schema refers to itself without end, so no answer could be checked',
+            )
+        }
+
+        state.set(node, 'open')
+        sameValue(schema, node).forEach(follow)
+        state.set(node, 'done')
+    }
+
+    nodes.forEach(follow)
 }
 
 /**
@@ -110,17 +217,7 @@ export function compileOutputSchema(schema: unknown): OutputSchema {
         throw new Error('the output schema\'s top level must be "type": "object"')
     }
 
-    for (const reference of references(record)) {
-        if (!reference.startsWith('#')) {
-            throw new Error(
-                `the output schema refers outside itself, which ft cannot follow: ${reference}`,
-            )
-        }
-
-        if (!resolves(record, reference)) {
-            throw new Error(`the output schema refers to a place it does not have: ${reference}`)
-        }
-    }
+    checkReferences(record)
 
     try {
         return { schema: record, validator: Compile(record as never) }
@@ -234,13 +331,17 @@ function objectEnd(text: string, start: number): number {
  * is kept when it parses, and the search goes on after it, so an object inside another is never a
  * candidate of its own. Braces in the prose cost one failed start each, up to a limit.
  * @param text - the answer
- * @returns the objects found
+ * @returns the objects found, or undefined when the limit stopped the search before the end
  */
-function objectsIn(text: string): Record<string, unknown>[] {
+function objectsIn(text: string): Record<string, unknown>[] | undefined {
     const found: Record<string, unknown>[] = []
     let starts = 0
 
-    for (let index = text.indexOf('{'); index >= 0 && starts < OUTPUT_STARTS_MAX; ) {
+    for (let index = text.indexOf('{'); index >= 0; ) {
+        if (starts === OUTPUT_STARTS_MAX) {
+            return undefined
+        }
+
         const end = objectEnd(text, index)
         const parsed = end > 0 ? parse(text.slice(index, end)) : null
 
@@ -280,6 +381,16 @@ export function checkOutput(text: string, output: OutputSchema): OutputCheck {
     }
 
     const candidates = objectsIn(text)
+
+    if (!candidates) {
+        return {
+            ok: false,
+            problems: [
+                'the message has too many braces to search for the JSON object; send only the object',
+            ],
+        }
+    }
+
     const matching = [
         ...new Map(
             candidates

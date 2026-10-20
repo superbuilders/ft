@@ -114,11 +114,18 @@ export async function runPi(input: {
 
             /* Settled means Pi will not continue on its own, so ft either prompts again or ends it. */
             if (event.type === 'agent_settled') {
-                const followUp = input.settled?.()
+                let followUp: string | undefined
 
-                if (followUp === undefined) {
-                    close()
-                } else {
+                try {
+                    followUp = input.settled?.()
+                } finally {
+                    /* A hook that throws still ends Pi, which would otherwise wait with stdin open. */
+                    if (followUp === undefined) {
+                        close()
+                    }
+                }
+
+                if (followUp !== undefined) {
                     followUps++
                     send(
                         `${JSON.stringify({ id: `${CORRECTION_ID_PREFIX}${followUps}`, type: 'prompt', message: followUp })}\n`,

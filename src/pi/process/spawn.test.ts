@@ -307,3 +307,12 @@ it('ends Pi when it refuses a follow-up, instead of waiting for it', async () =>
     expect(prompts).toEqual(['brief'])
     expect(state.text).toBe('first')
 })
+
+it('ends Pi when the settle hook throws, instead of leaving it waiting', async () => {
+    const { state, prompts } = await answering(['first'], () => {
+        throw new Error('the hook failed')
+    })
+
+    expect(prompts).toEqual(['brief'])
+    expect(state.text).toBe('first')
+})

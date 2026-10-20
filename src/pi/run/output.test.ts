@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { CORRECTION_HEADER, OUTPUT_PROBLEMS_SHOWN } from './constants'
+import { CORRECTION_HEADER, OUTPUT_PROBLEMS_SHOWN, OUTPUT_STARTS_MAX } from './constants'
 import { checkOutput, compileOutputSchema, correctionMessage, problemList } from './output'
 
 const FINDINGS = {
@@ -72,7 +72,31 @@ describe('compileOutputSchema', () => {
         [
             'a reference outside the schema',
             { type: 'object', properties: { a: { $ref: 'https://x.test/a.json' } } },
-            'refers outside itself',
+            'reference ft cannot follow',
+        ],
+        [
+            'a reference by name rather than pointer',
+            { type: 'object', properties: { a: { $ref: '#missing' } } },
+            'reference ft cannot follow',
+        ],
+        [
+            'a top level that refers to itself',
+            { type: 'object', $ref: '#' },
+            'refers to itself without end',
+        ],
+        [
+            'a property that refers to itself',
+            { type: 'object', properties: { a: { $ref: '#/properties/a' } } },
+            'refers to itself without end',
+        ],
+        [
+            'definitions that refer to each other through allOf',
+            {
+                type: 'object',
+                $defs: { a: { allOf: [{ $ref: '#/$defs/b' }] }, b: { not: { $ref: '#/$defs/a' } } },
+                properties: { x: { $ref: '#/$defs/a' } },
+            },
+            'refers to itself without end',
         ],
         [
             'a reference to nowhere',
@@ -86,6 +110,34 @@ describe('compileOutputSchema', () => {
         ],
     ])('refuses %s', (_name, schema, message) => {
         expect(() => compileOutputSchema(schema)).toThrow(message)
+    })
+
+    it('accepts a tree, which refers to itself through a property, and checks one', () => {
+        const tree = compileOutputSchema({
+            type: 'object',
+            required: ['name'],
+            properties: {
+                name: { type: 'string' },
+                children: { type: 'array', items: { $ref: '#' } },
+            },
+        })
+
+        expect(
+            checkOutput('{"name":"a","children":[{"name":"b","children":[{"name":"c"}]}]}', tree)
+                .ok,
+        ).toBe(true)
+        expect(checkOutput('{"name":"a","children":[{"children":[]}]}', tree).ok).toBe(false)
+    })
+
+    it('treats a $ref inside data, such as const or examples, as data', () => {
+        expect(() =>
+            compileOutputSchema({
+                type: 'object',
+                properties: {
+                    a: { const: { $ref: 'https://x.test' }, examples: [{ $ref: '#/nope' }] },
+                },
+            }),
+        ).not.toThrow()
     })
 })
 
@@ -228,6 +280,29 @@ describe('checkOutput', () => {
 
         expect(checked.ok).toBe(false)
         expect(performance.now() - started).toBeLessThan(2000)
+    })
+
+    it('chooses nothing when too many braces stop the search before the end', () => {
+        const prose = '{x} '.repeat(OUTPUT_STARTS_MAX)
+        const checked = checkOutput(`${prose}${json}`, output)
+
+        expect(!checked.ok && checked.problems).toEqual([
+            'the message has too many braces to search for the JSON object; send only the object',
+        ])
+    })
+
+    it.each([
+        [
+            'a property the schema forbids',
+            { type: 'object', properties: { x: false } },
+            '{"x":1}',
+            '/x',
+        ],
+        ['a schema that allows nothing', { type: 'object', allOf: [false] }, '{}', '(top level)'],
+    ])('names the place for %s', (_name, schema, text, place) => {
+        const checked = checkOutput(text, compileOutputSchema(schema))
+
+        expect(!checked.ok && checked.problems).toEqual([`${place}: is not allowed by the schema`])
     })
 
     it('reads a large answer', () => {
