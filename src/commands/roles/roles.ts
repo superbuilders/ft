@@ -35,11 +35,12 @@ export async function roles(options: { json?: boolean }): Promise<void> {
     const rows = entries.map(([name, role]): [string, string] => {
         const thinking = role.thinking ? style.dim(`, thinking ${role.thinking}`) : ''
         const turns = role.maxTurns ? style.dim(`, at most ${role.maxTurns} turns`) : ''
+        const deadline = role.deadline ? style.dim(`, deadline ${role.deadline}s`) : ''
         const description = role.description ? `  ${style.dim(role.description)}` : ''
 
         return [
             name === DEFAULT_ROLE ? `${name} (default)` : name,
-            `${role.model}${thinking}${turns}${description}`,
+            `${role.model}${thinking}${turns}${deadline}${description}`,
         ]
     })
 

@@ -27,7 +27,7 @@ beforeEach(async () => {
                     models: [{ id: 'model-a' }],
                 },
             },
-            roles: { code: { model: 'gateway/model-a', maxTurns: 5 } },
+            roles: { code: { model: 'gateway/model-a', maxTurns: 5, deadline: 600 } },
         }),
     )
 })
@@ -37,13 +37,18 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true })
 })
 
-it.each<[string, RunOptions, number | undefined]>([
-    ['takes the role limit', {}, 5],
-    ['lets --max-turns override the role limit', { maxTurns: '2' }, 2],
-    ['gives a run on --model no role limit', { model: 'gateway/model-a' }, undefined],
-])('%s', async (_name, options, maxTurns) => {
+it.each<[string, RunOptions, { maxTurns?: number; deadline?: number }]>([
+    ['takes the role limits', {}, { maxTurns: 5, deadline: 600 }],
+    [
+        'lets the flags override the role limits',
+        { maxTurns: '2', deadline: '30' },
+        { maxTurns: 2, deadline: 30 },
+    ],
+    ['gives a run on --model no role limits', { model: 'gateway/model-a' }, {}],
+])('%s', async (_name, options, { maxTurns, deadline }) => {
     const [status] = await prepare([join(root, 'a.md')], { workdir: root, ...options })
     const request = JSON.parse(await readFile(join(status.dir, RUN_FILES.request), 'utf8'))
 
     expect(request.maxTurns).toBe(maxTurns)
+    expect(request.deadline).toBe(deadline)
 })

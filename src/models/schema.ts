@@ -1,6 +1,7 @@
 import { Type } from 'typebox'
 
 import {
+    DEADLINE_MAX_SECONDS,
     DEFAULT_COMPACT_AT,
     KNOWN_APIS,
     MIN_COMPACT_AT,
@@ -110,6 +111,14 @@ export const RoleSchema = Type.Object(
                 minimum: 1,
                 description:
                     'Stop a run when the model starts more turns than this; --max-turns overrides it. Default: no limit.',
+            }),
+        ),
+        deadline: Type.Optional(
+            Type.Number({
+                exclusiveMinimum: 0,
+                maximum: DEADLINE_MAX_SECONDS,
+                description:
+                    'Stop a run after this many seconds (1800 is 30 minutes); --deadline overrides it. Default: no deadline.',
             }),
         ),
         description: Type.Optional(

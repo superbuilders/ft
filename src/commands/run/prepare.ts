@@ -1,7 +1,7 @@
 import { readFile, rm, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-import { DEFAULT_ROLE } from '../../models/constants'
+import { DEADLINE_MAX_SECONDS, DEFAULT_ROLE } from '../../models/constants'
 import { chooseModel } from '../../pi/run/model'
 import { compileOutputSchema } from '../../pi/run/schema'
 import { PI_VERSION } from '../../pi/runtime/constants'
@@ -11,7 +11,6 @@ import { DEFAULT_KEEP_DAYS } from '../../project/runs/constants'
 import { openRun } from '../../project/runs/lifecycle'
 import { pruneRuns, runName } from '../../project/runs/store'
 import { platformTarget } from '../../system/host/host'
-import { DEADLINE_MAX_SECONDS } from './constants'
 
 import type { Request, Status } from '../../project/runs/types'
 import type { RunOptions } from './types'
@@ -154,11 +153,10 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
     platformTarget()
 
     const config = await loadConfig(process.cwd())
-    const deadline = deadlineSeconds(options.deadline)
-    /* A role's limit belongs to the role, so a run on --model has none. */
-    const maxTurns =
-        turnLimit(options.maxTurns) ??
-        (options.model ? undefined : config.config.roles[options.role ?? DEFAULT_ROLE]?.maxTurns)
+    /* A role's limits belong to the role, so a run on --model has none. */
+    const role = options.model ? undefined : config.config.roles[options.role ?? DEFAULT_ROLE]
+    const deadline = deadlineSeconds(options.deadline) ?? role?.deadline
+    const maxTurns = turnLimit(options.maxTurns) ?? role?.maxTurns
     const schema = await outputSchema(options.outputSchema)
     const request: Request = {
         profile: options.profile ?? 'read',

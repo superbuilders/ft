@@ -42,6 +42,9 @@ export const MIN_COMPACT_AT = 2 * PI_KEEP_RECENT_TOKENS
 /** The room Pi keeps free for the model's reply by default; ft never compacts later than Pi would. */
 export const PI_DEFAULT_RESERVE_TOKENS = 16_384
 
+/** Longest deadline the timer can hold, in seconds. */
+export const DEADLINE_MAX_SECONDS = 2_147_483
+
 /** The role a run uses when the caller names neither a role nor a model. */
 export const DEFAULT_ROLE = 'code'
 
