@@ -1,7 +1,7 @@
 import { descendantGroups, signalGroups } from '../../system/process/process-groups'
 import { BRIEF_COMMAND_ID } from '../events/constants'
 import { eventParser } from '../events/judge'
-import { KILL_GRACE_MS } from './constants'
+import { CORRECTION_ID_PREFIX, KILL_GRACE_MS } from './constants'
 import { piEnvironment } from './environment'
 
 import type { Selection } from '../../models/types'
@@ -11,7 +11,8 @@ import type { PiControl } from './types'
 /**
  * Run the pinned Pi in a process group while draining both pipes continuously. Pi runs in RPC
  * mode: the brief goes in as a prompt command and stdin stays open, so a control can steer the
- * run, until Pi settles and stdin closes, which ends Pi.
+ * run, until Pi settles and stdin closes, which ends Pi. When Pi settles, `settled` may return a
+ * follow-up prompt instead (a correction of the answer); Pi then works on, and settles again.
  * @param input - explicit runtime, prompt, state, output sinks and an optional control
  * @returns Pi's exit status and signal
  */
@@ -29,6 +30,7 @@ export async function runPi(input: {
     state: JudgeState
     progress?: () => void
     control?: PiControl
+    settled?: () => string | undefined
     signal: AbortSignal
     events: (line: string) => void
     stderr: (chunk: Buffer) => void
@@ -71,6 +73,7 @@ export async function runPi(input: {
         env: piEnvironment(input.env, input.agent, input.tmp, input.toolDirs),
     })
     let open = true
+    let followUps = 0
 
     /**
      * Send one command line to Pi while its stdin is open.
@@ -109,8 +112,27 @@ export async function runPi(input: {
         event => {
             input.control?.observe(event)
 
-            /* Settled means Pi will not continue on its own. */
+            /* Settled means Pi will not continue on its own, so ft either prompts again or ends it. */
             if (event.type === 'agent_settled') {
+                const followUp = input.settled?.()
+
+                if (followUp === undefined) {
+                    close()
+                } else {
+                    followUps++
+                    send(
+                        `${JSON.stringify({ id: `${CORRECTION_ID_PREFIX}${followUps}`, type: 'prompt', message: followUp })}\n`,
+                    )
+                }
+            }
+
+            /* Pi refusing a follow-up leaves it idle with nothing more to say. */
+            if (
+                event.type === 'response' &&
+                typeof event.id === 'string' &&
+                event.id.startsWith(CORRECTION_ID_PREFIX) &&
+                event.success !== true
+            ) {
                 close()
             }
         },

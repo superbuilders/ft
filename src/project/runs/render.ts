@@ -98,6 +98,21 @@ function elapsed(status: Status): number {
 }
 
 /**
+ * Say how ft got a run's output object, when it took more than reading the message.
+ * @param corrections - corrections ft sent
+ * @param recovered - whether the object was found inside prose or a fence
+ * @returns a short note
+ */
+function outputNote(corrections: number, recovered: boolean): string {
+    const parts = [
+        corrections ? `${corrections} ${corrections === 1 ? 'correction' : 'corrections'}` : '',
+        recovered ? 'output found inside prose' : '',
+    ]
+
+    return parts.filter(Boolean).join(', ')
+}
+
+/**
  * Say what happened to the run in a few words.
  * @param state - stored outcome, or `lost`
  * @returns a verb phrase
@@ -108,6 +123,7 @@ function verdict(state: State): string {
         success: 'succeeded',
         model_error: 'failed with a model provider error',
         incomplete: 'stopped without a final answer',
+        invalid_output: 'answered without output matching its schema',
         protocol_error: "failed: Pi's output could not be read",
         runtime_error: 'failed while running the session',
         configuration_error: 'could not start',
@@ -333,6 +349,9 @@ export function renderReport(
             ? style.dim(
                   `${status.answer ? 'answer' : 'partial answer'} in ${displayPath(saved)}${size}`,
               )
+            : null,
+        status.corrections || status.recovered
+            ? style.dim(outputNote(status.corrections ?? 0, status.recovered === true))
             : null,
         !inShow && state !== 'configuration_error'
             ? `${style.cyan(`${commandName()} show ${status.id}`)}${style.dim(' for every step and the answer')}`

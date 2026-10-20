@@ -2,7 +2,7 @@
 export const ROLE_FALLBACK_DESCRIPTION = 'No description in .ft.json.'
 
 /** The guide's fixed body, after the version and the project's roles. */
-/** The manual after the roles; guide.ts fills `{read tools}` and `{write tools}` from RUN_PROFILES. */
+/** The manual after the roles; guide.ts fills `{read tools}` and `{write tools}` from RUN_PROFILES, and `{corrections}`. */
 export const GUIDE_BODY = `## Write the brief
 
 A brief is the whole task as the other model sees it, written to a Markdown file anywhere (ft keeps a copy). Describe the task, where to work, what counts as done, and what to leave alone. Add only the constraints the repository's instructions do not already cover. Keep one task per brief. Its first line with text becomes the run's title in \`ft list\`, so make that line name the task. To keep answers short, ask for that in the brief.
@@ -17,7 +17,7 @@ ft also tells the delegate that it works for another agent, that nobody can answ
 
 \`ft run\` waits, then prints a report: the verdict, the tools used and files written, what to do next if it failed, and where the answer is saved with its length in lines. Read the answer file when you need it; \`ft show <id>\` prints it too. Exit code 0 means the model returned a final answer, not that the answer is right.
 
-Options: \`--name review\` (the run id's prefix), \`--role <role>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--workdir <dir>\` (the folder the run works in, such as a worktree; the run is still recorded and watched from here), \`--deadline <seconds>\`, \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--json\`.
+Options: \`--name review\` (the run id's prefix), \`--role <role>\` or \`--model provider/model\`, \`--profile read|write\`, \`--thinking <level>\`, \`--workdir <dir>\` (the folder the run works in, such as a worktree; the run is still recorded and watched from here), \`--deadline <seconds>\`, \`--out <path>\` (also save the answer there; any file already there is deleted once the run is accepted, and stays deleted if the run fails), \`--output-schema <file>\` (see Structured answers), \`--json\`.
 
 ## Run several at once, or anything long
 
@@ -39,6 +39,14 @@ Pick a way to wait that fits your shell:
 
 Every report ends with a line restating its verdict, so the end of the output still says how each run ended. If output was cut and a report is missing, \`ft show <id>\` prints it again.
 
+## Structured answers
+
+When a script or a later step must read the answer, pass \`--output-schema review.schema.json\`. The file is a JSON Schema whose top level is \`"type": "object"\`; put a list inside it (\`{"findings": [...]}\`), never at the top. ft adds the schema to the brief and tells the model that its final message must be one matching JSON object, so the brief need not describe the format. The model still works and reasons freely before that message.
+
+ft reads the object from the message, or from a fence or prose around it when there is exactly one matching object. It never repairs broken JSON or picks between two different objects; instead it tells the model what is wrong and asks for the object alone, up to {corrections} times. A run that still has no matching object ends as \`invalid_output\` (exit code 3), with the problems in its error and the last message kept as partial.md. On success the answer is the object, saved as output.json (and at \`--out\`), and the report notes any corrections and whether the object came from prose.
+
+ft refuses a schema it would misread before starting any run: one that is not valid draft-07 JSON Schema, one with a keyword the draft does not define (such as a misspelt \`requird\`), or one whose \`$ref\` points outside the file or nowhere. With \`ft start\`, the schema applies to every brief.
+
 ## Profiles
 
 A profile is the delegate's tool set plus standing instructions. Neither profile is a sandbox: both include bash.
@@ -50,7 +58,7 @@ A role whose model is configured as tool-free (such as a web-research model) run
 
 ## Reading results
 
-- Exit codes of \`ft run\` and of \`ft watch\`: 0 success; 1 model or runtime error, or a lost run; 2 configuration error; 3 incomplete or unreadable output; 75 still running (\`ft watch\` timed out); 124 deadline reached; 130 cancelled. \`ft start\` exits 0 once its runs have started, which says nothing yet about their outcome (a run that already ended sets its own code).
+- Exit codes of \`ft run\` and of \`ft watch\`: 0 success; 1 model or runtime error, or a lost run; 2 configuration error; 3 incomplete or unreadable output, or an answer that never matched its output schema; 75 still running (\`ft watch\` timed out); 124 deadline reached; 130 cancelled. \`ft start\` exits 0 once its runs have started, which says nothing yet about their outcome (a run that already ended sets its own code).
 - The answer is a claim, not a fact. Check it against the code, the tests or its cited sources. After a write run, read \`git diff\` before you accept it; ft never commits. When you report back, keep what the other model said apart from what you verified, and say what remains unchecked.
 - A failed or stopped run keeps the model's last message as a partial answer when it wrote one. It may be only a progress note, so do not present it as findings. The report says what to try next. A failed write run may already have changed files: check \`git diff\` and \`git status\` before you retry.
 - \`ft show <id>\` prints every step of a run, its timing, and the answer itself (cut at 20,000 characters; the file holds all of it). \`ft list\` shows the running runs and the 15 newest, \`ft list --all\` every run. \`ft stop <id>\` cancels one. Ids accept any unambiguous prefix.
@@ -65,5 +73,5 @@ ft needs the network, and writes under ~/.cache/ft, ~/.local/state/ft and this r
 
 In a repository with its own .ft.json, a run's folder is .ft/runs/<id>/, beside it. Under your personal config alone it is ~/.local/state/ft/runs/<repository path>/<id>/, so a repository that never set ft up gains no folder. The config's runs.dir moves them. Every report names the folder's files by path.
 
-Each run keeps brief.md (the task), request.json (the options) and status.json (updated while it runs). events.jsonl holds Pi's raw events and stderr.log its stderr; a run that failed early may have neither. A successful run saves answer.md, and a failed one saves partial.md if the model wrote anything. The runs folder ignores itself in git. A new run deletes finished runs older than the config's runs.keepDays (14 days by default), so copy out anything worth keeping longer.
+Each run keeps brief.md (the task), request.json (the options) and status.json (updated while it runs). events.jsonl holds Pi's raw events and stderr.log its stderr; a run that failed early may have neither. A successful run saves answer.md (output.json with an output schema), and a failed one saves partial.md if the model wrote anything. The runs folder ignores itself in git. A new run deletes finished runs older than the config's runs.keepDays (14 days by default), so copy out anything worth keeping longer.
 `

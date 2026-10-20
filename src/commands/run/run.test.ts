@@ -90,3 +90,46 @@ it.each([
         await rm(root, { recursive: true, force: true })
     }
 })
+
+it.each([
+    ['a missing file', null, 'could not be read'],
+    ['a file that is not JSON', '{"type": "object",', 'is not JSON'],
+    ['an array schema', '{"type": "array"}', 'top level must be "type": "object"'],
+    ['a misspelt keyword', '{"type": "object", "requird": ["a"]}', 'not valid JSON Schema'],
+])('starts no run for an --output-schema that is %s', async (_case, schema, error) => {
+    const root = await mkdtemp(join(tmpdir(), 'ft-output-schema-'))
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+    const config = {
+        providers: {
+            gateway: {
+                key: { env: 'GATEWAY_KEY' },
+                baseUrl: 'https://gateway.test/v1',
+                api: 'openai-completions',
+                models: [{ id: 'model-a' }],
+            },
+        },
+        roles: { code: { model: 'gateway/model-a' } },
+    }
+
+    vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
+    vi.stubEnv('GATEWAY_KEY', 'test-key')
+
+    try {
+        const file = join(root, 'schema.json')
+
+        await writeFile(join(root, '.ft.json'), JSON.stringify(config))
+        await writeFile(join(root, 'a.md'), 'First brief')
+
+        if (schema !== null) {
+            await writeFile(file, schema)
+        }
+
+        expect(await start([join(root, 'a.md')], { outputSchema: file })).toBe(2)
+        expect(stderr).toHaveBeenCalledWith(expect.stringContaining(error))
+        expect(existsSync(join(root, '.ft', 'runs'))).toBe(false)
+    } finally {
+        stderr.mockRestore()
+        vi.unstubAllEnvs()
+        await rm(root, { recursive: true, force: true })
+    }
+})

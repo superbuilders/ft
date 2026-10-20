@@ -1,5 +1,5 @@
 import { DEFAULT_ROLE, EXAMPLE_CONFIG } from '../../models/constants'
-import { RUN_PROFILES } from '../../pi/run/constants'
+import { OUTPUT_CORRECTIONS_MAX, RUN_PROFILES } from '../../pi/run/constants'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
 import { GUIDE_BODY, ROLE_FALLBACK_DESCRIPTION } from './constants'
@@ -69,10 +69,9 @@ export async function guide(runnerVersion: string): Promise<void> {
         '',
         ...(await roles()),
         '',
-        GUIDE_BODY.replace('{read tools}', listed(read)).replace(
-            '{write tools}',
-            listed(write.filter(tool => !read.includes(tool))),
-        ),
+        GUIDE_BODY.replace('{read tools}', listed(read))
+            .replace('{write tools}', listed(write.filter(tool => !read.includes(tool))))
+            .replace('{corrections}', String(OUTPUT_CORRECTIONS_MAX)),
     ]
 
     process.stdout.write(text.join('\n'))

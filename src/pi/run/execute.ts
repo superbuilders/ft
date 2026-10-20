@@ -19,14 +19,31 @@ import { serveGateway } from '../gateway/gateway'
 import { filterEnvironment } from '../process/environment'
 import { runPi } from '../process/spawn'
 import { installRuntime } from '../runtime/runtime'
-import { CANCEL_SIGNALS, CONTROL_SOCKET, RUN_PROFILES } from './constants'
+import { CANCEL_SIGNALS, CONTROL_SOCKET, OUTPUT_CORRECTIONS_MAX, RUN_PROFILES } from './constants'
 import { chooseModel } from './model'
+import {
+    checkOutput,
+    compileOutputSchema,
+    correctionMessage,
+    outputInstructions,
+    problemList,
+} from './output'
 import { createSteering, serveSteering } from './steering'
 
 import type { Outcome, Request, Status } from '../../project/runs/types'
 import type { JudgeState } from '../events/types'
 import type { Steering } from './steering'
-import type { Judged } from './types'
+import type { Judged, OutputSchema } from './types'
+
+/**
+ * A run's output schema and the corrections sent so far, shared by the run and its Pi session.
+ */
+interface OutputState {
+    /** The compiled --output-schema; absent when the run has none, or before Pi starts. */
+    schema?: OutputSchema
+    /** Corrections sent so far. */
+    corrections: number
+}
 
 /**
  * Drive Pi for the run: resolve the key, gather context, start Pi, and judge what it did.
@@ -39,6 +56,7 @@ import type { Judged } from './types'
  * @param control.signal - cancellation
  * @param control.touch - publishes a status change
  * @param control.steering - messages from `ft steer`, passed to Pi while it works
+ * @param control.output - the run's output schema, compiled here, and the corrections sent
  * @returns Pi's exit and the judged outcome
  */
 async function drive(
@@ -46,9 +64,9 @@ async function drive(
     status: Status,
     state: JudgeState,
     phase: { failure: Outcome },
-    control: { signal: AbortSignal; touch: () => void; steering: Steering },
+    control: { signal: AbortSignal; touch: () => void; steering: Steering; output: OutputState },
 ): Promise<Judged> {
-    const { signal, touch, steering } = control
+    const { signal, touch, steering, output } = control
     const { dir } = status
     const config = await loadConfig(process.cwd())
     const { selected, provider, baseUrl, adapter, tools } = chooseModel(request, config.config)
@@ -58,6 +76,8 @@ async function drive(
         collectContext(config.workspace, request.cwd),
     ])
     const context = `${RUN_PROFILES[request.profile].preamble}\n\n${repository}`
+
+    output.schema = request.outputSchema ? compileOutputSchema(request.outputSchema) : undefined
 
     phase.failure = 'runtime_error'
     signal.throwIfAborted()
@@ -109,13 +129,14 @@ async function drive(
             ...runtime,
             ...privatePaths,
             cwd: request.cwd,
-            brief,
+            brief: output.schema ? brief + outputInstructions(output.schema) : brief,
             selected,
             tools,
             env,
             state,
             progress: touch,
             control: steering.control,
+            settled: () => correction(state, output),
             signal,
             events: line => {
                 events.write(`${line}\n`)
@@ -149,6 +170,64 @@ async function drive(
 }
 
 /**
+ * When Pi settles with a finished answer that does not match the output schema, the correction
+ * to send, while corrections remain.
+ * @param state - the judge, holding the final answer
+ * @param output - the run's output schema and the corrections sent
+ * @returns the correction, or undefined to let Pi end
+ */
+function correction(state: JudgeState, output: OutputState): string | undefined {
+    if (!output.schema || state.aborted || state.stopReason !== 'stop') {
+        return undefined
+    }
+
+    const checked = checkOutput(state.text, output.schema)
+
+    if (checked.ok || output.corrections >= OUTPUT_CORRECTIONS_MAX) {
+        return undefined
+    }
+
+    output.corrections++
+
+    return correctionMessage(checked.problems)
+}
+
+/**
+ * Decide a run's answer under its output schema: a successful run's answer becomes the object,
+ * formatted, and one with no matching object becomes invalid_output.
+ * @param decided - the final status, updated in place
+ * @param text - the model's final message
+ * @param output - the run's output schema and the corrections sent
+ * @returns the text to save as the answer
+ */
+function outputAnswer(decided: Status, text: string, output: OutputState): string {
+    if (!output.schema) {
+        return text
+    }
+
+    decided.corrections = output.corrections
+
+    if (decided.outcome !== 'success') {
+        return text
+    }
+
+    const checked = checkOutput(text, output.schema)
+
+    if (!checked.ok) {
+        const sent = `${output.corrections} ${output.corrections === 1 ? 'correction' : 'corrections'}`
+
+        decided.outcome = 'invalid_output'
+        decided.error = `the answer did not match the output schema after ${sent}: ${problemList(checked.problems)}`
+
+        return text
+    }
+
+    decided.recovered = checked.recovered
+
+    return `${JSON.stringify(checked.value, null, 4)}\n`
+}
+
+/**
  * Execute a prepared run to its verdict, in this process: it owns cancellation and the deadline,
  * keeps status.json current while Pi works, and always writes a final status.
  * @param dir - the run's folder
@@ -167,6 +246,7 @@ export async function execute(dir: string): Promise<Status> {
     const live = publisher(status)
     const steering = createSteering(join(dir, RUN_FILES.steers))
     const phase: { failure: Outcome } = { failure: 'configuration_error' }
+    const output: OutputState = { corrections: 0 }
     let judged: Judged | undefined
     let failure: string | undefined
     let interrupted: Outcome | undefined
@@ -209,6 +289,7 @@ export async function execute(dir: string): Promise<Status> {
             signal: controller.signal,
             touch: live.touch,
             steering,
+            output,
         })
     } catch (error) {
         failure = error instanceof Error ? error.message : 'Runner failed'
@@ -236,6 +317,7 @@ export async function execute(dir: string): Promise<Status> {
         toolErrorCount: state.toolErrorCount,
         contextOverflow: state.contextOverflow,
     }
+    const answer = outputAnswer(decided, state.text, output)
     const steers = steering.counts()
 
     if (steers.delivered + steers.undelivered > 0) {
@@ -253,7 +335,15 @@ export async function execute(dir: string): Promise<Status> {
     }
 
     try {
-        await saveText(decided, { answer: state.text, partial: state.lastText }, request.out)
+        await saveText(
+            decided,
+            {
+                answer,
+                partial: state.lastText,
+                file: output.schema ? RUN_FILES.output : RUN_FILES.answer,
+            },
+            request.out,
+        )
     } catch (error) {
         Object.assign(decided, {
             outcome: 'runtime_error',

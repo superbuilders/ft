@@ -2,6 +2,7 @@ import { readFile, rm, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { chooseModel } from '../../pi/run/model'
+import { compileOutputSchema } from '../../pi/run/output'
 import { PI_VERSION } from '../../pi/runtime/constants'
 import { loadConfig } from '../../project/config/config'
 import { getKey } from '../../project/key/key'
@@ -54,6 +55,43 @@ async function readBrief(brief: string): Promise<string> {
 }
 
 /**
+ * Read and check the caller's output schema, so a schema ft would misread refuses the runs
+ * instead of failing or passing every answer.
+ * @param file - the --output-schema path as typed
+ * @returns the schema, or undefined when none was given
+ */
+async function outputSchema(
+    file: string | undefined,
+): Promise<Record<string, unknown> | undefined> {
+    if (file === undefined) {
+        return undefined
+    }
+
+    const text = await readFile(resolve(file), 'utf8').catch(() => {
+        throw new Error(`--output-schema ${file} could not be read`)
+    })
+    let schema: unknown
+
+    try {
+        schema = JSON.parse(text)
+    } catch (error) {
+        throw new Error(
+            `--output-schema ${file} is not JSON: ${error instanceof Error ? error.message : 'unreadable'}`,
+            { cause: error },
+        )
+    }
+
+    try {
+        return compileOutputSchema(schema).schema
+    } catch (error) {
+        throw new Error(
+            `--output-schema ${file}: ${error instanceof Error ? error.message : 'invalid'}`,
+            { cause: error },
+        )
+    }
+}
+
+/**
  * The folder a run works in: the caller's, or the one --workdir names.
  * @param dir - the --workdir value, relative to the working directory
  * @returns its absolute path
@@ -95,6 +133,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
 
     const config = await loadConfig(process.cwd())
     const deadline = deadlineSeconds(options.deadline)
+    const schema = await outputSchema(options.outputSchema)
     const request: Request = {
         profile: options.profile ?? 'read',
         cwd: await runFolder(options.workdir),
@@ -103,6 +142,7 @@ export async function prepare(briefs: string[], options: RunOptions): Promise<St
         ...(options.thinking ? { thinking: options.thinking } : {}),
         ...(deadline === undefined ? {} : { deadline }),
         ...(options.out ? { out: resolve(options.out) } : {}),
+        ...(schema ? { outputSchema: schema } : {}),
     }
     const { selected, provider } = chooseModel(request, config.config)
 

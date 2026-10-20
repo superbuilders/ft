@@ -191,3 +191,119 @@ it('reports a termination signal and kills detached tools that ignore SIGTERM', 
         await rm(root, { recursive: true, force: true })
     }
 }, 10_000)
+
+/*
+ * A Pi stand-in that answers every prompt with one assistant message and settles: the answers are
+ * the FAKE_PI_ANSWERS list in order, and FAKE_PI_REFUSE_FOLLOW_UP refuses every prompt after the brief.
+ */
+const FAKE_ANSWERING_PI = String.raw`#!/usr/bin/env bun
+const decoder = new TextDecoder()
+const out = record => process.stdout.write(JSON.stringify(record) + '\n')
+const answers = JSON.parse(process.env.FAKE_PI_ANSWERS)
+let prompts = 0
+let buffered = ''
+for await (const chunk of Bun.stdin.stream()) {
+    buffered += decoder.decode(chunk, { stream: true })
+    for (let lf = buffered.indexOf('\n'); lf >= 0; lf = buffered.indexOf('\n')) {
+        const command = JSON.parse(buffered.slice(0, lf))
+        buffered = buffered.slice(lf + 1)
+        if (command.type !== 'prompt') {
+            out({ id: command.id, type: 'response', command: command.type, success: true })
+            continue
+        }
+        if (prompts > 0 && process.env.FAKE_PI_REFUSE_FOLLOW_UP) {
+            out({ id: command.id, type: 'response', command: 'prompt', success: false, error: 'busy' })
+            continue
+        }
+        const text = answers[Math.min(prompts, answers.length - 1)]
+        prompts++
+        out({ id: command.id, type: 'response', command: 'prompt', success: true, data: { disposition: 'started' } })
+        out({ type: 'agent_start' })
+        out({ type: 'message_end', message: { role: 'user', content: [{ type: 'text', text: command.message }] } })
+        out({ type: 'message_end', message: { role: 'assistant', stopReason: 'stop', content: [{ type: 'text', text }] } })
+        out({ type: 'agent_settled', aborted: false })
+    }
+}
+`
+
+/**
+ * Run the answering Pi stand-in with a settle hook.
+ * @param answers - what the model says to each prompt, in order
+ * @param settled - the hook under test
+ * @param refuse - whether Pi refuses every prompt after the brief
+ * @returns the judge and the user messages Pi received
+ */
+async function answering(
+    answers: string[],
+    settled: () => string | undefined,
+    refuse = false,
+): Promise<{ state: ReturnType<typeof createJudge>; prompts: string[] }> {
+    const root = await mkdtemp(join(tmpdir(), 'ft-pi-follow-up-'))
+
+    try {
+        const pi = join(root, 'pi')
+        const state = createJudge()
+        const prompts: string[] = []
+
+        await writeFile(pi, FAKE_ANSWERING_PI, { mode: 0o700 })
+        await runPi({
+            pi,
+            cwd: root,
+            brief: 'brief',
+            selected: { provider: 'test', model: 'test' },
+            tools: ['read'],
+            env: {
+                ...process.env,
+                FAKE_PI_ANSWERS: JSON.stringify(answers),
+                ...(refuse ? { FAKE_PI_REFUSE_FOLLOW_UP: '1' } : {}),
+            },
+            toolDirs: [],
+            agent: root,
+            tmp: root,
+            contextPath: join(root, 'context.md'),
+            state,
+            control: {
+                attach() {},
+                observe(event) {
+                    const message = event.message as
+                        | { role: string; content: { text: string }[] }
+                        | undefined
+
+                    if (event.type === 'message_end' && message?.role === 'user') {
+                        prompts.push(message.content[0].text)
+                    }
+                },
+            },
+            settled,
+            signal: new AbortController().signal,
+            events: () => {},
+            stderr: () => {},
+        })
+
+        return { state, prompts }
+    } finally {
+        await rm(root, { recursive: true, force: true })
+    }
+}
+
+it('sends the follow-up the settle hook returns, and ends Pi once it returns none', async () => {
+    const follow = ['fix it', 'fix it again', undefined]
+    const { state, prompts } = await answering(['one', 'two', 'three'], () => follow.shift())
+
+    expect(prompts).toEqual(['brief', 'fix it', 'fix it again'])
+    expect(state.text).toBe('three')
+    expect(state.settled).toBe(true)
+})
+
+it('ends Pi at once when the settle hook returns nothing', async () => {
+    const { prompts } = await answering(['only'], () => undefined)
+
+    expect(prompts).toEqual(['brief'])
+})
+
+it('ends Pi when it refuses a follow-up, instead of waiting for it', async () => {
+    const { state, prompts } = await answering(['first'], () => 'fix it', true)
+
+    expect(prompts).toEqual(['brief'])
+    expect(state.text).toBe('first')
+})

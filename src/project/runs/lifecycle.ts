@@ -102,16 +102,17 @@ export function publisher(status: Status): { touch: () => void; flush: () => Pro
  * @param text - the model's final answer and its last text that said anything
  * @param text.answer - the final answer, kept on success
  * @param text.partial - the last text that said anything, kept after a failure
+ * @param text.file - the answer's file name: answer.md, or output.json for an output schema
  * @param out - the caller's --out path, if any
  * @returns completion
  */
 export async function saveText(
     status: Status,
-    text: { answer: string; partial: string },
+    text: { answer: string; partial: string; file: string },
     out: string | undefined,
 ): Promise<void> {
     if (status.outcome === 'success') {
-        const answer = join(status.dir, RUN_FILES.answer)
+        const answer = join(status.dir, text.file)
 
         await atomicWrite(answer, text.answer)
 

@@ -18,6 +18,8 @@ export interface RunOptions {
     workdir?: string
     /** Optional wall-clock deadline in seconds. */
     deadline?: string
+    /** A JSON Schema file the final answer must match, relative to the working directory. */
+    outputSchema?: string
     /** Print the status as JSON instead of the report. */
     json?: boolean
 }

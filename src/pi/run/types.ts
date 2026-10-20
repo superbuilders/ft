@@ -1,3 +1,5 @@
+import type { Validator } from 'typebox/schema'
+
 import type { Provider, Selection } from '../../models/types'
 import type { Outcome } from '../../project/runs/types'
 import type { Adapter } from '../gateway/adapters/types'
@@ -75,3 +77,32 @@ export interface SteerReceipt {
     /** Why it was refused or not delivered. */
     reason?: string
 }
+
+/**
+ * A caller's --output-schema, checked and compiled once per run.
+ */
+export interface OutputSchema {
+    /** The schema as the caller wrote it, shown to the model. */
+    schema: Record<string, unknown>
+    /** Checks a value against it and lists what does not match. */
+    validator: Validator
+}
+
+/**
+ * What ft made of a final answer that must match an --output-schema.
+ */
+export type OutputCheck =
+    | {
+          /** The answer holds exactly one object that matches. */
+          ok: true
+          /** That object. */
+          value: Record<string, unknown>
+          /** Whether ft found it inside prose or fences rather than as the whole message. */
+          recovered: boolean
+      }
+    | {
+          /** No usable object, or more than one. */
+          ok: false
+          /** What is wrong, one problem per entry, for a correction or the run's error. */
+          problems: string[]
+      }

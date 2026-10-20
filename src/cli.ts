@@ -45,6 +45,10 @@ function runOptions(command: Command): Command {
         )
         .option('--deadline <seconds>', 'stop the run after this long')
         .option(
+            '--output-schema <file>',
+            'a JSON Schema the final answer must match; the answer is saved as output.json',
+        )
+        .option(
             '--out <path>',
             'also save the answer here (an existing file is replaced, or deleted if the run fails)',
         )

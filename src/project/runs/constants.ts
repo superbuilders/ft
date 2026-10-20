@@ -12,6 +12,7 @@ export const RUN_FILES = {
     events: 'events.jsonl',
     stderr: 'stderr.log',
     answer: 'answer.md',
+    output: 'output.json',
     partial: 'partial.md',
     steers: 'steers.jsonl',
 } as const
@@ -36,6 +37,7 @@ export const EXIT_CODES = {
     lost: 1,
     configuration_error: 2,
     incomplete: 3,
+    invalid_output: 3,
     protocol_error: 3,
     timeout: 124,
     cancelled: 130,
@@ -59,6 +61,8 @@ export const NEXT_STEPS = {
     context_overflow:
         "The brief and the files the model read did not fit the model's context window. Narrow the brief or point it at fewer files, or use a role whose model has a larger window.",
     incomplete: 'Pi stopped without a final answer. <ft> show <id> shows how far it got.',
+    invalid_output:
+        'The answer still did not match the output schema after ft asked for corrections. The error lists what was wrong; check that the schema asks for something the brief can produce, then start the run again.',
     protocol_error:
         "Pi's output could not be read. See <ft> show <id> and the run's stderr.log for details.",
     runtime_error:

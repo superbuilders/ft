@@ -9,6 +9,7 @@ export type Outcome =
     | 'success'
     | 'model_error'
     | 'incomplete'
+    | 'invalid_output'
     | 'protocol_error'
     | 'runtime_error'
     | 'configuration_error'
@@ -70,6 +71,8 @@ export interface Request {
     cwd: string
     /** Absolute path that also receives the answer on success. */
     out?: string
+    /** The JSON Schema the final answer must match, as the caller's --output-schema file held it. */
+    outputSchema?: Record<string, unknown>
 }
 
 /**
@@ -130,6 +133,10 @@ export interface Status extends Progress {
     contextOverflow?: boolean
     /** Absolute path of the answer; null unless the run succeeded. */
     answer: string | null
+    /** Corrections ft sent because the answer did not match the output schema; absent without one. */
+    corrections?: number
+    /** Whether ft found the output object inside prose or a fence; absent without an output schema. */
+    recovered?: boolean
     /** Absolute path of the last unfinished answer text kept from a failed run; null otherwise. */
     partial: string | null
     /** The socket `ft steer` talks to, while the run takes steers; absent otherwise. */
