@@ -157,3 +157,17 @@ it('counts the usage of summarising the conversation', () => {
         cost: 1,
     })
 })
+
+it('tells a stopped turn as stopped, not as a model error', () => {
+    const aborted = {
+        type: 'message_end',
+        message: {
+            role: 'assistant',
+            stopReason: 'aborted',
+            errorMessage: 'Request was aborted',
+            content: [{ type: 'text', text: '1. Octopuses' }],
+        },
+    }
+
+    expect(storyOf(JSON.stringify(aborted)).map(step => step.text)).toEqual(['stopped'])
+})

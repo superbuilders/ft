@@ -100,7 +100,10 @@ export function storyOf(events: string): Step[] {
             if (message.role === 'assistant') {
                 const turn = assistantTurn(message)
 
-                if (typeof message.errorMessage === 'string') {
+                /* An aborted turn carries Pi's abort notice as its error, but ft stopped it, not the model. */
+                if (message.stopReason === 'aborted') {
+                    steps.push({ at: stamp, text: 'stopped' })
+                } else if (typeof message.errorMessage === 'string') {
                     steps.push({ at: stamp, text: oneLine(`model error: ${message.errorMessage}`) })
                 } else if (turn.calls && turn.text.trim()) {
                     steps.push({ at: stamp, text: oneLine(`said: ${turn.text}`) })
