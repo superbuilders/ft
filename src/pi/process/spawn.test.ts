@@ -66,6 +66,7 @@ it('sends a large brief as an RPC prompt, passes a control steer, and closes std
                 attach(writer) {
                     write = writer
                 },
+                end() {},
                 observe(event) {
                     events.push(event)
 
@@ -237,13 +238,14 @@ async function answering(
     answers: string[],
     settled: () => string | undefined,
     refuse = false,
-): Promise<{ state: ReturnType<typeof createJudge>; prompts: string[] }> {
+): Promise<{ state: ReturnType<typeof createJudge>; prompts: string[]; ended: number }> {
     const root = await mkdtemp(join(tmpdir(), 'ft-pi-follow-up-'))
 
     try {
         const pi = join(root, 'pi')
         const state = createJudge()
         const prompts: string[] = []
+        let ended = 0
 
         await writeFile(pi, FAKE_ANSWERING_PI, { mode: 0o700 })
         await runPi({
@@ -264,6 +266,9 @@ async function answering(
             state,
             control: {
                 attach() {},
+                end() {
+                    ended++
+                },
                 observe(event) {
                     const message = event.message as
                         | { role: string; content: { text: string }[] }
@@ -280,7 +285,7 @@ async function answering(
             stderr: () => {},
         })
 
-        return { state, prompts }
+        return { state, prompts, ended }
     } finally {
         await rm(root, { recursive: true, force: true })
     }
@@ -288,9 +293,10 @@ async function answering(
 
 it('sends the follow-up the settle hook returns, and ends Pi once it returns none', async () => {
     const follow = ['fix it', 'fix it again', undefined]
-    const { state, prompts } = await answering(['one', 'two', 'three'], () => follow.shift())
+    const { state, prompts, ended } = await answering(['one', 'two', 'three'], () => follow.shift())
 
     expect(prompts).toEqual(['brief', 'fix it', 'fix it again'])
+    expect(ended).toBe(1)
     expect(state.text).toBe('three')
     expect(state.settled).toBe(true)
 })
@@ -315,4 +321,76 @@ it('ends Pi when the settle hook throws, instead of leaving it waiting', async (
 
     expect(prompts).toEqual(['brief'])
     expect(state.text).toBe('first')
+})
+
+/*
+ * A Pi stand-in that starts a turn on the brief and answers only when asked to abort, the way Pi
+ * ends an aborted turn: with the text the model had streamed and an aborted settle, then exits once
+ * ft closes its stdin. It records the
+ * commands it got in the file named by FAKE_PI_COMMANDS.
+ */
+const FAKE_ABORTABLE_PI = String.raw`#!/usr/bin/env bun
+const { appendFileSync } = require('node:fs')
+const decoder = new TextDecoder()
+const out = record => process.stdout.write(JSON.stringify(record) + '\n')
+let buffered = ''
+for await (const chunk of Bun.stdin.stream()) {
+    buffered += decoder.decode(chunk, { stream: true })
+    for (let lf = buffered.indexOf('\n'); lf >= 0; lf = buffered.indexOf('\n')) {
+        const command = JSON.parse(buffered.slice(0, lf))
+        buffered = buffered.slice(lf + 1)
+        appendFileSync(process.env.FAKE_PI_COMMANDS, command.type + '\n')
+        out({ id: command.id, type: 'response', command: command.type, success: true, data: { disposition: 'started' } })
+        if (command.type === 'prompt') {
+            out({ type: 'agent_start' })
+        }
+        if (command.type === 'abort') {
+            out({ type: 'message_end', message: { role: 'assistant', stopReason: 'aborted', content: [{ type: 'text', text: 'partial so far' }] } })
+            out({ type: 'agent_settled', aborted: true })
+        }
+    }
+}
+`
+
+it('cancels through an RPC abort first, so the text the model streamed is kept', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ft-pi-abort-'))
+    const controller = new AbortController()
+    const pi = join(root, 'pi')
+    const commands = join(root, 'commands')
+    const state = createJudge()
+
+    try {
+        await writeFile(pi, FAKE_ABORTABLE_PI, { mode: 0o700 })
+
+        const running = runPi({
+            pi,
+            cwd: root,
+            brief: 'brief',
+            selected: { provider: 'test', model: 'test' },
+            tools: ['read'],
+            env: { ...process.env, FAKE_PI_COMMANDS: commands },
+            toolDirs: [],
+            agent: root,
+            tmp: root,
+            contextPath: join(root, 'context.md'),
+            state,
+            signal: controller.signal,
+            events: () => {},
+            stderr: () => {},
+        })
+
+        await expect.poll(() => state.started).toBe(true)
+        controller.abort()
+        expect(await running).toEqual({ code: 0, signal: null })
+        expect(state.lastText).toBe('partial so far')
+        expect(state.aborted).toBe(true)
+
+        const recorded = await readFile(commands, 'utf8')
+        const sent = recorded.trim().split('\n')
+
+        expect(sent.slice(-2)).toEqual(['clear_queue', 'abort'])
+    } finally {
+        controller.abort()
+        await rm(root, { recursive: true, force: true })
+    }
 })

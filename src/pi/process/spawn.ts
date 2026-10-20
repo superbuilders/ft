@@ -1,7 +1,7 @@
 import { descendantGroups, signalGroups } from '../../system/process/process-groups'
 import { BRIEF_COMMAND_ID } from '../events/constants'
 import { eventParser } from '../events/judge'
-import { CORRECTION_ID, KILL_GRACE_MS } from './constants'
+import { ABORT_GRACE_MS, CORRECTION_ID, KILL_GRACE_MS } from './constants'
 import { piEnvironment } from './environment'
 
 import type { Selection } from '../../models/types'
@@ -98,6 +98,7 @@ export async function runPi(input: {
      */
     function close(): void {
         if (open) {
+            input.control?.end()
             open = false
             void Promise.resolve()
                 .then(() => child.stdin.end())
@@ -145,12 +146,17 @@ export async function runPi(input: {
     )
 
     /**
-     * Terminate Pi's process group, then kill whatever is left once the grace period ends.
+     * Stop Pi: ask it to abort through RPC first, so it ends the turn with what the model has said so
+     * far, then terminate its process group, and kill whatever is left once the grace period ends.
      * @returns completion after the hard kill
      */
     async function terminate(): Promise<void> {
         const groups = await descendantGroups(child.pid)
 
+        /* Queued steers would otherwise run after the abort. */
+        send(`${JSON.stringify({ type: 'clear_queue' })}\n`)
+        send(`${JSON.stringify({ type: 'abort' })}\n`)
+        await Promise.race([child.exited, Bun.sleep(ABORT_GRACE_MS)])
         signalGroups(groups, 'SIGTERM')
         await Bun.sleep(KILL_GRACE_MS)
         signalGroups(groups, 'SIGKILL')

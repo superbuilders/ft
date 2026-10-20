@@ -73,8 +73,10 @@ function record(
             state.accepted = true
         }
 
+        /* A correction starts another turn, which must settle again before the run can succeed. */
         if (event.type === 'agent_start') {
             state.started = true
+            state.settled = false
         }
 
         if (event.type === 'agent_settled') {
@@ -90,7 +92,7 @@ function record(
             state.retryCount++
         }
 
-        if (event.type === 'compaction_start') {
+        if (event.type === 'compaction_end' && event.result) {
             state.compactionCount++
         }
 

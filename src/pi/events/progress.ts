@@ -3,6 +3,24 @@ import { ACTIVITY_MAX, FILE_TOOLS } from './constants'
 import type { Progress } from '../../project/runs/types'
 
 /**
+ * Add one model call's token counts and cost to the run's usage.
+ * @param progress - the run's progress, updated in place
+ * @param usage - the call's usage record from Pi, if it has one
+ * @returns nothing
+ */
+function addUsage(progress: Progress, usage: Record<string, unknown> | undefined): void {
+    if (!usage) {
+        return
+    }
+
+    progress.usage.input += count(usage.input)
+    progress.usage.output += count(usage.output)
+    progress.usage.cacheRead += count(usage.cacheRead)
+    progress.usage.cacheWrite += count(usage.cacheWrite)
+    progress.usage.cost += count((usage.cost as Record<string, unknown> | undefined)?.total)
+}
+
+/**
  * Squeeze text onto one line of bounded length.
  * @param text - any text
  * @returns a single short line
@@ -131,6 +149,15 @@ export function track(
         return true
     }
 
+    /* Summarising the conversation is a model call too, so its usage counts. */
+    if (event.type === 'compaction_end') {
+        const result = event.result as Record<string, unknown> | undefined
+
+        addUsage(progress, result?.usage as Record<string, unknown> | undefined)
+
+        return Boolean(result?.usage)
+    }
+
     if (event.type === 'message_end') {
         const message = event.message as Record<string, unknown> | undefined
         const usage = message?.usage as Record<string, unknown> | undefined
@@ -139,11 +166,7 @@ export function track(
             return false
         }
 
-        progress.usage.input += count(usage.input)
-        progress.usage.output += count(usage.output)
-        progress.usage.cacheRead += count(usage.cacheRead)
-        progress.usage.cacheWrite += count(usage.cacheWrite)
-        progress.usage.cost += count((usage.cost as Record<string, unknown> | undefined)?.total)
+        addUsage(progress, usage)
 
         return true
     }

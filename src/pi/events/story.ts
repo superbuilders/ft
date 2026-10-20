@@ -1,3 +1,4 @@
+import { CORRECTION_HEADER } from './constants'
 import { describeCall, messageText, oneLine, textOf } from './progress'
 
 /**
@@ -84,9 +85,14 @@ export function storyOf(events: string): Step[] {
 
             const stamp = start !== null && now !== null ? Math.max(0, now - start) : null
 
-            /* The first user message is the brief; every later one is a steer Pi delivered. */
+            /* The first user message is the brief; later ones are ft's corrections or steers. */
             if (message.role === 'user' && briefSeen) {
-                steps.push({ at: stamp, text: oneLine(`steered: ${messageText(message.content)}`) })
+                const text = messageText(message.content)
+                const step = text.startsWith(CORRECTION_HEADER)
+                    ? 'ft asked for a corrected answer'
+                    : `steered: ${text}`
+
+                steps.push({ at: stamp, text: oneLine(step) })
             } else if (message.role === 'user') {
                 briefSeen = true
             }
@@ -146,8 +152,13 @@ export function storyOf(events: string): Step[] {
             })
         }
 
-        if (event.type === 'compaction_start') {
+        if (event.type === 'compaction_end' && event.result) {
             steps.push({ at, text: 'compacted the conversation to fit the context window' })
+        } else if (event.type === 'compaction_end' && typeof event.errorMessage === 'string') {
+            steps.push({
+                at,
+                text: oneLine(`could not compact the conversation: ${event.errorMessage}`),
+            })
         }
     }
 

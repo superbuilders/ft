@@ -100,11 +100,24 @@ it('reports a steer Pi refuses', async () => {
     expect(logged.at(-1)?.state).toBe('refused')
 })
 
-it('marks steers still on their way undelivered once Pi settles, and refuses later ones', async () => {
+it('stays open when Pi settles, since ft may still send a correction', async () => {
+    const { steering, sent } = await setup()
+
+    steering.control.observe({ type: 'agent_settled', aborted: false })
+
+    const receipt = steering.submit('after settling')
+
+    await expect.poll(() => sent.length).toBe(1)
+    steering.control.observe({ id: 'steer-1', type: 'response', success: true })
+    expect(await receipt).toEqual({ id: 1, state: 'queued' })
+    await steering.close('done')
+})
+
+it('marks steers still on their way undelivered once ft ends Pi, and refuses later ones', async () => {
     const { steering, records } = await setup()
     const unacknowledged = steering.submit('first')
 
-    steering.control.observe({ type: 'agent_settled', aborted: false })
+    steering.control.end()
     expect(await unacknowledged).toEqual({
         id: 1,
         state: 'undelivered',

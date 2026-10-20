@@ -56,10 +56,6 @@ export const OUTPUT_INSTRUCTIONS = `# Required output
 
 Your final message must be a single JSON object that matches the JSON Schema below, and nothing else: no prose before or after it. This replaces the report format described above. ft checks the object against the schema, and asks you to correct it if it does not match.`
 
-/** Opens every correction, so the model can tell ft's check from a message the caller sent. */
-export const CORRECTION_HEADER =
-    '[Automatic output check by ft. This message comes from ft, not from the agent that wrote the brief.]'
-
 /**
  * The JSON Schema draft-07 meta-schema, made strict in two ways: `$defs` is accepted as well as
  * `definitions`, and a keyword the draft does not define is an error rather than ignored, so a

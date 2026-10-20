@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { CORRECTION_HEADER, OUTPUT_PROBLEMS_SHOWN, OUTPUT_STARTS_MAX } from './constants'
+import { CORRECTION_HEADER } from '../events/constants'
+import { OUTPUT_PROBLEMS_SHOWN, OUTPUT_STARTS_MAX } from './constants'
 import { checkOutput, correctionMessage, problemList } from './output'
 import { compileOutputSchema } from './schema'
 

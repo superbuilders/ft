@@ -133,7 +133,7 @@ async function drive(
             state,
             progress: touch,
             control: steering.control,
-            settled: () => correction(state, output),
+            settled: () => (signal.aborted ? undefined : correction(state, output)),
             signal,
             events: line => {
                 events.write(`${line}\n`)

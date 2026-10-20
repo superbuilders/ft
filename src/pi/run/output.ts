@@ -1,5 +1,5 @@
+import { CORRECTION_HEADER } from '../events/constants'
 import {
-    CORRECTION_HEADER,
     JSON_OPENING_SPAN,
     OUTPUT_INSTRUCTIONS,
     OUTPUT_PROBLEMS_SHOWN,

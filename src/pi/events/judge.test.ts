@@ -92,6 +92,15 @@ describe('recorded Pi 1.1.0 protocol', () => {
                     ACCEPTED,
                     { type: 'agent_start' },
                     { type: 'compaction_start', reason: 'overflow' },
+                    { type: 'compaction_end', reason: 'overflow', aborted: true, willRetry: false },
+                    { type: 'compaction_start', reason: 'overflow' },
+                    {
+                        type: 'compaction_end',
+                        reason: 'overflow',
+                        result: { summary: 's', tokensBefore: 9, estimatedTokensAfter: 1 },
+                        aborted: false,
+                        willRetry: true,
+                    },
                     { type: 'tool_execution_end', isError: true },
                     {
                         type: 'message_end',
@@ -153,4 +162,34 @@ describe('recorded Pi 1.1.0 protocol', () => {
         unaccepted.accepted = true
         expect(judgeOutcome(unaccepted, 0, null)).toBe('success')
     })
+})
+
+it('does not call a run successful when Pi exits during a correction turn it never settled', () => {
+    const state = createJudge()
+    const parser = eventParser(state)
+    const answer = {
+        type: 'message_end',
+        message: {
+            role: 'assistant',
+            stopReason: 'stop',
+            content: [{ type: 'text', text: 'one' }],
+        },
+    }
+
+    parser.push(
+        Buffer.from(
+            `${[
+                ACCEPTED,
+                { type: 'agent_start' },
+                answer,
+                { type: 'agent_settled', aborted: false },
+                { type: 'agent_start' },
+            ]
+                .map(event => JSON.stringify(event))
+                .join('\n')}\n`,
+        ),
+    )
+    parser.end()
+    expect(state.settled).toBe(false)
+    expect(judgeOutcome(state, 0, null)).not.toBe('success')
 })

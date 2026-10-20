@@ -141,10 +141,9 @@ export function createSteering(log: string): Steering {
                         move(steer, 'delivered')
                     }
                 }
-
-                if (event.type === 'agent_settled') {
-                    shut('the run finished before the model read it')
-                }
+            },
+            end() {
+                shut('the run finished before the model read it')
             },
         },
         submit(message) {

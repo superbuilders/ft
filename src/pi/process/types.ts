@@ -14,4 +14,7 @@ export interface PiControl {
      * @param event - a parsed event or command response
      */
     observe(event: Record<string, unknown>): void
+
+    /** Learn that Pi gets no more prompts: ft is closing its stdin. */
+    end(): void
 }

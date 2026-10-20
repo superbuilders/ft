@@ -20,3 +20,7 @@ export const ACTIVITY_MAX = 100
 
 /** Pi tools whose `path` argument names a file the run changed. */
 export const FILE_TOOLS: readonly string[] = ['edit', 'write']
+
+/** Opens every correction, so the model, and a run's story, can tell ft's check from a message the caller sent. */
+export const CORRECTION_HEADER =
+    '[Automatic output check by ft. This message comes from ft, not from the agent that wrote the brief.]'
