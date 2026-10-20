@@ -10,6 +10,7 @@ import {
     SAME_VALUE_KEYWORDS,
     SAME_VALUE_LISTS,
     SCHEMA_MAPS,
+    SAME_VALUE_MAPS,
 } from './constants'
 
 import type { TLocalizedValidationError } from 'typebox/error'
@@ -79,6 +80,10 @@ function children(node: unknown): SchemaChild[] {
 
         if (SCHEMA_MAPS.includes(key) && value && typeof value === 'object') {
             return Object.values(value).map(schema => ({ schema, same: false }))
+        }
+
+        if (SAME_VALUE_MAPS.includes(key) && value && typeof value === 'object') {
+            return Object.values(value).map(schema => ({ schema, same: true }))
         }
 
         if (key === 'items' && Array.isArray(value)) {
@@ -158,9 +163,20 @@ function checkReferences(schema: Record<string, unknown>): void {
                 )
             }
 
-            if (resolve(schema, reference) === undefined) {
+            const target = resolve(schema, reference)
+
+            if (target === undefined) {
                 throw new Error(
                     `the output schema refers to a place it does not have: ${reference}`,
+                )
+            }
+
+            if (
+                typeof target !== 'boolean' &&
+                (!target || typeof target !== 'object' || Array.isArray(target))
+            ) {
+                throw new Error(
+                    `the output schema refers to something that is not a schema: ${reference}`,
                 )
             }
         }
@@ -266,7 +282,7 @@ function unfence(text: string): string {
 
     const close = lines.at(-1)?.trim() ?? ''
 
-    if (close[0] !== open[1][0] || close.length < open[1].length || /[^`~]/.test(close)) {
+    if (!close.startsWith(open[1][0]) || close.length < open[1].length || /[^`~]/.test(close)) {
         return text
     }
 
@@ -327,9 +343,10 @@ function objectEnd(text: string, start: number): number {
 }
 
 /**
- * Every top-level JSON object in prose, in order: from each opening brace, the span that closes it
- * is kept when it parses, and the search goes on after it, so an object inside another is never a
- * candidate of its own. Braces in the prose cost one failed start each, up to a limit.
+ * Every top-level JSON object in prose, in order: from each opening brace, the search goes on after
+ * the span that closes it, kept when it parses, so an object inside another, even a broken one, is
+ * never a candidate of its own. Only a brace that never closes is retried from the next one. Braces
+ * in the prose cost one failed start each, up to a limit.
  * @param text - the answer
  * @returns the objects found, or undefined when the limit stopped the search before the end
  */
@@ -349,13 +366,35 @@ function objectsIn(text: string): Record<string, unknown>[] | undefined {
 
         if (parsed && 'value' in parsed) {
             found.push(parsed.value as Record<string, unknown>)
-            index = text.indexOf('{', end)
-        } else {
-            index = text.indexOf('{', index + 1)
         }
+
+        index = text.indexOf('{', end > 0 ? end : index + 1)
     }
 
     return found
+}
+
+/**
+ * Why the object a message opens with cannot be read, when it opens with one.
+ * @param text - the message, trimmed and unfenced
+ * @returns the parser's message, or undefined when the message does not open with a broken object
+ */
+function brokenLead(text: string): string | undefined {
+    if (!text.startsWith('{')) {
+        return undefined
+    }
+
+    const end = objectEnd(text, 0)
+
+    if (end < 0) {
+        const whole = parse(text)
+
+        return 'error' in whole ? whole.error : undefined
+    }
+
+    const lead = parse(text.slice(0, end))
+
+    return 'error' in lead ? lead.error : undefined
 }
 
 /**
@@ -363,7 +402,8 @@ function objectsIn(text: string): Record<string, unknown>[] | undefined {
  * the whole message in one fence, is read as JSON first. Otherwise every top-level object in the
  * prose is a candidate, and the answer is the one that matches; none, or several different ones,
  * is a problem for the model to fix, since choosing between them could pick a draft. Nothing is
- * repaired: broken JSON goes back to the model rather than being guessed at.
+ * repaired: broken JSON goes back to the model rather than being guessed at, and a message that
+ * opens with a broken object is not searched for a smaller one inside it.
  * @param text - the model's final message
  * @param output - the run's output schema
  * @returns the object, or what is wrong
@@ -378,6 +418,12 @@ export function checkOutput(text: string, output: OutputSchema): OutputCheck {
         }
 
         return { ok: false, problems: describe(output.validator.Errors(direct.value)[1]) }
+    }
+
+    const broken = brokenLead(whole)
+
+    if (broken) {
+        return { ok: false, problems: [`the JSON could not be read: ${broken}`] }
     }
 
     const candidates = objectsIn(text)
@@ -416,10 +462,6 @@ export function checkOutput(text: string, output: OutputSchema): OutputCheck {
 
     if (last) {
         return { ok: false, problems: describe(output.validator.Errors(last)[1]) }
-    }
-
-    if (whole.startsWith('{')) {
-        return { ok: false, problems: [`the JSON could not be read: ${direct.error}`] }
     }
 
     return { ok: false, problems: ['the message holds no JSON object'] }

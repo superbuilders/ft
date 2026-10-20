@@ -327,7 +327,6 @@ export const SAME_VALUE_KEYWORDS: readonly string[] = ['not', 'if', 'then', 'els
 export const SCHEMA_MAPS: readonly string[] = [
     'properties',
     'patternProperties',
-    'dependencies',
     'definitions',
     '$defs',
 ]
@@ -340,3 +339,6 @@ export const CHILD_KEYWORDS: readonly string[] = [
     'contains',
     'propertyNames',
 ]
+
+/** Keywords holding a map of subschemas that apply to the same value, each once a property is present. */
+export const SAME_VALUE_MAPS: readonly string[] = ['dependencies']

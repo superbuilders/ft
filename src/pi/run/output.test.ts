@@ -90,6 +90,16 @@ describe('compileOutputSchema', () => {
             'refers to itself without end',
         ],
         [
+            'a dependency that refers back to the top',
+            { type: 'object', dependencies: { x: { $ref: '#' } } },
+            'refers to itself without end',
+        ],
+        [
+            'a reference to something that is not a schema',
+            { type: 'object', required: ['a'], properties: { a: { $ref: '#/required' } } },
+            'not a schema: #/required',
+        ],
+        [
             'definitions that refer to each other through allOf',
             {
                 type: 'object',
@@ -282,8 +292,27 @@ describe('checkOutput', () => {
         expect(performance.now() - started).toBeLessThan(2000)
     })
 
+    it.each([
+        ['a trailing comma', `{"result":${json},}`],
+        ['a missing closing brace', `{"result":${json}`],
+    ])(
+        'sends back a message that opens with broken JSON (%s), not an object inside it',
+        (_name, text) => {
+            const checked = checkOutput(text, output)
+
+            expect(checked.ok).toBe(false)
+            expect(!checked.ok && checked.problems[0]).toMatch(/^the JSON could not be read: /)
+        },
+    )
+
+    it('does not take an object from inside a broken one in prose', () => {
+        const checked = checkOutput(`Here it is: {"result":${json},} Done.`, output)
+
+        expect(checked.ok).toBe(false)
+    })
+
     it('chooses nothing when too many braces stop the search before the end', () => {
-        const prose = '{x} '.repeat(OUTPUT_STARTS_MAX)
+        const prose = `Notes: ${'{x} '.repeat(OUTPUT_STARTS_MAX)}`
         const checked = checkOutput(`${prose}${json}`, output)
 
         expect(!checked.ok && checked.problems).toEqual([
