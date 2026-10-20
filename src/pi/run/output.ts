@@ -1,4 +1,4 @@
-import { Compile, Errors } from 'typebox/schema'
+import { Compile, Errors, Pointer } from 'typebox/schema'
 
 import {
     CORRECTION_HEADER,
@@ -16,8 +16,9 @@ import {
 } from './constants'
 
 import type { TLocalizedValidationError } from 'typebox/error'
+import type { Validator } from 'typebox/schema'
 
-import type { OutputCheck, OutputSchema, SchemaChild } from './types'
+import type { OutputCheck, SchemaChild } from './types'
 
 const META_SCHEMA = JSON.parse(OUTPUT_META_SCHEMA) as Record<string, unknown>
 
@@ -103,25 +104,10 @@ function children(node: unknown): SchemaChild[] {
  * The schema a local reference (`#` or `#/a/b`) names.
  * @param schema - the whole schema
  * @param reference - a `$ref` that starts with `#`
- * @returns the schema it names, or undefined when a step of its JSON pointer is missing
+ * @returns the schema it names, or undefined when its JSON pointer leads nowhere
  */
 function resolve(schema: Record<string, unknown>, reference: string): unknown {
-    const steps = reference
-        .slice(1)
-        .split('/')
-        .slice(1)
-        .map(step => decodeURIComponent(step).replaceAll('~1', '/').replaceAll('~0', '~'))
-    let node: unknown = schema
-
-    for (const step of steps) {
-        if (!node || typeof node !== 'object' || !Object.hasOwn(node, step)) {
-            return undefined
-        }
-
-        node = (node as Record<string, unknown>)[step]
-    }
-
-    return node
+    return Pointer.Get(schema, decodeURIComponent(reference.slice(1)))
 }
 
 /**
@@ -256,7 +242,7 @@ function checkReferences(schema: Record<string, unknown>): void {
  * @param schema - the parsed --output-schema file
  * @returns the schema with its validator
  */
-export function compileOutputSchema(schema: unknown): OutputSchema {
+export function compileOutputSchema(schema: unknown): Validator {
     if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
         throw new Error('the output schema must be a JSON object')
     }
@@ -275,7 +261,7 @@ export function compileOutputSchema(schema: unknown): OutputSchema {
     checkReferences(record)
 
     try {
-        return { schema: record, validator: Compile(record as never) }
+        return Compile(record as never)
     } catch (error) {
         throw new Error(
             `the output schema could not be compiled: ${error instanceof Error ? error.message : 'unknown error'}`,
@@ -289,8 +275,8 @@ export function compileOutputSchema(schema: unknown): OutputSchema {
  * @param output - the run's output schema
  * @returns markdown to append to the brief
  */
-export function outputInstructions(output: OutputSchema): string {
-    return `\n\n${OUTPUT_INSTRUCTIONS}\n\n\`\`\`json\n${JSON.stringify(output.schema, null, 4)}\n\`\`\`\n`
+export function outputInstructions(output: Validator): string {
+    return `\n\n${OUTPUT_INSTRUCTIONS}\n\n\`\`\`json\n${JSON.stringify(output.Schema(), null, 4)}\n\`\`\`\n`
 }
 
 /**
@@ -371,10 +357,6 @@ function objectEnd(text: string, start: number): number {
             if (depth === 0) {
                 return char === '}' ? index + 1 : -1
             }
-
-            if (depth < 0) {
-                return -1
-            }
         }
     }
 
@@ -453,16 +435,16 @@ function brokenLead(text: string): string | undefined {
  * @param output - the run's output schema
  * @returns the object, or what is wrong
  */
-export function checkOutput(text: string, output: OutputSchema): OutputCheck {
+export function checkOutput(text: string, output: Validator): OutputCheck {
     const whole = unfence(text.trim())
     const direct = parse(whole)
 
     if ('value' in direct) {
-        if (output.validator.Check(direct.value)) {
+        if (output.Check(direct.value)) {
             return { ok: true, value: direct.value as Record<string, unknown>, recovered: false }
         }
 
-        return { ok: false, problems: describe(output.validator.Errors(direct.value)[1]) }
+        return { ok: false, problems: describe(output.Errors(direct.value)[1]) }
     }
 
     const broken = brokenLead(whole)
@@ -485,7 +467,7 @@ export function checkOutput(text: string, output: OutputSchema): OutputCheck {
     const matching = [
         ...new Map(
             candidates
-                .filter(candidate => output.validator.Check(candidate))
+                .filter(candidate => output.Check(candidate))
                 .map(candidate => [JSON.stringify(candidate), candidate]),
         ).values(),
     ]
@@ -506,7 +488,7 @@ export function checkOutput(text: string, output: OutputSchema): OutputCheck {
     const last = candidates.at(-1)
 
     if (last) {
-        return { ok: false, problems: describe(output.validator.Errors(last)[1]) }
+        return { ok: false, problems: describe(output.Errors(last)[1]) }
     }
 
     return { ok: false, problems: ['the message holds no JSON object'] }

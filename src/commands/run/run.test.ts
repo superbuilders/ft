@@ -7,6 +7,51 @@ import { expect, it, vi } from 'vitest'
 
 import { run, start } from './run'
 
+import type { RunOptions } from './types'
+
+/**
+ * Start runs in a fresh folder with one configured model, and expect ft to refuse them before
+ * creating any run.
+ * @param setup - writes the case's files into the folder, then names the briefs and options
+ * @param error - text the refusal must contain
+ * @returns nothing
+ */
+async function expectRefused(
+    setup: (root: string) => Promise<{ briefs: string[]; options: RunOptions }>,
+    error: string,
+): Promise<void> {
+    const root = await mkdtemp(join(tmpdir(), 'ft-start-'))
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+    const config = {
+        providers: {
+            gateway: {
+                key: { env: 'GATEWAY_KEY' },
+                baseUrl: 'https://gateway.test/v1',
+                api: 'openai-completions',
+                models: [{ id: 'model-a' }],
+            },
+        },
+        roles: { code: { model: 'gateway/model-a' } },
+    }
+
+    vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
+    vi.stubEnv('GATEWAY_KEY', 'test-key')
+
+    try {
+        await writeFile(join(root, '.ft.json'), JSON.stringify(config))
+
+        const { briefs, options } = await setup(root)
+
+        expect(await start(briefs, options)).toBe(2)
+        expect(stderr).toHaveBeenCalledWith(expect.stringContaining(error))
+        expect(existsSync(join(root, '.ft', 'runs'))).toBe(false)
+    } finally {
+        stderr.mockRestore()
+        vi.unstubAllEnvs()
+        await rm(root, { recursive: true, force: true })
+    }
+}
+
 it('refuses a run it cannot start before creating or deleting anything', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ft-run-'))
     const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
@@ -58,37 +103,14 @@ it.each([
         '--workdir /no/such/folder is not a folder',
     ],
 ])('starts no run when one of several briefs fails (%s)', async (_case, options, error) => {
-    const root = await mkdtemp(join(tmpdir(), 'ft-start-'))
-    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
-    const config = {
-        providers: {
-            gateway: {
-                key: { env: 'GATEWAY_KEY' },
-                baseUrl: 'https://gateway.test/v1',
-                api: 'openai-completions',
-                models: [{ id: 'model-a' }],
-            },
-        },
-        roles: { code: { model: 'gateway/model-a' } },
-    }
-
-    vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
-    vi.stubEnv('GATEWAY_KEY', 'test-key')
-
-    try {
-        await writeFile(join(root, '.ft.json'), JSON.stringify(config))
+    await expectRefused(async root => {
         await writeFile(join(root, 'a.md'), 'First brief')
 
-        const briefs = [join(root, 'a.md'), join(root, error === 'gone.md' ? 'gone.md' : 'a.md')]
-
-        expect(await start(briefs, options)).toBe(2)
-        expect(stderr).toHaveBeenCalledWith(expect.stringContaining(error))
-        expect(existsSync(join(root, '.ft', 'runs'))).toBe(false)
-    } finally {
-        stderr.mockRestore()
-        vi.unstubAllEnvs()
-        await rm(root, { recursive: true, force: true })
-    }
+        return {
+            briefs: [join(root, 'a.md'), join(root, error === 'gone.md' ? 'gone.md' : 'a.md')],
+            options,
+        }
+    }, error)
 })
 
 it.each([
@@ -97,39 +119,15 @@ it.each([
     ['an array schema', '{"type": "array"}', 'top level must be "type": "object"'],
     ['a misspelt keyword', '{"type": "object", "requird": ["a"]}', 'not valid JSON Schema'],
 ])('starts no run for an --output-schema that is %s', async (_case, schema, error) => {
-    const root = await mkdtemp(join(tmpdir(), 'ft-output-schema-'))
-    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
-    const config = {
-        providers: {
-            gateway: {
-                key: { env: 'GATEWAY_KEY' },
-                baseUrl: 'https://gateway.test/v1',
-                api: 'openai-completions',
-                models: [{ id: 'model-a' }],
-            },
-        },
-        roles: { code: { model: 'gateway/model-a' } },
-    }
-
-    vi.stubEnv('FT_CONFIG', join(root, '.ft.json'))
-    vi.stubEnv('GATEWAY_KEY', 'test-key')
-
-    try {
+    await expectRefused(async root => {
         const file = join(root, 'schema.json')
 
-        await writeFile(join(root, '.ft.json'), JSON.stringify(config))
         await writeFile(join(root, 'a.md'), 'First brief')
 
         if (schema !== null) {
             await writeFile(file, schema)
         }
 
-        expect(await start([join(root, 'a.md')], { outputSchema: file })).toBe(2)
-        expect(stderr).toHaveBeenCalledWith(expect.stringContaining(error))
-        expect(existsSync(join(root, '.ft', 'runs'))).toBe(false)
-    } finally {
-        stderr.mockRestore()
-        vi.unstubAllEnvs()
-        await rm(root, { recursive: true, force: true })
-    }
+        return { briefs: [join(root, 'a.md')], options: { outputSchema: file } }
+    }, error)
 })

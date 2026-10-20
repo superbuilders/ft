@@ -30,17 +30,19 @@ import {
 } from './output'
 import { createSteering, serveSteering } from './steering'
 
+import type { Validator } from 'typebox/schema'
+
 import type { Outcome, Request, Status } from '../../project/runs/types'
 import type { JudgeState } from '../events/types'
 import type { Steering } from './steering'
-import type { Judged, OutputSchema } from './types'
+import type { Judged } from './types'
 
 /**
  * A run's output schema and the corrections sent so far, shared by the run and its Pi session.
  */
 interface OutputState {
     /** The compiled --output-schema; absent when the run has none, or before Pi starts. */
-    schema?: OutputSchema
+    schema?: Validator
     /** Corrections sent so far. */
     corrections: number
 }

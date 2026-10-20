@@ -82,7 +82,9 @@ async function outputSchema(
     }
 
     try {
-        return compileOutputSchema(schema).schema
+        compileOutputSchema(schema)
+
+        return schema as Record<string, unknown>
     } catch (error) {
         throw new Error(
             `--output-schema ${file}: ${error instanceof Error ? error.message : 'invalid'}`,

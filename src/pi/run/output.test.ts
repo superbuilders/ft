@@ -31,7 +31,7 @@ const json = JSON.stringify(one)
 
 describe('compileOutputSchema', () => {
     it('accepts a findings schema, with $schema, local references and $defs', () => {
-        expect(compileOutputSchema(FINDINGS).schema).toBe(FINDINGS)
+        expect(compileOutputSchema(FINDINGS).Schema()).toBe(FINDINGS)
         expect(() =>
             compileOutputSchema({
                 $schema: 'http://json-schema.org/draft-07/schema#',

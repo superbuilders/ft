@@ -1,7 +1,7 @@
 import { descendantGroups, signalGroups } from '../../system/process/process-groups'
 import { BRIEF_COMMAND_ID } from '../events/constants'
 import { eventParser } from '../events/judge'
-import { CORRECTION_ID_PREFIX, KILL_GRACE_MS } from './constants'
+import { CORRECTION_ID, KILL_GRACE_MS } from './constants'
 import { piEnvironment } from './environment'
 
 import type { Selection } from '../../models/types'
@@ -73,7 +73,6 @@ export async function runPi(input: {
         env: piEnvironment(input.env, input.agent, input.tmp, input.toolDirs),
     })
     let open = true
-    let followUps = 0
 
     /**
      * Send one command line to Pi while its stdin is open.
@@ -126,9 +125,8 @@ export async function runPi(input: {
                 }
 
                 if (followUp !== undefined) {
-                    followUps++
                     send(
-                        `${JSON.stringify({ id: `${CORRECTION_ID_PREFIX}${followUps}`, type: 'prompt', message: followUp })}\n`,
+                        `${JSON.stringify({ id: CORRECTION_ID, type: 'prompt', message: followUp })}\n`,
                     )
                 }
             }
@@ -137,7 +135,7 @@ export async function runPi(input: {
             if (
                 event.type === 'response' &&
                 typeof event.id === 'string' &&
-                event.id.startsWith(CORRECTION_ID_PREFIX) &&
+                event.id === CORRECTION_ID &&
                 event.success !== true
             ) {
                 close()
