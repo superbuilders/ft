@@ -5,12 +5,12 @@ One native smoke-test CLI for agent-driven iteration:
 ```sh
 bun scripts/lab list --json
 bun scripts/lab run success switch
-bun scripts/lab run --all --host both
-bun scripts/lab run distribution --host air
-bun scripts/lab run parallel --host both
+bun scripts/lab run --all --host both --ssh-host user@host
+bun scripts/lab run distribution --host remote --ssh-host lab-machine
+FT_LAB_SSH_HOST=lab-machine bun scripts/lab run parallel --host both
 bun scripts/lab run kill-extract --keep
 bun scripts/lab exec --host local --keep -- --version
-bun scripts/lab exec --host air -- doctor
+bun scripts/lab exec --host remote --ssh-host lab-machine -- doctor
 bun run test scripts/lab
 ```
 
@@ -20,7 +20,7 @@ If your `bun` is a version-manager shim that writes to stdout, run the lab with 
 non-real scenario and never includes either real check. There is no implicit
 suite. Local Bun must match package.json's `packageManager` pin; a mismatch is
 an exit-2 prerequisite error naming both versions. Build preparation happens
-once per host per invocation; air sync, toolchain and dependency preparation do
+once per host per invocation; remote sync, toolchain and dependency preparation do
 too. `--cold` gives the invocation a fresh build cache and each scenario a fresh
 runtime cache. `--keep` retains that run's scratch directory and unmodified
 ft status/events/stderr artifacts. Progress goes to stderr; stdout receives one
@@ -39,8 +39,8 @@ Both hosts use `/tmp/ft-lab`:
 - `cache/runtime/<target>/ft/`: reusable verified Pi/rg/fd trees; scenario state
   is never shared. Parallel and distribution start with empty run-local caches.
 - `cache/archives/`: previously acquired upstream runtime archives.
-- `results/<run-id>.json`: terminal summaries; copied Mac results use
-  `air-<run-id>.json` locally.
+- `results/<run-id>.json`: terminal summaries; copied remote results use
+  `remote-<run-id>.json` locally.
 
 Build versions are `<package-version>-lab.<16-hex-input-hash>`. The input hash
 covers source, lockfile, package metadata, shim/installer, Bun version, native
@@ -50,7 +50,8 @@ builds run `codesign --force --sign -` before SHA-256 generation. Cached builds
 must still match their manifest and report their baked version. Scratch
 `.ft/lock.json` pins that real native hash and uses 64 zeros for other targets. Scratch
 `.ft.json` points a custom `lab` provider and Pi's built-in `groq` provider at the
-loopback model, so both provider kinds are exercised offline.
+loopback model, so both provider kinds are exercised offline. The code fixture uses
+`model-a`, a neutral model id; the research fixture uses the `sonar` adapter.
 
 ## Offline runtime fixtures
 
@@ -96,17 +97,27 @@ not a fixed startup sleep. Fixture recording into src is intentionally removed.
   SIGHUP. Require cancelled status and no executing owned descendants before
   cleanup. Inert zombies are not counted as executing tools.
 
-## air
+## Remote execution
 
-`--host air` uses rsync over `ssh air` to `/tmp/ft-lab/checkout`, excluding `.git`,
+Host choices are `local` (the default), `remote`, and `both` (`run` only).
+The remote machine can be macOS or Linux reachable over SSH. Set its destination
+with `--ssh-host <destination>` (an alias from `~/.ssh/config`, or `user@host`),
+or use the `FT_LAB_SSH_HOST` environment variable; the flag takes precedence.
+`remote` and `both` refuse without a destination, before any local work or transport.
+The coordinator needs ssh and rsync; the remote machine needs rsync, curl, unzip,
+and either sha256sum or shasum for checksum verification.
+
+`--host remote` uses rsync over SSH to `/tmp/ft-lab/checkout`, excluding `.git`,
 `tmp`, and `node_modules`. It runs frozen-lockfile installation only when bun.lock
-changes or dependencies are absent. Bun is pinned from package.json and invoked from
-`/tmp/ft-lab/cache/toolchain/bun-<version>/bun`; installation HOME/cache/temp and Bun package cache
-are also under `/tmp/ft-lab`. No real gh or keychain operations run remotely.
-`--archives` syncs those offline fixture files into the Mac's archive cache.
-The Mac builds and serves its own loopback fixtures. The coordinator copies the
-result before removing only that validated run ID's directory unless `--keep`.
-`--host both` runs all selected scenarios locally then on air and emits one
+changes or dependencies are absent. Bun is pinned from package.json for the remote
+OS and architecture and invoked from `/tmp/ft-lab/cache/toolchain/bun-<version>/bun`;
+installation HOME/cache/temp and Bun package cache are also under `/tmp/ft-lab`.
+No real gh or keychain operations run remotely. `--archives` syncs those offline
+fixture files into the remote archive cache. The remote machine builds and serves
+its own loopback fixtures. The coordinator copies the result before removing only
+that validated run ID's directory unless `--keep`. Remote results identify their
+host as `remote`, independently of the SSH destination.
+`--host both` runs all selected scenarios locally then remotely and emits one
 aggregate containing the flat, host-major per-scenario results.
 
 All children have outer deadlines and recorded process-group ownership. The lab
@@ -125,12 +136,15 @@ bun scripts/lab run real-release --version 0.1.0
 `real-gateway` is Linux-only and makes one code-role tool round trip and one research question
 through the compiled runner (90-second per-role deadlines). It uses the supplied
 project's real `.ft.json` providers and roles, and their key references at that
-project's root, never resolving or printing a key in the lab. Tools work in scratch. This is paid/live behavior.
+project's root, never resolving or printing a key in the lab. Tools work in scratch.
+The research answer must be non-empty; when the research role's model uses the
+`sonar` adapter, it must also contain the adapter's exact `## Citations` heading.
+Other adapters and unadapted models do not need that heading. This is paid/live behavior.
 
 `real-release` uses the caller's real gh configuration or explicitly supplied
 credential environment, actual install.sh and an exact published version into
 scratch installation/cache. No model request occurs. Both scenarios refuse
-remote/both execution; credentials are never forwarded to air.
+remote/both execution; credentials are never forwarded to the remote machine.
 
 ## Results and boundaries
 

@@ -631,11 +631,12 @@ export async function liveToolTurn(context: Context, role: string): Promise<void
 }
 
 /**
- * Ask the real research model one question and require a published answer with sources.
+ * Ask the real research model one question and require an answer, plus Sonar's citations when used.
  * @param context - result and project
+ * @param requireCitations - whether the research role uses the Sonar adapter
  * @returns completion of evidence recording
  */
-export async function liveResearch(context: Context): Promise<void> {
+export async function liveResearch(context: Context, requireCitations: boolean): Promise<void> {
     const out = join(context.project, 'research.out')
 
     await writeFile(
@@ -649,15 +650,18 @@ export async function liveResearch(context: Context): Promise<void> {
     })
     const answer = (await artifact(out)) ?? ''
 
-    check(
-        context.result,
-        'research-answer-with-sources',
-        { code: 0, answer: true, sources: true, error: null },
-        {
-            code: capture.code,
-            answer: answer.trim().length > 0,
-            sources: answer.includes('## Citations'),
-            error: liveError(recorded(capture)),
-        },
-    )
+    const expected: Record<string, unknown> = { code: 0, answer: true, error: null }
+    const observed: Record<string, unknown> = {
+        code: capture.code,
+        answer: answer.trim().length > 0,
+        error: liveError(recorded(capture)),
+    }
+
+    /* Only the Sonar adapter writes this heading; other research models cite in their own way. */
+    if (requireCitations) {
+        expected.sources = true
+        observed.sources = answer.includes('## Citations')
+    }
+
+    check(context.result, 'research-answer-with-sources', expected, observed)
 }

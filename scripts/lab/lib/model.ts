@@ -31,7 +31,7 @@ export function modelServer(
 
             requests.push(body)
 
-            /* TrueFoundry answers Sonar's streamed requests with one JSON completion. */
+            /* A gateway can answer a streamed request with one JSON completion. */
             if (body.model === 'sonar-pro') {
                 return Response.json({
                     choices: [{ message: { content: 'Research answer' }, finish_reason: 'stop' }],

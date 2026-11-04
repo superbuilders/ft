@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { resolveRole } from '../../../src/models/models'
 import { validateConfig } from '../../../src/project/config/config'
 import { TARGETS } from '../../../src/system/host/constants'
 import { platformTarget } from '../../../src/system/host/host'
@@ -34,6 +35,7 @@ export async function realGateway(context: Context, options: Options): Promise<v
     }
 
     const config = validateConfig(JSON.parse(await readFile(path, 'utf8')))
+    const research = resolveRole(config.providers, config.roles, 'research')
     const key = join(context.project, 'real-key.ts')
 
     /* Command keys run in the real project through the built runner; env keys pass through by name. */
@@ -98,7 +100,7 @@ process.stdout.write(output);
 
     await liveToolTurn(context, 'code')
 
-    await liveResearch(context)
+    await liveResearch(context, research.entry?.adapter === 'sonar')
 }
 
 /**

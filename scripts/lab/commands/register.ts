@@ -1,7 +1,8 @@
 import { Option } from 'commander'
 
-import { SCENARIOS } from '../lib/constants'
+import { SCENARIOS, SSH_HOST_REQUIRED } from '../lib/constants'
 import { local, resultCode, resultFor } from '../lib/local'
+import { PrerequisiteError } from '../lib/processes'
 import { remote } from '../lib/remote'
 import { aggregate, selectScenarios, summarize } from '../lib/results'
 
@@ -30,12 +31,21 @@ async function execute(scenarios: string[], options: Options, argv: string[] = [
         }
     }
 
-    const hosts = options.host === 'both' ? (['local', 'air'] as const) : [options.host]
+    if (
+        results.length === 0 &&
+        options.host !== 'local' &&
+        process.env.FT_LAB_REMOTE !== '1' &&
+        !options.sshHost
+    ) {
+        throw new PrerequisiteError(SSH_HOST_REQUIRED)
+    }
+
+    const hosts = options.host === 'both' ? (['local', 'remote'] as const) : [options.host]
 
     for (const host of results.length ? [] : hosts) {
         let completed: Result[]
 
-        if (host === 'air' && process.env.FT_LAB_REMOTE !== '1') {
+        if (host === 'remote' && process.env.FT_LAB_REMOTE !== '1') {
             completed = await remote(scenarios, options, argv)
             completed.forEach(summarize)
         } else {
@@ -60,9 +70,14 @@ async function execute(scenarios: string[], options: Options, argv: string[] = [
 function scratchOptions(command: Command, hosts: string[]): Command {
     return command
         .addOption(
-            new Option('--host <host>', 'native execution host; both runs local then air')
+            new Option('--host <host>', 'native execution host; both runs local then remote')
                 .choices(hosts)
                 .default('local'),
+        )
+        .addOption(
+            new Option('--ssh-host <destination>', 'SSH destination for remote execution').env(
+                'FT_LAB_SSH_HOST',
+            ),
         )
         .option('--keep', 'retain only this run directory and its unchanged diagnostic artifacts')
         .option(
@@ -96,7 +111,7 @@ export function register(program: Command): void {
             .description(
                 'Run the named scenarios, or --all for every scenario except the real checks',
             ),
-        ['local', 'air', 'both'],
+        ['local', 'remote', 'both'],
     )
         .option('--all', 'run every non-real scenario; never includes real checks')
         .option(
@@ -122,7 +137,7 @@ export function register(program: Command): void {
             )
             .allowUnknownOption()
             .passThroughOptions(),
-        ['local', 'air'],
+        ['local', 'remote'],
     ).action(async (argv: string[], inputs: Options) => {
         await execute(['exec'], inputs, argv)
     })

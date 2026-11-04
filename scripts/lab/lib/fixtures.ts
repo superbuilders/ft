@@ -184,7 +184,7 @@ export async function configure(context: Context, build: Build, gateway?: string
                 compat: { supportsDeveloperRole: false },
                 models: [
                     {
-                        id: 'gpt-6.1-sol',
+                        id: 'model-a',
                         reasoning: true,
                         contextWindow: 272_000,
                         maxTokens: 32_768,
@@ -195,7 +195,7 @@ export async function configure(context: Context, build: Build, gateway?: string
             groq: { key, baseUrl },
         },
         roles: {
-            code: { model: 'lab/gpt-6.1-sol', thinking: 'high' },
+            code: { model: 'lab/model-a', thinking: 'high' },
             research: { model: 'lab/sonar-pro' },
             builtin: { model: 'groq/llama-3.1-8b-instant' },
         },

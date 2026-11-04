@@ -180,7 +180,7 @@ async function runOne(
         archives: (build: Build, directory: string) => Promise<ReturnType<typeof Bun.serve>>
     },
 ): Promise<Result> {
-    const result = resultFor(scenario, options.host === 'air' ? 'air' : 'local')
+    const result = resultFor(scenario, options.host === 'remote' ? 'remote' : 'local')
     const directory = join(LAB_ROOT, 'runs', result.runId)
     const persistentCache = join(LAB_ROOT, 'cache')
     const archiveDirectory = options.archives ?? join(persistentCache, 'archives')

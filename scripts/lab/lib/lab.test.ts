@@ -4,8 +4,9 @@ import { join, resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { ANSWER, DUMMY_KEY, SCENARIOS } from './constants'
+import { ANSWER, DUMMY_KEY, LAB_ROOT, SCENARIOS } from './constants'
 import { configure, scratchFixtures } from './fixtures'
+import { liveResearch } from './harness'
 import { local, resultCode, resultFor } from './local'
 import { modelServer } from './model'
 import { check, start, stderrTail } from './processes'
@@ -17,14 +18,15 @@ import type { Aggregate, Context } from './types'
 /**
  * Run the CLI without ambient credentials, keeping its output contract observable.
  * @param args - lab command arguments
+ * @param env - explicit non-secret fixture environment
  * @returns drained CLI exit and pipes
  */
-function cli(args: string[]) {
+function cli(args: string[], env: NodeJS.ProcessEnv = {}) {
     return start(
         undefined,
         [process.execPath, resolve('scripts/lab/index.ts'), ...args],
         process.cwd(),
-        { PATH: '/usr/bin:/bin' },
+        { PATH: '/usr/bin:/bin', ...env },
     ).result
 }
 
@@ -53,6 +55,100 @@ describe('lab contract', () => {
         expect(JSON.parse(capture.stdout).outcome).toBe('prerequisite_error')
         expect(capture.stdout.trim().split('\n')).toHaveLength(1)
     })
+
+    it.each([
+        ['run', 'success', '--host', 'remote'],
+        ['run', 'success', '--host', 'both'],
+        ['exec', '--host', 'remote', '--', '--version'],
+    ])('requires an explicit SSH destination for %j', async (...args) => {
+        const capture = await cli(args)
+        const result = JSON.parse(capture.stdout)
+
+        expect(capture.code).toBe(2)
+        expect(result.outcome).toBe('prerequisite_error')
+        expect(result.error).toContain('--ssh-host <destination>')
+        expect(result.error).toContain('FT_LAB_SSH_HOST')
+        expect(capture.stderr).not.toContain('[lab]')
+        expect(capture.stdout.trim().split('\n')).toHaveLength(1)
+    })
+
+    it('rejects the old author-specific host choice', async () => {
+        const capture = await cli(['run', 'success', '--host', 'air'])
+
+        expect(capture.code).toBe(2)
+        expect(JSON.parse(capture.stdout).outcome).toBe('prerequisite_error')
+    })
+
+    it.each([
+        { args: ['run', 'success', '--ssh-host', 'maintainer@lab'], host: 'maintainer@lab' },
+        { args: ['exec'], host: 'lab-alias' },
+    ])(
+        'uses the SSH flag before the environment, or its fallback: $args',
+        async ({ args, host }) => {
+            const directory = await mkdtemp(join(tmpdir(), 'ft-lab-transport-'))
+            const result = resultFor(args[0] === 'exec' ? 'exec' : 'success', 'remote')
+            const copy = join(LAB_ROOT, 'results', `remote-${result.runId}.json`)
+            const log = join(directory, 'calls')
+
+            try {
+                await writeFile(
+                    join(directory, 'ssh'),
+                    `#!/bin/sh
+[ "$1" = "$LAB_EXPECTED_HOST" ] || exit 91
+printf 'ssh\\n%s\\n%s\\n' "$1" "$2" >> "$LAB_TRANSPORT_CALLS"
+case "$2" in *FT_LAB_REMOTE=1*) printf '%s\\n' "$LAB_REMOTE_RESULT" ;; esac
+`,
+                    { mode: 0o755 },
+                )
+                await writeFile(
+                    join(directory, 'rsync'),
+                    `#!/bin/sh
+printf 'rsync\\n' >> "$LAB_TRANSPORT_CALLS"
+for arg do
+    printf '%s\\n' "$arg" >> "$LAB_TRANSPORT_CALLS"
+    last=$arg
+done
+case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
+`,
+                    { mode: 0o755 },
+                )
+
+                const capture = await cli(
+                    [
+                        ...args,
+                        '--host',
+                        'remote',
+                        '--archives',
+                        directory,
+                        ...(args[0] === 'exec' ? ['--', '--version'] : []),
+                    ],
+                    {
+                        PATH: `${directory}:/usr/bin:/bin`,
+                        FT_LAB_SSH_HOST: 'lab-alias',
+                        LAB_EXPECTED_HOST: host,
+                        LAB_TRANSPORT_CALLS: log,
+                        LAB_REMOTE_RESULT: JSON.stringify(result),
+                    },
+                )
+                const observed = JSON.parse(capture.stdout)
+                const calls = await readFile(log, 'utf8')
+
+                expect(capture.code).toBe(0)
+                expect(observed.host).toBe('remote')
+                expect(observed.runId).toBe(result.runId)
+                expect(calls).toContain(`${host}:${LAB_ROOT}/checkout/`)
+                expect(calls).toContain(`${host}:${LAB_ROOT}/cache/archives/`)
+                expect(calls).toContain("'--host' 'remote'")
+                expect(calls).toContain(`rm -rf ${LAB_ROOT}/runs/${result.runId}`)
+                expect(calls).toContain('Darwin) os=darwin')
+                expect(calls).toContain('Linux) os=linux')
+                expect(JSON.parse(await readFile(copy, 'utf8')).host).toBe('remote')
+            } finally {
+                await rm(directory, { recursive: true, force: true })
+                await rm(copy, { force: true })
+            }
+        },
+    )
 
     it('rejects real checks on both hosts before any execution or transport', async () => {
         const capture = await cli(['run', 'real-gateway', '--host', 'both'])
@@ -90,16 +186,16 @@ describe('lab contract', () => {
 
     it('aggregates per-host results without hiding remote infrastructure failures', () => {
         const native = resultFor('parallel', 'local')
-        const air = resultFor('parallel', 'air')
+        const remote = resultFor('parallel', 'remote')
 
         check(native, 'eight-answers', 8, 8)
-        air.outcome = 'lab_error'
-        air.cleanup.outcome = 'failed'
+        remote.outcome = 'lab_error'
+        remote.cleanup.outcome = 'failed'
 
-        const combined = aggregate([native, air], 'both')
+        const combined = aggregate([native, remote], 'both')
 
         expect(combined.outcome).toBe('lab_error')
-        expect(combined.results).toEqual([native, air])
+        expect(combined.results).toEqual([native, remote])
         expect(Object.keys(combined)).toEqual(['schemaVersion', 'host', 'outcome', 'results'])
     })
 
@@ -247,6 +343,62 @@ describe('lab contract', () => {
         }
     })
 
+    it.each([
+        { requireCitations: true, answer: 'Research answer', passed: false },
+        {
+            requireCitations: true,
+            answer: 'Research answer\n\n## Citations\n\n1. Source',
+            passed: true,
+        },
+        { requireCitations: false, answer: 'Research answer', passed: true },
+        { requireCitations: false, answer: ' \n ', passed: false },
+    ])(
+        'checks live research output without paid requests: %j',
+        async ({ requireCitations, answer, passed }) => {
+            const directory = await mkdtemp(join(tmpdir(), 'ft-lab-research-'))
+            const binary = join(directory, 'runner')
+            const context: Context = {
+                directory,
+                cache: directory,
+                project: directory,
+                build: {
+                    version: '0.1.0-lab.abc',
+                    digest: 'a'.repeat(64),
+                    target: 'linux-x64',
+                    directory,
+                    binary,
+                },
+                result: resultFor('real-gateway', 'local'),
+                processes: new Map(),
+                childStderr: [],
+                env: { LAB_ANSWER: answer },
+            }
+
+            try {
+                await writeFile(
+                    binary,
+                    `#!/bin/sh
+printf '%s' "$LAB_ANSWER" > research.out
+printf '%s\\n' '{"outcome":"success"}'
+`,
+                    { mode: 0o755 },
+                )
+                await liveResearch(context, requireCitations)
+
+                expect(context.result.assertions).toHaveLength(1)
+                expect(context.result.assertions[0]?.passed).toBe(passed)
+                expect(context.result.assertions[0]?.observed).toEqual({
+                    code: 0,
+                    answer: answer.trim().length > 0,
+                    ...(requireCitations ? { sources: answer.includes('## Citations') } : {}),
+                    error: null,
+                })
+            } finally {
+                await rm(directory, { recursive: true, force: true })
+            }
+        },
+    )
+
     it('returns distinct parallel answers for text-block user content', async () => {
         const fixture = modelServer('parallel')
 
@@ -260,7 +412,7 @@ describe('lab contract', () => {
                         'content-type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'gpt-6.1-sol',
+                        model: 'model-a',
                         stream: true,
                         messages: [
                             {
@@ -286,7 +438,7 @@ describe('lab contract', () => {
 
         try {
             const request = {
-                model: 'gpt-6.1-sol',
+                model: 'model-a',
                 messages: [{ role: 'user', content: 'Use bash' }],
                 stream: true,
             }

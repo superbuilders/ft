@@ -1,6 +1,8 @@
 export const LAB_ROOT = '/tmp/ft-lab'
-/** Where the lab keeps the pinned Bun on air; the owner's own Bun is never used, so builds match CI's toolchain. */
-export const AIR_TOOLCHAIN = '/tmp/ft-lab/cache/toolchain'
+/** Where the remote lab keeps pinned Bun; the maintainer's own Bun is never used, so builds match CI's toolchain. */
+export const REMOTE_TOOLCHAIN = '/tmp/ft-lab/cache/toolchain'
+export const SSH_HOST_REQUIRED =
+    'Remote execution requires --ssh-host <destination> or the FT_LAB_SSH_HOST environment variable'
 export const CHILD_TIMEOUT_MS = 180_000
 export const CHECKPOINT_TIMEOUT_MS = 30_000
 export const DUMMY_KEY = 'e2e-dummy-not-a-real-key'

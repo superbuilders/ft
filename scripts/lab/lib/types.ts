@@ -5,7 +5,9 @@ import type { Target } from '../../../src/system/host/types'
  */
 export interface Options {
     /** Execution host, never inferred from the network endpoint. */
-    host: 'local' | 'air' | 'both'
+    host: 'local' | 'remote' | 'both'
+    /** SSH destination from --ssh-host or FT_LAB_SSH_HOST, independent of result identity. */
+    sshHost?: string
     /** Select every non-real scenario, never live checks. */
     all?: boolean
     /** Retain this run only; persistent caches are unaffected. */
@@ -80,7 +82,7 @@ export interface Aggregate {
     host: Options['host']
     /** Most severe verdict: lab failure, assertion failure, usage, pass. */
     outcome: Result['outcome']
-    /** Flat host-major scenario results, local before air. */
+    /** Flat host-major scenario results, local before remote. */
     results: Result[]
 }
 
