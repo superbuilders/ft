@@ -61,7 +61,7 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true })
 })
 
-it('sets a repository up so a clone needs only gh', async () => {
+it('sets a repository up and names the prerequisites for a clone', async () => {
     const repo = join(root, 'repo')
 
     await writeFile(join(repo, 'package.json'), '{\n  "name": "app"\n}\n')
@@ -78,6 +78,9 @@ it('sets a repository up so a clone needs only gh', async () => {
     )
     expect(output).toMatch(/Run as +bun ft \(script added to package.json\)/)
     expect(output).toContain('Optional: bun ft skill')
+    expect(output).toContain(
+        'Anyone who clones the repository needs gh signed in, plus the provider keys and any endpoint variables the config names.',
+    )
 })
 
 it('sets ft up for one person, copying a shared config', async () => {

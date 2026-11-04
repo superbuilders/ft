@@ -164,6 +164,10 @@ describe('config', () => {
     it('accepts the example ft shows when no roles are configured, and resolves its default role', () => {
         const example = validateConfig(JSON.parse(EXAMPLE_CONFIG))
 
+        expect(example.providers).toEqual({
+            anthropic: { key: { env: 'ANTHROPIC_API_KEY' } },
+        })
+        expect(Object.keys(example.roles)).toEqual(['code'])
         expect(resolveRole(example.providers, example.roles)).toMatchObject({
             provider: 'anthropic',
         })

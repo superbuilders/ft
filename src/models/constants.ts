@@ -48,11 +48,10 @@ export const DEADLINE_MAX_SECONDS = 2_147_483
 /** The role a run uses when the caller names neither a role nor a model. */
 export const DEFAULT_ROLE = 'code'
 
-/** A minimal working config, shown wherever ft finds no roles: one key from the environment, one from a command. */
+/** A minimal config shown when no roles are configured, using an Anthropic key from the environment. */
 export const EXAMPLE_CONFIG = `{
     "providers": {
-        "anthropic": { "key": { "env": "ANTHROPIC_API_KEY" } },
-        "openai": { "key": { "command": ["op", "read", "op://vault/openai/key"] } }
+        "anthropic": { "key": { "env": "ANTHROPIC_API_KEY" } }
     },
     "roles": {
         "code": { "model": "anthropic/claude-opus-5-5", "thinking": "high" }

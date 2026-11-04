@@ -8,7 +8,7 @@ A run works like this. The agent writes the task in a file (a brief), ft runs it
 
 ## Install
 
-ft runs on Linux and macOS, on x64 or arm64. You need the [GitHub CLI](https://cli.github.com), signed in (`gh auth login`).
+ft runs on Linux and macOS, on x64 or arm64. It downloads releases through the [GitHub CLI](https://cli.github.com). Sign in with any GitHub account (`gh auth login`).
 
 ```sh
 gh release download -R superbuilders/ft -p install.sh -O - | sh
@@ -17,6 +17,8 @@ gh release download -R superbuilders/ft -p install.sh -O - | sh
 This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder) and creates your personal config in `~/.config/ft`. It changes nothing else.
 
 ## Choose a model
+
+You bring and pay for your own API access. Get a key from your provider. For Anthropic, use the [Anthropic Console](https://console.anthropic.com/) and follow its [API key docs](https://platform.claude.com/docs/en/api/overview).
 
 ft starts with an empty config. Add a provider and a role named `code` to `~/.config/ft/.ft.json`:
 
@@ -32,9 +34,8 @@ ft starts with an empty config. Add a provider and a role named `code` to `~/.co
 }
 ```
 
-- A **provider** says where a model lives and where its key comes from. The key comes from an environment variable (`{ "env": "NAME" }`) or from a command that prints it (`{ "command": ["op", "read", "op://vault/item/key"] }`). ft never writes the key to disk, and only `ft key <provider>` prints it.
-- A **role** names a model for a kind of work. `code` is the default. A repository can add others and pick one with `--role`: for example a `research` role on a model that searches the web, such as Perplexity's Sonar, so agents can look up prior art before a big design decision.
-- Any of Pi's built-in providers works with just a `key`. For your own endpoint, add `baseUrl`, `api` and `models`. This repository's `.ft.json` is a full example, and `ft schema` prints every field.
+- A **provider** says where a model lives and where its key comes from. The key comes from an environment variable (`{ "env": "NAME" }`) or a command that prints it. For example, `{ "command": ["op", "read", "op://vault/item/key"] }` uses [1Password's CLI](https://developer.1password.com/docs/cli/). The item path is a placeholder. ft never writes the key to disk, and only `ft key <provider>` prints it.
+- A **role** names a model for a kind of work. `code` is the default. Add other roles and select one with `--role`.
 
 Set `ANTHROPIC_API_KEY` in the environment ft runs in, then check the setup:
 
@@ -43,6 +44,65 @@ ft doctor
 ```
 
 It asks each provider whether it accepts the key, then ends with `Ready` or with what to fix.
+
+For valid `provider/model` names, see Pi's [provider docs](https://github.com/badlogic/pi-mono/blob/v1.1.0/packages/coding-agent/docs/providers.md) and [model docs](https://github.com/badlogic/pi-mono/blob/v1.1.0/packages/coding-agent/docs/models.md) for the pinned version, `@earendil-works/pi-ai` 1.1.0. Its [catalog queries](https://github.com/badlogic/pi-mono/blob/v1.1.0/packages/ai/README.md#static-catalog-reads) list the provider and model IDs bundled with that version. ft uses that bundled catalog, not the latest online catalog.
+
+Pi's built-in providers need only a `key`. For a custom OpenAI-compatible endpoint, use a config like this:
+
+```json
+{
+    "providers": {
+        "gateway": {
+            "baseUrl": { "env": "GATEWAY_BASE_URL" },
+            "api": "openai-completions",
+            "key": { "env": "GATEWAY_API_KEY" },
+            "models": [{ "id": "your-model-id" }]
+        }
+    },
+    "roles": {
+        "code": { "model": "gateway/your-model-id" }
+    }
+}
+```
+
+Set `GATEWAY_BASE_URL` to the endpoint root, including its version path if needed (for example, `https://gateway.example.com/v1`). Set `GATEWAY_API_KEY` to its key. Replace `your-model-id` with an ID your endpoint serves. `ft schema` prints every config field.
+
+This repository's [`.ft.json`](.ft.json) is the maintainers' own config. It uses their private model gateway and will not work without access to it.
+
+For web research, you can add a `research` role using Perplexity's Sonar. Pi 1.1.0 has no built-in Perplexity provider. This config calls Perplexity directly as a custom endpoint with ft's `sonar` adapter:
+
+```json
+{
+    "providers": {
+        "anthropic": { "key": { "env": "ANTHROPIC_API_KEY" } },
+        "perplexity": {
+            "baseUrl": "https://api.perplexity.ai",
+            "api": "openai-completions",
+            "key": { "env": "PERPLEXITY_API_KEY" },
+            "models": [
+                {
+                    "id": "sonar",
+                    "adapter": "sonar",
+                    "reasoning": false,
+                    "contextWindow": 127000,
+                    "maxTokens": 8192,
+                    "compat": {
+                        "supportsStore": false,
+                        "supportsUsageInStreaming": false,
+                        "maxTokensField": "max_tokens"
+                    }
+                }
+            ]
+        }
+    },
+    "roles": {
+        "code": { "model": "anthropic/claude-opus-5-5", "thinking": "high" },
+        "research": { "model": "perplexity/sonar" }
+    }
+}
+```
+
+Get a [Perplexity API key](https://docs.perplexity.ai/guides/api-key-management) and set `PERPLEXITY_API_KEY`. Run a research brief with `ft run research.md --role research`. Sonar searches the web and runs without local tools.
 
 ## Run a brief
 
@@ -74,16 +134,20 @@ Each new run deletes finished runs older than 14 days. To keep them longer, set 
 "runs": { "keepDays": 30, "dir": "~/ft-runs" }
 ```
 
-## Let your agents use ft
+## Using ft with an agent
 
-Agents learn ft from a skill, a short file that tells them when and how to delegate. Nothing installs it unasked.
+Any harness that can run shell commands can call ft. The optional skill is a short instruction file that tells agents when and how to delegate. Nothing installs it unasked.
 
 ```sh
 ft skill --user     # for you, in every repository
 ft skill            # for everyone working in this repository (commit it)
 ```
 
-Running it again after an update refreshes the skill. To let agents run ft without asking each time, allow ft commands in their permission settings. Agents read the full manual with `ft guide`.
+`ft skill` writes `.agents/skills/ft/SKILL.md` in the repository and links `.claude/skills/ft` to that skill directory. `ft skill --user` writes `~/.agents/skills/ft/SKILL.md`. It adds the Claude Code link under `~/.claude/skills/ft` only if `~/.claude` exists.
+
+Pi discovers the `.agents/skills` file automatically. Claude Code discovers it through the `.claude/skills` link. For other harnesses, tell the agent to run `ft guide` before delegating.
+
+Running `ft skill` again after an update refreshes the installed instructions. To let agents run ft without asking each time, allow ft commands in their permission settings.
 
 ## Set a repository up for your team
 
@@ -92,7 +156,7 @@ ft init                                    # start with an empty config
 ft init --from ~/.config/ft/.ft.json       # or copy your personal one
 ```
 
-This writes the files a teammate needs: `.ft.json`, the pinned version in `.ft/lock.json` with the schema beside it, and a launcher at `.ft/ft`. In a JavaScript repository it also adds an `ft` package script, so `bun ft` or `npm run ft --` works without installing anything. Commit these files. Anyone who clones the repository then needs only gh, signed in, and the provider keys the config names.
+This writes the files a teammate needs: `.ft.json`, the pinned version in `.ft/lock.json` with the schema beside it, and a launcher at `.ft/ft`. In a JavaScript repository it also adds an `ft` package script, so `bun ft` or `npm run ft --` works without installing anything. Commit these files. Anyone who clones the repository needs gh signed in, plus the provider keys and any endpoint variables the config names.
 
 Where a repository has its own `.ft.json`, ft uses only that file; it does not merge in your personal config. So a new empty repository config needs its own providers and roles before runs work there.
 
@@ -125,6 +189,10 @@ ft uninstall --purge    # also removes your config in ~/.config/ft
 
 Repositories set up with `ft init` keep their files. Remove those like any other file in the repository.
 
-## Developing ft
+## Contributing
 
-See [AGENTS.md](AGENTS.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and pull requests. Coding agents should also read [AGENTS.md](AGENTS.md).
+
+## License
+
+[MIT](LICENSE).

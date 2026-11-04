@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install the newest release (the repository is private, so the download goes through gh):
+# Install the newest release through the GitHub CLI:
 # gh release download -R superbuilders/ft -p install.sh -O - | sh
 set -u
 umask 077

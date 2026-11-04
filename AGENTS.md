@@ -30,6 +30,8 @@ bun run dogfood [--remove]                 # Install the last commit's ft as ft-
 
 ## Delegating
 
+Build `ft-dev` first with `bun run dogfood`. Without access to the configured gateway, delegation is optional; tests and checks need no model credentials.
+
 Delegate reviews and scoped changes with `ft-dev` (the `ft` skill, with every
 `ft` command written `ft-dev`). `ft-dev` is a build of the last commit,
 installed beside the released `ft`, so uncommitted edits never break the tool
