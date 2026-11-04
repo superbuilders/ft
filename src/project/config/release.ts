@@ -1,82 +1,67 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { chmod, mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { chmod, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { atomicWrite } from '../../system/files/atomic-write'
 import { TARGETS } from '../../system/host/constants'
-import { commandOutput } from '../../system/process/subprocess'
 import { validateConfig } from './config'
 import {
     CONFIG_FILE,
     LAUNCHER_FILE,
     LOCK_FILE,
     RELEASE_ASSETS,
-    RELEASE_REPOSITORY,
+    RELEASE_URL,
     SCHEMA_FILE,
 } from './constants'
-import { RELEASE_NOT_FOUND } from './patterns'
 
 import type { Lock, Release } from './types'
 
 /**
- * Read release files from one folder: the one the installer has just downloaded the release into
- * (`FT_RELEASE_DIR`), so setup right after an install fetches nothing twice, or else a temporary
- * folder that one authenticated gh download fills. Either way the caller checks each file against
- * the release manifest.
+ * The release URL in use: a mirror or fork named by `FT_RELEASE_URL`, or the published releases.
+ * @returns base URL, without a trailing slash
+ */
+function releaseUrl(): string {
+    return (process.env.FT_RELEASE_URL || RELEASE_URL).replace(/\/$/, '')
+}
+
+/**
+ * Read release files: from the folder the installer has just downloaded the release into
+ * (`FT_RELEASE_DIR`), so setup right after an install fetches nothing twice, or else from the
+ * release URL. Either way the caller checks each file against the release manifest.
  * @param version - exact runner release version
  * @param assets - release asset names
  * @returns each asset's text, in order
  */
-async function releaseFiles(version: string, assets: string[]): Promise<string[]> {
-    /**
-     * Read the assets out of one folder.
-     * @param folder - folder holding the downloaded assets
-     * @returns each asset's text, in order
-     */
-    function read(folder: string): Promise<string[]> {
-        return Promise.all(assets.map(asset => readFile(join(folder, asset), 'utf8')))
-    }
-
+function releaseFiles(version: string, assets: string[]): Promise<string[]> {
     const downloaded = process.env.FT_RELEASE_DIR
 
     if (downloaded) {
-        return read(downloaded)
+        return Promise.all(assets.map(asset => readFile(join(downloaded, asset), 'utf8')))
     }
 
-    const folder = await mkdtemp(join(tmpdir(), 'ft-release-'))
+    return Promise.all(
+        assets.map(async asset => {
+            const url = `${releaseUrl()}/download/v${version}/${asset}`
+            const response = await fetch(url)
 
-    try {
-        await commandOutput([
-            'gh',
-            'release',
-            'download',
-            `v${version}`,
-            '-R',
-            RELEASE_REPOSITORY,
-            ...assets.flatMap(asset => ['-p', asset]),
-            '-D',
-            folder,
-        ]).catch((error: unknown) => {
-            if (error instanceof Error && RELEASE_NOT_FOUND.test(error.message)) {
+            if (response.status === 404) {
                 throw new Error(
                     `${version} is not a published ft release (leave the version out for the newest)`,
-                    { cause: error },
                 )
             }
 
-            throw error
-        })
+            if (!response.ok) {
+                throw new Error(`cannot download ${url} (HTTP ${response.status})`)
+            }
 
-        return await read(folder)
-    } finally {
-        await rm(folder, { recursive: true, force: true })
-    }
+            return response.text()
+        }),
+    )
 }
 
 /**
- * Refuse anything that is not a release version, before it reaches gh.
+ * Refuse anything that is not a release version, before it reaches a URL.
  * @param version - candidate version
  * @returns the version
  */
@@ -154,19 +139,15 @@ export async function fetchRelease(version: string, withLauncher: boolean): Prom
  * @returns its version, such as 0.2.0
  */
 export async function latestVersion(): Promise<string> {
-    const tag = await commandOutput([
-        'gh',
-        'release',
-        'view',
-        '-R',
-        RELEASE_REPOSITORY,
-        '--json',
-        'tagName',
-        '-q',
-        '.tagName',
-    ])
+    const url = `${releaseUrl()}/latest`
+    /* The latest URL redirects to the newest release's tag page; the tag is its last segment. */
+    const response = await fetch(url, { method: 'HEAD' })
 
-    return checkedVersion(tag.trim().replace(/^v/, ''))
+    if (!response.ok) {
+        throw new Error(`cannot find the newest release at ${url} (HTTP ${response.status})`)
+    }
+
+    return checkedVersion(new URL(response.url).pathname.split('/').at(-1)?.replace(/^v/, '') ?? '')
 }
 
 /**

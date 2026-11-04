@@ -6,12 +6,16 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+import { releaseServer } from '../../../shim/tests/fakes/release-server'
 import { TARGETS } from '../../system/host/constants'
 import { pin } from './pin'
+
+import type { ReleaseServer } from '../../../shim/tests/fakes/release-server'
 
 const SCHEMA = '{"title":".ft.json"}\n'
 const SHIM = '#!/bin/sh\n'
 let root: string
+let server: ReleaseServer | undefined
 
 /**
  * Hash text the way a release manifest does.
@@ -22,16 +26,8 @@ function sha(text: string): string {
     return createHash('sha256').update(text).digest('hex')
 }
 
-vi.mock('../../system/process/subprocess', () => ({
-    /**
-     * Supply the newest tag; FT_RELEASE_DIR serves all release assets.
-     * @returns the latest release tag
-     */
-    commandOutput: async () => 'v0.3.0\n',
-}))
-
 /**
- * Write one release's assets into the local release folder.
+ * Publish one release, the newest, on a local release server.
  * @param schemaDigest - the digest the manifest lists for schema.json
  * @returns completion of fixture creation
  */
@@ -49,7 +45,8 @@ async function release(schemaDigest: string): Promise<void> {
             ([name, text]) => writeFile(join(directory, name), text),
         ),
     )
-    vi.stubEnv('FT_RELEASE_DIR', directory)
+    server = await releaseServer({ fixtures: directory, version: '0.3.0' })
+    vi.stubEnv('FT_RELEASE_URL', server.url)
 }
 
 beforeEach(async () => {
@@ -62,6 +59,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+    await server?.close()
+    server = undefined
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
     await rm(root, { recursive: true, force: true })

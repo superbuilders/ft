@@ -124,7 +124,7 @@ export const SCENARIOS = {
         'cold-tool-turn',
         'runner-digest',
         'warm-tool-turn',
-        'warm-no-gh',
+        'warm-no-download',
     ],
     switch: ['A-version', 'B-version', 'A-again-version', 'both-retained', 'two-downloads'],
     parallel: [

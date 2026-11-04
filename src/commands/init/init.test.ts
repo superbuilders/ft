@@ -79,7 +79,7 @@ it('sets a repository up and names the prerequisites for a clone', async () => {
     expect(output).toMatch(/Run as +bun ft \(script added to package.json\)/)
     expect(output).toContain('Optional: bun ft skill')
     expect(output).toContain(
-        'Anyone who clones the repository needs gh signed in, plus the provider keys and any endpoint variables the config names.',
+        'Anyone who clones the repository needs curl, plus the provider keys and any endpoint variables the config names.',
     )
 })
 

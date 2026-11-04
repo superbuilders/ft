@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { chmod, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { releaseServer } from '../../../shim/tests/fakes/release-server'
 import { runStep } from '../../lib/run-step'
 import { build, prebuilt } from './build'
 import { LAB_ROOT, LOOPBACK_SCENARIOS, SCENARIOS } from './constants'
@@ -21,6 +22,7 @@ import { realGateway, realRelease } from './real'
 import { summarize } from './results'
 import { pinnedBunVersion, requirePinnedBun } from './toolchain'
 
+import type { ReleaseServer } from '../../../shim/tests/fakes/release-server'
 import type { Aggregate, Build, Context, Options, Result } from './types'
 
 /**
@@ -89,9 +91,9 @@ function prerequisites(scenario: string, options: Options, argv: string[]): void
         )
     }
 
-    if (scenario === 'real-release' && (!options.version || !Bun.which('gh'))) {
+    if (scenario === 'real-release' && !options.version) {
         throw new PrerequisiteError(
-            'real-release requires --version <published-version> and real gh',
+            'real-release requires --version <published-version>; contacts GitHub with curl and fetch',
         )
     }
 }
@@ -185,6 +187,7 @@ async function runOne(
     const persistentCache = join(LAB_ROOT, 'cache')
     const archiveDirectory = options.archives ?? join(persistentCache, 'archives')
     let context: Context | undefined
+    let release: ReleaseServer | undefined
     let fixture: ReturnType<typeof Bun.serve> | undefined
 
     try {
@@ -198,6 +201,11 @@ async function runOne(
 
         result.buildVersion = compiled.version
         result.buildDigest = compiled.digest
+        release = await releaseServer({
+            fixtures: compiled.directory,
+            version: compiled.version,
+            calls: join(directory, 'release.calls'),
+        })
         context = {
             directory,
             cache: buildCache,
@@ -206,6 +214,7 @@ async function runOne(
             result,
             processes: new Map(),
             childStderr: [],
+            release,
             env: {
                 PATH: `${join(directory, 'bin')}:${process.platform === 'darwin' ? '/usr/bin:/bin:/usr/sbin:/sbin' : '/usr/bin:/bin'}`,
                 HOME: join(directory, 'home'),
@@ -214,7 +223,7 @@ async function runOne(
                 XDG_DATA_HOME: join(directory, 'data'),
                 TMPDIR: join(directory, 'temp'),
                 FT_INSTALL_DIR: join(directory, 'install'),
-                FAKE_CALLS: join(directory, 'gh.calls'),
+                FT_RELEASE_URL: release.url,
                 LANG: 'en_US.UTF-8',
                 TERM: 'dumb',
             },
@@ -308,7 +317,11 @@ async function runOne(
                     for (const pid of context.processes.keys()) {
                         signalGroup(pid, 'SIGKILL')
                     }
+                }
 
+                await release?.close()
+
+                if (context) {
                     await writeFile(join(directory, 'result.json'), JSON.stringify(result, null, 4))
                 }
 

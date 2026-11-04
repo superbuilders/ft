@@ -22,9 +22,11 @@
     "license": "MIT",
     "type": "module",
     "bin": {
-        "ft": "src/cli.ts"
+        "ft": "bin/ft"
     },
     "files": [
+        "bin",
+        "shim/ft",
         "src",
         "!src/**/*.test.ts",
         "!src/**/tests",

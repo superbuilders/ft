@@ -1,15 +1,19 @@
+import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+import { releaseServer } from '../../../shim/tests/fakes/release-server'
 import { ANSWER, DUMMY_KEY, LAB_ROOT, SCENARIOS } from './constants'
-import { configure, scratchFixtures } from './fixtures'
+import { calls, configure, runnerDownloads, scratchFixtures } from './fixtures'
 import { liveResearch } from './harness'
 import { local, resultCode, resultFor } from './local'
 import { modelServer } from './model'
-import { check, start, stderrTail } from './processes'
+import * as processes from './processes'
+import { check, checkpoint, signalGroup, start, stderrTail } from './processes'
+import { realRelease } from './real'
 import { aggregate, selectScenarios } from './results'
 import { requirePinnedBun } from './toolchain'
 
@@ -46,6 +50,9 @@ describe('lab contract', () => {
             'real-release',
         ])
         expect(data.scenarios.every(item => item.assertions.length > 0)).toBe(true)
+        expect(data.scenarios.find(item => item.name === 'distribution')?.assertions).toContain(
+            'warm-no-download',
+        )
     })
 
     it('emits one JSON usage result and exit 2 for invalid hosts', async () => {
@@ -131,17 +138,17 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
                     },
                 )
                 const observed = JSON.parse(capture.stdout)
-                const calls = await readFile(log, 'utf8')
+                const transportCalls = await readFile(log, 'utf8')
 
                 expect(capture.code).toBe(0)
                 expect(observed.host).toBe('remote')
                 expect(observed.runId).toBe(result.runId)
-                expect(calls).toContain(`${host}:${LAB_ROOT}/checkout/`)
-                expect(calls).toContain(`${host}:${LAB_ROOT}/cache/archives/`)
-                expect(calls).toContain("'--host' 'remote'")
-                expect(calls).toContain(`rm -rf ${LAB_ROOT}/runs/${result.runId}`)
-                expect(calls).toContain('Darwin) os=darwin')
-                expect(calls).toContain('Linux) os=linux')
+                expect(transportCalls).toContain(`${host}:${LAB_ROOT}/checkout/`)
+                expect(transportCalls).toContain(`${host}:${LAB_ROOT}/cache/archives/`)
+                expect(transportCalls).toContain("'--host' 'remote'")
+                expect(transportCalls).toContain(`rm -rf ${LAB_ROOT}/runs/${result.runId}`)
+                expect(transportCalls).toContain('Darwin) os=darwin')
+                expect(transportCalls).toContain('Linux) os=linux')
                 expect(JSON.parse(await readFile(copy, 'utf8')).host).toBe('remote')
             } finally {
                 await rm(directory, { recursive: true, force: true })
@@ -268,8 +275,13 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
         expect(stderrTail('')).toBe('')
     })
 
-    it('uses the real native hash and zero placeholders, and gh serves exact version assets', async () => {
+    it('pins native hashes and serves selected release bytes through real curl and fetch', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'ft-lab-unit-'))
+        const release = await releaseServer({
+            fixtures: join(directory, 'release'),
+            version: 'unconfigured',
+            calls: join(directory, 'release.calls'),
+        })
         const context: Context = {
             directory,
             cache: join(directory, 'cache'),
@@ -284,9 +296,10 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
             result: resultFor('distribution', 'local'),
             processes: new Map(),
             childStderr: [],
+            release,
             env: {
                 PATH: `${join(directory, 'bin')}:/usr/bin:/bin`,
-                FAKE_CALLS: join(directory, 'gh.calls'),
+                FT_RELEASE_URL: release.url,
             },
         }
 
@@ -303,16 +316,11 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
             const capture = await start(
                 context,
                 [
-                    'gh',
-                    'release',
-                    'download',
-                    `v${context.build.version}`,
-                    '-R',
-                    'superbuilders/ft',
-                    '-p',
-                    'ft-linux-x64',
-                    '-D',
-                    join(directory, 'download'),
+                    'curl',
+                    '-fsSL',
+                    `${context.env.FT_RELEASE_URL}/download/v${context.build.version}/ft-linux-x64`,
+                    '-o',
+                    join(directory, 'download', 'ft-linux-x64'),
                 ],
                 context.project,
                 context.env,
@@ -325,6 +333,40 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
             expect(await readFile(join(directory, 'download', 'ft-linux-x64'), 'utf8')).toBe(
                 'real bytes',
             )
+            expect(existsSync(join(directory, 'bin', 'gh'))).toBe(false)
+            expect(context.env).not.toHaveProperty('FAKE_FIXTURES')
+            expect(context.env).not.toHaveProperty('FAKE_VERSION')
+            expect(release.controls.fixtures).toBe(context.build.directory)
+            expect(release.controls.version).toBe(context.build.version)
+
+            const latest = await fetch(`${release.url}/latest`, { method: 'HEAD' })
+
+            expect(latest.url).toBe(`${release.url}/tag/v${context.build.version}`)
+            expect(await runnerDownloads(context)).toEqual([
+                `/download/v${context.build.version}/ft-linux-x64`,
+            ])
+            expect(await calls(join(directory, 'release.calls'))).toEqual([
+                `/download/v${context.build.version}/ft-linux-x64`,
+                `/storage/v${context.build.version}/ft-linux-x64`,
+                '/latest',
+                `/tag/v${context.build.version}`,
+            ])
+
+            const second = {
+                ...context.build,
+                version: '0.1.0-lab.second',
+                directory: join(directory, 'second'),
+            }
+
+            await mkdir(second.directory)
+            await writeFile(join(second.directory, 'ft-linux-x64'), 'second bytes')
+            await configure(context, second)
+
+            const response = await fetch(`${release.url}/download/v${second.version}/ft-linux-x64`)
+
+            expect(await response.text()).toBe('second bytes')
+            expect(release.controls.version).toBe(second.version)
+            expect(await runnerDownloads(context)).toHaveLength(2)
 
             const failed = await start(
                 context,
@@ -335,10 +377,142 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
 
             expect(failed.code).toBe(7)
             expect(context.childStderr).toEqual([
-                { argv0: 'gh', code: 0, tail: '' },
+                { argv0: 'curl', code: 0, tail: '' },
                 { argv0: 'sh', code: 7, tail: '<redacted>' },
             ])
         } finally {
+            await release.close()
+            await rm(directory, { recursive: true, force: true })
+        }
+    })
+
+    it('counts only runner asset downloads, not metadata, redirects or runtime archives', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'ft-lab-downloads-'))
+        const release = await releaseServer({ fixtures: directory, version: '0.1.0' })
+        const context = { directory, release } as Context
+
+        try {
+            expect(await runnerDownloads(context)).toEqual([])
+
+            const runners = [
+                '/download/v0.1.0/ft-linux-x64',
+                '/download/v0.2.0-lab.second/ft-darwin-arm64',
+                '/download/v0.1.0/ft-linux-arm64',
+                '/download/v0.1.0/ft-darwin-x64',
+            ]
+
+            await writeFile(
+                join(directory, 'release.calls'),
+                [
+                    '/latest',
+                    '/tag/v0.1.0',
+                    '/download/v0.1.0/ft-shim',
+                    '/download/v0.1.0/install.sh',
+                    '/download/v0.1.0/schema.json',
+                    '/download/v0.1.0/SHA256SUMS',
+                    '/storage/v0.1.0/ft-linux-x64',
+                    '/download/v0.1.0/pi-linux-x64.tar.gz',
+                    ...runners,
+                ].join('\n'),
+            )
+
+            expect(await runnerDownloads(context)).toEqual(runners)
+        } finally {
+            await release.close()
+            await rm(directory, { recursive: true, force: true })
+        }
+    })
+
+    it('holds real curl at the release checkpoint, then serves complete bytes after clearing it', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'ft-lab-checkpoint-'))
+        const ready = join(directory, 'download.ready')
+        const release = await releaseServer({
+            fixtures: directory,
+            version: '0.1.0',
+            checkpoint: ready,
+        })
+        let child: ReturnType<typeof start> | undefined
+
+        try {
+            await writeFile(join(directory, 'ft-linux-x64'), 'complete runner bytes')
+            child = start(
+                undefined,
+                ['curl', '-fsSL', `${release.url}/download/v0.1.0/ft-linux-x64`],
+                directory,
+                { PATH: '/usr/bin:/bin' },
+            )
+            await checkpoint(() => existsSync(ready))
+            signalGroup(child.pid, 'SIGKILL')
+            await child.result
+            delete release.controls.checkpoint
+
+            const response = await fetch(`${release.url}/download/v0.1.0/ft-linux-x64`)
+
+            expect(await response.text()).toBe('complete runner bytes')
+        } finally {
+            if (child) {
+                signalGroup(child.pid, 'SIGKILL')
+            }
+
+            await release.close()
+            await rm(directory, { recursive: true, force: true })
+        }
+    })
+
+    it('uses public release URLs and no gh credentials for the opt-in release check', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'ft-lab-real-release-'))
+        const release = await releaseServer({ fixtures: directory, version: 'unused' })
+        const context: Context = {
+            directory,
+            cache: directory,
+            project: join(directory, 'project'),
+            build: {
+                version: '0.1.0-lab.abc',
+                digest: 'a'.repeat(64),
+                target: 'linux-x64',
+                directory,
+                binary: join(directory, 'runner'),
+            },
+            result: resultFor('real-release', 'local'),
+            processes: new Map(),
+            childStderr: [],
+            release,
+            env: {
+                PATH: '/usr/bin:/bin',
+                FT_RELEASE_URL: release.url,
+                BUN_OPTIONS: '--preload fixture.ts',
+            },
+        }
+        const child = vi.spyOn(processes, 'start').mockReturnValue({
+            pid: 0,
+            result: Promise.resolve({ code: 0, stdout: '0.2.0\n', stderr: '' }),
+        })
+        const request = vi
+            .spyOn(globalThis, 'fetch')
+            .mockResolvedValue(new Response(`${'a'.repeat(64)}  ft-linux-x64\n`))
+
+        try {
+            await mkdir(context.project)
+            await realRelease(context, { host: 'local', version: '0.2.0' })
+
+            expect(request).toHaveBeenCalledExactlyOnceWith(
+                'https://github.com/superbuilders/ft/releases/download/v0.2.0/SHA256SUMS',
+            )
+            expect(child.mock.calls.map(([, argv]) => argv)).toEqual([
+                ['sh', resolve('install.sh'), '0.2.0'],
+                [join(directory, 'install', 'ft'), '--version'],
+            ])
+
+            expect(child.mock.calls.map(call => call[3])).toEqual([
+                { PATH: '/usr/bin:/bin' },
+                { PATH: '/usr/bin:/bin' },
+            ])
+
+            expect(release.requests).toEqual([])
+        } finally {
+            child.mockRestore()
+            request.mockRestore()
+            await release.close()
             await rm(directory, { recursive: true, force: true })
         }
     })
@@ -357,6 +531,7 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
         async ({ requireCitations, answer, passed }) => {
             const directory = await mkdtemp(join(tmpdir(), 'ft-lab-research-'))
             const binary = join(directory, 'runner')
+            const release = await releaseServer({ fixtures: directory, version: 'unused' })
             const context: Context = {
                 directory,
                 cache: directory,
@@ -371,6 +546,7 @@ case "$last" in "$LAB_EXPECTED_HOST":*) ;; *) exit 92 ;; esac
                 result: resultFor('real-gateway', 'local'),
                 processes: new Map(),
                 childStderr: [],
+                release,
                 env: { LAB_ANSWER: answer },
             }
 
@@ -394,6 +570,7 @@ printf '%s\\n' '{"outcome":"success"}'
                     error: null,
                 })
             } finally {
+                await release.close()
                 await rm(directory, { recursive: true, force: true })
             }
         },

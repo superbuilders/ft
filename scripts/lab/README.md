@@ -32,7 +32,7 @@ is ordinary commander help, not a run result.
 Both hosts use `/tmp/ft-lab`:
 
 - `runs/<timestamp>-<random>/`: fresh mode-0700 directory, ownership metadata,
-  scratch HOME, XDG cache/config/data, project, temporary files, fake gh and
+  scratch HOME, XDG cache/config/data, project, temporary files, release.calls and
   captured artifacts. Cleanup removes only this run directory.
 - `cache/builds/<version>/`: immutable, native release-shaped bundles containing
   `ft-<target>`, `ft-shim`, `install.sh`, `SHA256SUMS`.
@@ -67,10 +67,14 @@ exec commands need no runtime archives.
 The lab serves these verified bytes on **host-local loopback**. A Bun preload
 redirects only the runner's exact runtime-release fetches to that server, counts
 fetches, and rejects other non-loopback fetches. It works with source and
-compiled runners without adding a runtime-URL override to ft. The shim tests'
-inline gh double is generalized for lab versions and serves the release folder;
-it is not GitHub authentication, redirect, TLS or published-artifact evidence.
-Only `real-release` checks those live boundaries.
+compiled runners without adding a runtime-URL override to ft. Each scenario also
+starts the shim tests' release server, sets `FT_RELEASE_URL` to its loopback URL,
+and serves the selected native release folder. Real curl and fetch follow its
+GitHub-shaped latest and asset redirects; `release.calls` records request paths.
+Download assertions count only runner asset requests, not metadata or storage
+redirects. Curl must be on the scratch PATH (`/usr/bin` on Linux and macOS).
+This is not TLS or published-artifact evidence; only `real-release` checks those
+live boundaries.
 
 ## Scenarios
 
@@ -81,11 +85,11 @@ success/context/key-caching assertions. Cancellation waits for a model request,
 not a fixed startup sleep. Fixture recording into src is intentionally removed.
 
 - `distribution`: actual install.sh → installed shim → compiled runner → real Pi
-  bash turn, empty cache then warm; exact shim/runner bytes, no warm gh calls.
+  bash turn, empty cache then warm; exact shim/runner bytes, no warm runner downloads.
 - `switch`: genuine compiled A → B → A versions, retained together, two downloads.
 - `parallel`: eight complete distinct tool briefs, one empty runner/runtime cache,
   correct outputs and exactly one runner/Pi/rg/fd fetch.
-- `kill-download`: fake gh writes partial runner bytes and announces readiness;
+- `kill-download`: the release server sends partial runner bytes and announces readiness;
   SIGKILL the installer group, then require dead-lock recovery and exact final
   runner bytes. Crash staging may remain until this run's cleanup, never at a
   final installation path.
@@ -112,7 +116,7 @@ and either sha256sum or shasum for checksum verification.
 changes or dependencies are absent. Bun is pinned from package.json for the remote
 OS and architecture and invoked from `/tmp/ft-lab/cache/toolchain/bun-<version>/bun`;
 installation HOME/cache/temp and Bun package cache are also under `/tmp/ft-lab`.
-No real gh or keychain operations run remotely. `--archives` syncs those offline
+No real release checks or keychain operations run remotely. `--archives` syncs those offline
 fixture files into the remote archive cache. The remote machine builds and serves
 its own loopback fixtures. The coordinator copies the result before removing only
 that validated run ID's directory unless `--keep`. Remote results identify their
@@ -141,10 +145,11 @@ The research answer must be non-empty; when the research role's model uses the
 `sonar` adapter, it must also contain the adapter's exact `## Citations` heading.
 Other adapters and unadapted models do not need that heading. This is paid/live behavior.
 
-`real-release` uses the caller's real gh configuration or explicitly supplied
-credential environment, actual install.sh and an exact published version into
-scratch installation/cache. No model request occurs. Both scenarios refuse
-remote/both execution; credentials are never forwarded to the remote machine.
+`real-release` uses real curl and fetch against public GitHub release URLs,
+actual install.sh and an exact published version into scratch installation/cache.
+It needs no GitHub CLI or authentication, and ignores the fixture release URL.
+No model request occurs. Both scenarios refuse remote/both execution; credentials
+are never forwarded to the remote machine.
 
 ## Results and boundaries
 

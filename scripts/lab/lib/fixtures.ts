@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs'
 import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { fakeGh } from '../../../shim/tests/fakes/gh'
 import { PI_SHA256, PI_VERSION, TOOL_RELEASES } from '../../../src/pi/runtime/constants'
 import { installArchive } from '../../../src/system/install/install'
 import { digest, labChecksums } from './build'
@@ -204,13 +203,13 @@ export async function configure(context: Context, build: Build, gateway?: string
     await mkdir(join(context.project, '.ft'), { recursive: true })
     await writeFile(join(context.project, '.ft/lock.json'), JSON.stringify(lock, null, 4))
     await writeFile(join(context.project, '.ft.json'), JSON.stringify(config, null, 4))
-    context.env.FAKE_FIXTURES = build.directory
-    context.env.FAKE_VERSION = build.version
+    context.release.controls.fixtures = build.directory
+    context.release.controls.version = build.version
 }
 
 /**
- * Install the shared gh double with stdout downloads and an interruption checkpoint.
- * @param context - scratch bin, calls and project
+ * Write scratch project inputs and dummy credentials for the release and model fixtures.
+ * @param context - scratch project and release controls
  * @returns completion of fixture creation
  */
 export async function scratchFixtures(context: Context): Promise<void> {
@@ -219,11 +218,6 @@ export async function scratchFixtures(context: Context): Promise<void> {
     await writeFile(
         join(context.project, 'key.ts'),
         "import { appendFileSync } from 'node:fs'; appendFileSync('key-count', '1\\n'); process.stdout.write(process.env.E2E_SECRET ?? '')\n",
-    )
-    await writeFile(
-        join(context.directory, 'bin', 'gh'),
-        fakeGh({ stdout: true, checkpoint: true }),
-        { mode: 0o755 },
     )
     context.env.E2E_SECRET = DUMMY_KEY
     context.env.OPENAI_API_KEY = 'dummy-removed'
@@ -241,6 +235,19 @@ export async function calls(path: string): Promise<string[]> {
     const text = await readFile(path, 'utf8').catch(() => '')
 
     return text.trim().split('\n').filter(Boolean)
+}
+
+/**
+ * Read runner downloads, excluding metadata, latest lookups and storage redirects.
+ * @param context - owning run and release call log
+ * @returns runner asset request paths
+ */
+export async function runnerDownloads(context: Context): Promise<string[]> {
+    const requests = await calls(join(context.directory, 'release.calls'))
+
+    return requests.filter(path =>
+        /^\/download\/v[^/]+\/ft-(?:linux|darwin)-(?:x64|arm64)$/.test(path),
+    )
 }
 
 /**

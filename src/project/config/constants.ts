@@ -15,8 +15,11 @@ export const SCHEMA_FILE = '.ft/schema.json'
 /** Fields a provider may not set: ft brokers every credential through the provider's `key`. */
 export const FORBIDDEN_PROVIDER_FIELDS = ['apiKey', 'oauth'] as const
 
-/** GitHub repository that publishes ft releases. */
-export const RELEASE_REPOSITORY = 'superbuilders/ft'
+/** The npm package; its `ft` starts the launcher with `FT_NPM_PACKAGE` naming the package folder. */
+export const NPM_PACKAGE = '@superbuilders/ft'
+
+/** Where ft releases are published; `FT_RELEASE_URL` names a mirror or fork with the same layout. */
+export const RELEASE_URL = 'https://github.com/superbuilders/ft/releases'
 
 /** Release assets ft reads besides the runner checksums. */
 export const RELEASE_ASSETS = {

@@ -8,13 +8,22 @@ A run works like this. The agent writes the task in a file (a brief), ft runs it
 
 ## Install
 
-ft runs on Linux and macOS, on x64 or arm64. It downloads releases through the [GitHub CLI](https://cli.github.com). Sign in with any GitHub account (`gh auth login`).
+ft runs on Linux and macOS, on x64 or arm64, and downloads its releases with `curl`.
 
 ```sh
-gh release download -R superbuilders/ft -p install.sh -O - | sh
+curl -fsSL https://github.com/superbuilders/ft/releases/latest/download/install.sh | sh
 ```
 
 This puts `ft` in `~/.local/bin` (set `FT_INSTALL_DIR` to choose another folder) and creates your personal config in `~/.config/ft`. It changes nothing else.
+
+Or install it from npm, if you have [Bun](https://bun.sh):
+
+```sh
+bun add -g @superbuilders/ft       # or: npm install -g @superbuilders/ft
+ft init --user                     # create your personal config
+```
+
+Either way, `ft` is a launcher: in a repository that pins an ft version, it downloads that exact version once and runs it, so everyone on a project runs the same ft.
 
 ## Choose a model
 
@@ -156,7 +165,7 @@ ft init                                    # start with an empty config
 ft init --from ~/.config/ft/.ft.json       # or copy your personal one
 ```
 
-This writes the files a teammate needs: `.ft.json`, the pinned version in `.ft/lock.json` with the schema beside it, and a launcher at `.ft/ft`. In a JavaScript repository it also adds an `ft` package script, so `bun ft` or `npm run ft --` works without installing anything. Commit these files. Anyone who clones the repository needs gh signed in, plus the provider keys and any endpoint variables the config names.
+This writes the files a teammate needs: `.ft.json`, the pinned version in `.ft/lock.json` with the schema beside it, and a launcher at `.ft/ft`. In a JavaScript repository it also adds an `ft` package script, so `bun ft` or `npm run ft --` works without installing anything. Commit these files. Anyone who clones the repository needs curl, plus the provider keys and any endpoint variables the config names.
 
 Where a repository has its own `.ft.json`, ft uses only that file; it does not merge in your personal config. So a new empty repository config needs its own providers and roles before runs work there.
 
@@ -180,6 +189,8 @@ ft upgrade    # or ft update
 
 This moves ft on your machine to the newest release: the `ft` command and your personal setup. It never changes a repository's pinned version. To move a repository to the newest release, run `ft pin` there without a version, then commit the files it changes.
 
+If you installed ft from npm, `ft upgrade` moves only your personal setup; update the `ft` command itself with npm or bun.
+
 ## Uninstall
 
 ```sh
@@ -187,7 +198,7 @@ ft uninstall            # removes ft, its downloads and your personal skill; kee
 ft uninstall --purge    # also removes your config in ~/.config/ft
 ```
 
-Repositories set up with `ft init` keep their files. Remove those like any other file in the repository.
+Repositories set up with `ft init` keep their files. Remove those like any other file in the repository. If you installed ft from npm, remove the `ft` command with npm or bun too.
 
 ## Contributing
 

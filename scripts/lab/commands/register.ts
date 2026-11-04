@@ -102,7 +102,7 @@ export function register(program: Command): void {
         .option('--json', 'print the catalog as JSON')
         .action(() => {
             process.stdout.write(
-                `${JSON.stringify({ schemaVersion: 1, scenarios: Object.entries(SCENARIOS).map(([name, assertions]) => ({ name, assertions, explicitOnly: name.startsWith('real-'), prerequisites: ({ 'real-gateway': 'Linux, --project with real .ft.json providers; paid code-role tool turn and research question', 'real-release': '--version, authenticated real gh; contacts GitHub' } as Record<string, string>)[name] ?? 'native Bun, tar, offline pinned runtime archives where needed', scope: 'Scratch environment, not a security sandbox' })) })}\n`,
+                `${JSON.stringify({ schemaVersion: 1, scenarios: Object.entries(SCENARIOS).map(([name, assertions]) => ({ name, assertions, explicitOnly: name.startsWith('real-'), prerequisites: ({ 'real-gateway': 'Linux, --project with real .ft.json providers; paid code-role tool turn and research question', 'real-release': '--version, curl; contacts public GitHub release URLs' } as Record<string, string>)[name] ?? 'native Bun, tar, offline pinned runtime archives where needed', scope: 'Scratch environment, not a security sandbox' })) })}\n`,
             )
         })
     scratchOptions(
@@ -124,7 +124,7 @@ export function register(program: Command): void {
         )
         .option(
             '--version <version>',
-            'real-release ONLY: install this published version fresh with install.sh and your signed-in gh (no model requests)',
+            'real-release ONLY: install this published version fresh with install.sh and curl from GitHub (no model requests)',
         )
         .action(async (scenarios: string[], inputs: Options) => {
             await execute(selectScenarios(scenarios, inputs.all), inputs)

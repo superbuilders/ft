@@ -1,0 +1,17 @@
+#!/bin/sh
+# The npm package's ft. It starts the launcher shipped beside it, which runs the version a
+# repository or personal config pins, and runs this package's own ft where nothing is pinned yet.
+set -u
+
+# npm links this file into PATH; follow the links to find the package.
+self=$0
+while [ -L "$self" ]; do
+    link=$(readlink "$self") || exit 2
+    case $link in
+        /*) self=$link ;;
+        *) self=${self%/*}/$link ;;
+    esac
+done
+FT_NPM_PACKAGE=$(cd "${self%/*}/.." && pwd -P) || exit 2
+export FT_NPM_PACKAGE
+exec sh "$FT_NPM_PACKAGE/shim/ft" "$@"

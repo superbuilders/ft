@@ -7,7 +7,7 @@ import { RUN_FILES } from '../../../src/project/runs/constants'
 import { exitCode } from '../../../src/project/runs/render'
 import { build, digest } from './build'
 import { ANSWER, DUMMY_KEY, LOOPBACK_SCENARIOS } from './constants'
-import { archives, calls, configure } from './fixtures'
+import { archives, calls, configure, runnerDownloads } from './fixtures'
 import { modelServer } from './model'
 import { check, checkpoint, command, runningPids, signalGroup, start } from './processes'
 
@@ -316,15 +316,10 @@ export async function distribution(context: Context): Promise<void> {
             existsSync(runner) ? await digest(runner) : null,
         )
 
-        const before = await calls(join(context.directory, 'gh.calls'))
+        const before = await runnerDownloads(context)
 
         await toolTurn(context, 'warm-tool-turn', await brief(context, shim, 'warm-tool-turn'))
-        check(
-            context.result,
-            'warm-no-gh',
-            before,
-            await calls(join(context.directory, 'gh.calls')),
-        )
+        check(context.result, 'warm-no-download', before, await runnerDownloads(context))
     } finally {
         await fixture.server.stop(true)
     }
@@ -363,7 +358,7 @@ export async function switchBuild(context: Context): Promise<void> {
     const root = join(join(context.directory, 'xdg'), 'ft', 'runner')
 
     const retained = await readdir(root).catch(() => [])
-    const downloads = await calls(join(context.directory, 'gh.calls'))
+    const downloads = await runnerDownloads(context)
 
     check(
         context.result,
@@ -422,9 +417,9 @@ export async function parallel(context: Context): Promise<void> {
             results,
         )
 
-        const runnerDownloads = await calls(join(context.directory, 'gh.calls'))
+        const runners = await runnerDownloads(context)
 
-        check(context.result, 'runner-installed-once', 1, runnerDownloads.length)
+        check(context.result, 'runner-installed-once', 1, runners.length)
 
         const downloads = await calls(join(context.directory, 'runtime.calls'))
 
@@ -538,22 +533,31 @@ export async function cancelGroup(context: Context): Promise<void> {
 }
 
 /**
- * Hard-kill the shim installer only after fake gh writes partial bytes and signals readiness.
+ * Hard-kill the shim installer only after the release server sends partial bytes and signals readiness.
  * @param context - fresh runner cache
  * @returns completion of recovery assertions
  */
 export async function killDownload(context: Context): Promise<void> {
     const ready = join(context.directory, 'download.ready')
-    const child = start(context, ['sh', resolve('shim/ft'), '--version'], context.project, {
-        ...context.env,
-        LAB_DOWNLOAD_CHECKPOINT: ready,
-    })
 
-    await checkpoint(() => existsSync(ready))
-    await descendants(context, child.pid)
-    check(context.result, 'checkpoint', true, existsSync(ready))
-    signalGroup(child.pid, 'SIGKILL')
-    await child.result
+    context.release.controls.checkpoint = ready
+
+    try {
+        const child = start(
+            context,
+            ['sh', resolve('shim/ft'), '--version'],
+            context.project,
+            context.env,
+        )
+
+        await checkpoint(() => existsSync(ready))
+        await descendants(context, child.pid)
+        check(context.result, 'checkpoint', true, existsSync(ready))
+        signalGroup(child.pid, 'SIGKILL')
+        await child.result
+    } finally {
+        delete context.release.controls.checkpoint
+    }
 
     const final = join(
         join(context.directory, 'xdg'),

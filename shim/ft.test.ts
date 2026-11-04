@@ -18,7 +18,9 @@ import { join, resolve } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { fakeGh as buildFakeGh } from './tests/fakes/gh'
+import { releaseServer } from './tests/fakes/release-server'
+
+import type { ReleaseServer } from './tests/fakes/release-server'
 
 const shim = resolve('shim/ft')
 const installer = resolve('install.sh')
@@ -33,8 +35,6 @@ printf 'runner=0.1.0\\nFT_CONFIG=%s\\n' "\${FT_CONFIG:-unset}"
 printf 'PATH=%s\\n' "$PATH"
 printf 'arg=<%s>\\n' "$@"
 `
-
-const fakeGh = buildFakeGh({ version })
 
 /** The host's copies of the tools the launcher may call, looked up once for every test's PATH. */
 const hostTools = [
@@ -55,6 +55,7 @@ const hostTools = [
     'sha256sum',
     'cmp',
     'shasum',
+    'curl',
 ].flatMap(utility => {
     const located = spawnSync('sh', ['-c', `command -v ${utility}`], { encoding: 'utf8' })
 
@@ -76,16 +77,32 @@ let cache: string
 let fixtures: string
 let calls: string
 let env: NodeJS.ProcessEnv
+let server: ReleaseServer
 
+/**
+ * Hash a release fixture.
+ * @param content - asset contents
+ * @returns its SHA-256 checksum
+ */
 function digest(content: string) {
     return createHash('sha256').update(content).digest('hex')
 }
 
+/**
+ * Write an executable fixture.
+ * @param path - executable path
+ * @param content - executable contents
+ */
 function executable(path: string, content: string) {
     writeFileSync(path, content)
     chmodSync(path, 0o755)
 }
 
+/**
+ * Set up a scope with a pinned runner.
+ * @param hashes - checksums by platform target
+ * @param directory - scope's configuration directory
+ */
 function configure(
     hashes: Record<string, string> = { [target]: digest(runner) },
     directory = project,
@@ -98,10 +115,27 @@ function configure(
     )
 }
 
-function ghCalls() {
-    return existsSync(calls) ? readFileSync(calls, 'utf8').trim().split('\n') : []
+/**
+ * Read release requests, excluding the redirect hops.
+ * @returns requested release paths
+ */
+function releaseCalls() {
+    return existsSync(calls)
+        ? readFileSync(calls, 'utf8')
+              .trim()
+              .split('\n')
+              .filter(path => !path.startsWith('/storage/') && !path.startsWith('/tag/'))
+        : []
 }
 
+/**
+ * Launch a shell script and collect its output.
+ * @param shell - shell to execute
+ * @param args - arguments passed unchanged to the script
+ * @param overrides - test-specific environment overrides
+ * @param script - launcher or installer path
+ * @returns child process and its eventual result
+ */
 function start(shell: string, args: string[], overrides: NodeJS.ProcessEnv = {}, script = shim) {
     const child = spawn(shell, [script, ...args], { cwd, env: { ...env, ...overrides } })
     let stdout = ''
@@ -135,6 +169,11 @@ function start(shell: string, args: string[], overrides: NodeJS.ProcessEnv = {},
     return { child, result }
 }
 
+/**
+ * Wait for an observable launcher state.
+ * @param predicate - whether the expected state has been reached
+ * @returns completion once the state is reached
+ */
 async function waitFor(predicate: () => boolean) {
     for (let attempt = 0; attempt < 200; attempt += 1) {
         if (predicate()) {
@@ -147,10 +186,15 @@ async function waitFor(predicate: () => boolean) {
     throw new Error('Timed out waiting for shim state')
 }
 
+/**
+ * Locate the cached runner for the default fixture.
+ * @returns published runner path
+ */
 function finalPath() {
     return join(cache, 'ft', 'runner', version, digest(runner), 'ft')
 }
 
+/** Assert that the launcher has removed its locks and staging directories. */
 function expectClean() {
     for (const directory of ['locks', 'staging']) {
         const path = join(cache, 'ft', directory)
@@ -159,13 +203,13 @@ function expectClean() {
     }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
     root = mkdtempSync(join(tmpdir(), 'ft-shim-test-'))
     project = join(root, 'project with spaces')
     cwd = join(project, 'nested', 'deep')
     cache = join(root, 'cache')
     fixtures = join(root, 'fixtures')
-    calls = join(root, 'gh.calls')
+    calls = join(root, 'release.calls')
 
     for (const path of [cwd, fixtures, join(root, 'bin'), join(root, 'home')]) {
         mkdirSync(path, { recursive: true })
@@ -175,7 +219,6 @@ beforeEach(() => {
         symlinkSync(path, join(root, 'bin', utility))
     }
 
-    executable(join(root, 'bin', 'gh'), fakeGh)
     executable(
         join(root, 'bin', 'uname'),
         `#!/bin/sh
@@ -192,29 +235,28 @@ esac
         join(fixtures, 'SHA256SUMS'),
         `${digest(runner)}  ft-${target}\n${digest(readFileSync(shim, 'utf8'))}  ft-shim\n${digest('{}\n')}  schema.json\n`,
     )
+    server = await releaseServer({ fixtures, version, calls })
     env = {
         ...process.env,
         PATH: join(root, 'bin'),
         HOME: join(root, 'home'),
-        GH_TOKEN: undefined,
-        GITHUB_TOKEN: undefined,
-        FT_GH_FALLBACK_DIRS: join(root, 'no-gh'),
+        FT_RELEASE_URL: server.url,
+        FT_NPM_PACKAGE: undefined,
         TMPDIR: root,
         XDG_CACHE_HOME: cache,
         FT_INSTALL_DIR: join(root, 'install with spaces'),
         SHELL: '/bin/bash',
         FT_CONFIG: '/must-not-leak-to-bootstrap',
-        FAKE_FIXTURES: fixtures,
-        FAKE_CALLS: calls,
     }
 })
 
-afterEach(() => {
+afterEach(async () => {
+    await server.close()
     rmSync(root, { recursive: true, force: true })
 })
 
 describe.each(shells)('shim via %s', shell => {
-    it('installs, hands off exact argv/config, then uses cache without gh', async () => {
+    it('installs, hands off exact argv/config, then uses cache without curl', async () => {
         configure()
 
         const first = await start(shell, ['run', 'two words', '*', '']).result
@@ -223,74 +265,21 @@ describe.each(shells)('shim via %s', shell => {
         expect(first.stdout).toBe(
             `runner=0.1.0\nFT_CONFIG=${join(project, '.ft.json')}\nPATH=${env.PATH}\narg=<run>\narg=<two words>\narg=<*>\narg=<>\n`,
         )
-        expect(ghCalls()).toEqual([
-            expect.stringContaining(
-                `release download v${version} -R superbuilders/ft -p ft-${target} -D ${cache}/ft/staging/`,
-            ),
-        ])
+        expect(releaseCalls()).toEqual([`/download/v${version}/ft-${target}`])
         expect(existsSync(finalPath())).toBe(true)
         expectClean()
 
+        rmSync(join(root, 'bin', 'curl'))
+        server.controls.fail = 404
+
         const second = await start(shell, ['doctor'], {
-            FAKE_GH_FAIL: 'download',
             HOME: undefined,
             XDG_CONFIG_HOME: undefined,
         }).result
 
         expect(second.code, second.stderr).toBe(0)
         expect(second.stdout).toContain('arg=<doctor>')
-        expect(ghCalls()).toHaveLength(1)
-        expectClean()
-    })
-
-    it('bootstraps with the first executable fallback gh when gh is not on PATH', async () => {
-        rmSync(join(root, 'bin', 'gh'))
-
-        const nonExecutable = join(root, 'non-executable')
-        const fallback = join(root, 'fallback with spaces')
-        const laterFallback = join(root, 'later fallback')
-
-        for (const directory of [nonExecutable, fallback, laterFallback]) {
-            mkdirSync(directory)
-        }
-
-        writeFileSync(join(nonExecutable, 'gh'), fakeGh, { mode: 0o644 })
-        executable(join(fallback, 'gh'), fakeGh)
-        executable(join(laterFallback, 'gh'), '#!/bin/sh\nexit 9\n')
-
-        const result = await start(shell, ['pin', version], {
-            FT_GH_FALLBACK_DIRS: [
-                join(root, 'missing'),
-                nonExecutable,
-                fallback,
-                laterFallback,
-            ].join(':'),
-        }).result
-
-        expect(result.code, result.stderr).toBe(0)
-        expect(result.stdout).toContain('arg=<pin>')
-        expect(result.stdout).toContain(`PATH=${fallback}:`)
-        expect(ghCalls()).toEqual([
-            'release view -R superbuilders/ft --json tagName -q .tagName',
-            expect.stringContaining('-p SHA256SUMS -D '),
-            expect.stringContaining(`-p ft-${target} -D `),
-        ])
-        expect(existsSync(finalPath())).toBe(true)
-        expectClean()
-    })
-
-    it('prefers gh on PATH over fallback directories', async () => {
-        configure()
-
-        const fallback = join(root, 'fallback')
-
-        mkdirSync(fallback)
-        executable(join(fallback, 'gh'), '#!/bin/sh\nexit 9\n')
-
-        const result = await start(shell, ['run'], { FT_GH_FALLBACK_DIRS: fallback }).result
-
-        expect(result.code, result.stderr).toBe(0)
-        expect(ghCalls()).toHaveLength(1)
+        expect(releaseCalls()).toHaveLength(1)
         expectClean()
     })
 
@@ -312,17 +301,15 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code).toBe(2)
         expect(result.stderr).toContain(`missing hash for target ${target}`)
-        expect(ghCalls()).toEqual([])
+        expect(releaseCalls()).toEqual([])
     })
 
     it('six concurrent cold starts download once and all exec', async () => {
         configure()
+        server.controls.delayMs = 300
 
         const results = await Promise.all(
-            Array.from(
-                { length: 6 },
-                (_, index) => start(shell, ['run', String(index)], { FAKE_DELAY: '0.3' }).result,
-            ),
+            Array.from({ length: 6 }, (_, index) => start(shell, ['run', String(index)]).result),
         )
 
         for (const [index, result] of results.entries()) {
@@ -330,7 +317,7 @@ describe.each(shells)('shim via %s', shell => {
             expect(result.stdout).toContain(`arg=<${index}>`)
         }
 
-        expect(ghCalls()).toHaveLength(1)
+        expect(releaseCalls()).toHaveLength(1)
         expectClean()
     })
 
@@ -346,7 +333,7 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor']).result
 
         expect(result.code, result.stderr).toBe(0)
-        expect(ghCalls()).toHaveLength(1)
+        expect(releaseCalls()).toHaveLength(1)
         expectClean()
     })
 
@@ -362,7 +349,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code, result.stderr).toBe(0)
         expect(result.stdout).not.toContain('other build')
-        expect(ghCalls()).toHaveLength(1)
+        expect(releaseCalls()).toHaveLength(1)
         expect(readFileSync(finalPath(), 'utf8')).toBe(runner)
     })
 
@@ -379,7 +366,7 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor']).result
 
         expect(result.code).toBe(0)
-        expect(ghCalls()).toHaveLength(1)
+        expect(releaseCalls()).toHaveLength(1)
         expectClean()
     })
 
@@ -389,10 +376,10 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.code, result.stderr).toBe(0)
         expect(result.stdout).toContain('FT_CONFIG=unset')
         expect(result.stdout).toContain('arg=<pin>\narg=<0.2.0>')
-        expect(ghCalls()).toEqual([
-            'release view -R superbuilders/ft --json tagName -q .tagName',
-            expect.stringContaining('-p SHA256SUMS -D '),
-            expect.stringContaining(`-p ft-${target} -D `),
+        expect(releaseCalls()).toEqual([
+            '/latest',
+            `/download/v${version}/SHA256SUMS`,
+            `/download/v${version}/ft-${target}`,
         ])
         expect(existsSync(finalPath())).toBe(true)
         expectClean()
@@ -403,8 +390,101 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code, result.stderr).toBe(0)
         expect(result.stdout).toContain('arg=<init>\narg=<--user>')
-        expect(ghCalls()[0]).toBe('release view -R superbuilders/ft --json tagName -q .tagName')
+        expect(releaseCalls()[0]).toBe('/latest')
     })
+
+    it('bootstraps npm init with bun without requesting a release', async () => {
+        const npmPackage = join(root, 'npm package')
+
+        mkdirSync(join(npmPackage, 'src'), { recursive: true })
+        writeFileSync(join(npmPackage, 'src', 'cli.ts'), '// npm entrypoint fixture\n')
+        executable(
+            join(root, 'bin', 'bun'),
+            `#!/bin/sh\nprintf 'bun\\nFT_CONFIG=%s\\n' "\${FT_CONFIG:-unset}"\nprintf 'arg=<%s>\\n' "$@"\n`,
+        )
+
+        const result = await start(shell, ['init', '--user'], {
+            FT_NPM_PACKAGE: npmPackage,
+        }).result
+
+        expect(result).toEqual({
+            code: 0,
+            stdout: `bun\nFT_CONFIG=unset\narg=<${join(npmPackage, 'src', 'cli.ts')}>\narg=<init>\narg=<--user>\n`,
+            stderr: '',
+        })
+        expect(releaseCalls()).toEqual([])
+        expect(existsSync(finalPath())).toBe(false)
+        expectClean()
+    })
+
+    it('uses the personal pin instead of npm bun when both are present', async () => {
+        const npmPackage = join(root, 'npm package')
+        const config = join(root, 'xdg')
+        const personal = join(config, 'ft')
+
+        configure(undefined, personal)
+        mkdirSync(join(npmPackage, 'src'), { recursive: true })
+        writeFileSync(join(npmPackage, 'src', 'cli.ts'), '// npm entrypoint fixture\n')
+        executable(join(root, 'bin', 'bun'), '#!/bin/sh\nprintf \'bun\\narg=<%s>\\n\' "$@"\n')
+
+        const result = await start(shell, ['init', '--user'], {
+            FT_NPM_PACKAGE: npmPackage,
+            XDG_CONFIG_HOME: config,
+        }).result
+
+        expect(result.code, result.stderr).toBe(0)
+        expect(result.stdout).toContain('runner=0.1.0\n')
+        expect(result.stdout).toContain(`FT_CONFIG=${join(personal, '.ft.json')}`)
+        expect(result.stdout).toContain('arg=<init>\narg=<--user>')
+        expect(result.stdout).not.toContain('bun\n')
+        expect(releaseCalls()).toEqual([`/download/v${version}/ft-${target}`])
+        expectClean()
+    })
+
+    it.each([[['--version']], [['guide']]])(
+        'runs npm bun for %o where no config exists',
+        async args => {
+            const npmPackage = join(root, 'npm package')
+
+            mkdirSync(join(npmPackage, 'src'), { recursive: true })
+            writeFileSync(join(npmPackage, 'src', 'cli.ts'), '// npm entrypoint fixture\n')
+            executable(
+                join(root, 'bin', 'bun'),
+                '#!/bin/sh\necho bun\nprintf \'arg=<%s>\\n\' "$@"\n',
+            )
+
+            const result = await start(shell, args, { FT_NPM_PACKAGE: npmPackage }).result
+
+            expect(result.code, result.stderr).toBe(0)
+            expect(result.stdout).toBe(
+                `bun\narg=<${join(npmPackage, 'src', 'cli.ts')}>\n${args.map(arg => `arg=<${arg}>\n`).join('')}`,
+            )
+            expect(releaseCalls()).toEqual([])
+        },
+    )
+
+    it.each([[['upgrade']], [['uninstall']]])(
+        'runs npm bun for %o even with a personal pin',
+        async args => {
+            const npmPackage = join(root, 'npm package')
+            const config = join(root, 'xdg')
+
+            configure(undefined, join(config, 'ft'))
+            mkdirSync(join(npmPackage, 'src'), { recursive: true })
+            writeFileSync(join(npmPackage, 'src', 'cli.ts'), '// npm entrypoint fixture\n')
+            executable(join(root, 'bin', 'bun'), '#!/bin/sh\nprintf \'bun\\narg=<%s>\\n\' "$@"\n')
+
+            const result = await start(shell, args, {
+                FT_NPM_PACKAGE: npmPackage,
+                XDG_CONFIG_HOME: config,
+            }).result
+
+            expect(result.code, result.stderr).toBe(0)
+            expect(result.stdout).toContain('bun\n')
+            expect(result.stdout).not.toContain('runner=0.1.0')
+            expect(releaseCalls()).toEqual([])
+        },
+    )
 
     it('uses the personal config where the directory has none', async () => {
         const personal = join(root, 'xdg', 'ft')
@@ -441,7 +521,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code).toBe(2)
         expect(result.stderr).toContain('no personal config (set it up with ft init --user)')
-        expect(ghCalls()).toEqual([])
+        expect(releaseCalls()).toEqual([])
     })
 
     it('asks for ft init when no config exists', async () => {
@@ -451,7 +531,7 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stderr).toContain(
             'no .ft.json here or above, and no personal config (set ft up with ft init',
         )
-        expect(ghCalls()).toEqual([])
+        expect(releaseCalls()).toEqual([])
     })
 
     it('names HOME, not a shell error, when HOME is unset too', async () => {
@@ -471,7 +551,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code).toBe(2)
         expect(result.stderr).toContain(`no ${join(project, '.ft/lock.json')} (run ft pin)`)
-        expect(ghCalls()).toEqual([])
+        expect(releaseCalls()).toEqual([])
     })
 
     it('asks for a personal pin when the personal config has no lock', async () => {
@@ -488,12 +568,13 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stderr).toContain('lock.json (run ft pin --user)')
     })
 
-    it('prints the shim version without config or gh', async () => {
-        rmSync(join(root, 'bin', 'gh'))
+    it('prints the shim version without config or curl', async () => {
+        rmSync(join(root, 'bin', 'curl'))
 
         const result = await start(shell, ['--shim-version']).result
 
-        expect(result).toEqual({ code: 0, stdout: '0.1.0\n', stderr: '' })
+        expect(result).toEqual({ code: 0, stdout: '0.2.0\n', stderr: '' })
+        expect(releaseCalls()).toEqual([])
     })
 
     it.each(['FreeBSD', 'Windows'])('rejects unsupported OS %s', async os => {
@@ -503,7 +584,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code).toBe(2)
         expect(result.stderr).toContain('unsupported platform')
-        expect(ghCalls()).toEqual([])
+        expect(releaseCalls()).toEqual([])
     })
 
     it.each([
@@ -518,7 +599,7 @@ describe.each(shells)('shim via %s', shell => {
         const result = await start(shell, ['doctor'], { FAKE_OS: os, FAKE_ARCH: arch }).result
 
         expect(result.code, result.stderr).toBe(0)
-        expect(ghCalls()[0]).toContain(`-p ft-${mapped} -D `)
+        expect(releaseCalls()).toEqual([`/download/v${version}/ft-${mapped}`])
     })
 
     it('uses shasum when sha256sum is unavailable', async () => {
@@ -549,7 +630,7 @@ describe.each(shells)('shim via %s', shell => {
 
         expect(result.code).toBe(2)
         expect(result.stderr).toContain('invalid or missing runner version')
-        expect(ghCalls()).toEqual([])
+        expect(releaseCalls()).toEqual([])
     })
 
     it('does not publish a bootstrap runner when the release checksum mismatches', async () => {
@@ -572,62 +653,30 @@ describe.each(shells)('shim via %s', shell => {
         expect(result.stderr).toContain('unsupported platform architecture')
     })
 
-    it.each(['auth', 'download'])('reports gh failure %s and cleans up', async failure => {
+    it('reports a failed download with its URL and cleans up', async () => {
         configure()
+        server.controls.fail = 404
 
-        const result = await start(shell, ['run'], { FAKE_GH_FAIL: failure }).result
+        const result = await start(shell, ['run']).result
 
-        expect(result.code).toBe(failure === 'auth' ? 2 : 1)
+        expect(result.code).toBe(1)
         expect(result.stderr).toContain(
-            failure === 'auth' ? 'gh is not authenticated' : 'download or lookup failed',
+            `cannot download ${server.url}/download/v${version}/ft-${target}`,
         )
-        expectClean()
-    })
-
-    it.each([
-        { os: 'Darwin', overrides: {}, locked: true },
-        { os: 'Linux', overrides: {}, locked: false },
-        { os: 'Darwin', overrides: { GH_TOKEN: 'fake-env-token' }, locked: false },
-        { os: 'Darwin', overrides: { GITHUB_TOKEN: 'fake-env-token' }, locked: false },
-        { os: 'Darwin', overrides: { GH_TOKEN: '' }, locked: false },
-        { os: 'Darwin', overrides: { GITHUB_TOKEN: '' }, locked: false },
-        { os: 'Darwin', overrides: { FAKE_AUTH_TOKEN_EXIT: '0' }, locked: false },
-    ])('diagnoses unauthenticated gh without exposing tokens: %j', async scenario => {
-        const mapped = scenario.os === 'Darwin' ? 'darwin-x64' : target
-        const fallback = join(root, 'fallback with spaces')
-
-        configure({ [mapped]: digest(runner) })
-        rmSync(join(root, 'bin', 'gh'))
-        mkdirSync(fallback)
-        executable(join(fallback, 'gh'), fakeGh)
-
-        const result = await start(shell, ['run'], {
-            FAKE_OS: scenario.os,
-            FAKE_GH_FAIL: 'keychain',
-            FT_GH_FALLBACK_DIRS: fallback,
-            ...scenario.overrides,
-        }).result
-
-        expect(result.code).toBe(2)
-        expect(result.stdout).toBe('')
-        expect(result.stderr).toBe(
-            scenario.locked
-                ? 'ft: gh cannot read its token, likely because the macOS login keychain is locked in this session (set GH_TOKEN, or run security unlock-keychain)\n'
-                : 'ft: gh is not authenticated (run gh auth login)\n',
-        )
-        expect(ghCalls()).toEqual([expect.stringContaining(`-p ft-${mapped} -D `), 'auth token'])
+        expect(result.stderr).toContain('(The requested URL returned error: 404)')
         expect(existsSync(finalPath())).toBe(false)
         expectClean()
     })
 
-    it('reports a missing gh', async () => {
+    it('reports a missing curl when a download is needed', async () => {
         configure()
-        rmSync(join(root, 'bin', 'gh'))
+        rmSync(join(root, 'bin', 'curl'))
 
         const result = await start(shell, ['run']).result
 
         expect(result.code).toBe(2)
-        expect(result.stderr).toContain('gh is required')
+        expect(result.stderr).toContain('curl is required to download ft releases')
+        expect(releaseCalls()).toEqual([])
         expectClean()
     })
 
@@ -648,9 +697,11 @@ describe.each(shells)('shim via %s', shell => {
     it.each(['SIGINT', 'SIGTERM'] as const)('cleans staging and lock on %s', async signal => {
         configure()
 
-        const { child, result } = start(shell, ['run'], { FAKE_BLOCK: 'yes' })
+        server.controls.block = true
 
-        await waitFor(() => ghCalls().length === 1)
+        const { child, result } = start(shell, ['run'])
+
+        await waitFor(() => server.requests.includes(`/storage/v${version}/ft-${target}`))
         child.kill(signal)
 
         const finished = await result
@@ -660,10 +711,12 @@ describe.each(shells)('shim via %s', shell => {
         expectClean()
     })
 
-    it('stops a bootstrap while gh is still looking up the latest release', async () => {
-        const { child, result } = start(shell, ['pin', '0.2.0'], { FAKE_BLOCK: 'yes' })
+    it('stops a bootstrap while curl is still downloading release metadata', async () => {
+        server.controls.block = true
 
-        await waitFor(() => ghCalls().length === 1)
+        const { child, result } = start(shell, ['pin', '0.2.0'])
+
+        await waitFor(() => server.requests.includes(`/storage/v${version}/SHA256SUMS`))
         child.kill('SIGTERM')
 
         const finished = await result
@@ -692,7 +745,7 @@ describe.each(shells)('shim via %s', shell => {
             const { child, result } = start(shell, ['run'])
 
             await new Promise(resolveWait => setTimeout(resolveWait, 300))
-            expect(ghCalls()).toEqual([])
+            expect(releaseCalls()).toEqual([])
             child.kill('SIGTERM')
 
             const finished = await result
@@ -715,12 +768,12 @@ describe('installer via sh', () => {
         expect(result.stdout).toMatch(/Setting up your personal config\.\.\. +done/)
         expect(result.stdout).not.toContain('arg=<init>')
         expect(result.stdout).toContain('  https://github.com/superbuilders/ft#readme\n')
-        expect(ghCalls()).toEqual([
-            'auth status',
-            'release view -R superbuilders/ft --json tagName -q .tagName',
-            expect.stringContaining(
-                `release download v0.1.0 -R superbuilders/ft -p ft-shim -p SHA256SUMS -p ft-${target} -p schema.json -D `,
-            ),
+        expect(releaseCalls()).toEqual([
+            '/latest',
+            `/download/v${version}/ft-shim`,
+            `/download/v${version}/SHA256SUMS`,
+            `/download/v${version}/ft-${target}`,
+            `/download/v${version}/schema.json`,
         ])
         expect(readFileSync(finalPath(), 'utf8')).toBe(runner)
 
@@ -783,9 +836,11 @@ describe('installer via sh', () => {
     it.each(['SIGINT', 'SIGTERM'] as const)(
         'cleans installer staging on %s during a blocked download',
         async signal => {
-            const { child, result } = start('sh', [version], { FAKE_BLOCK: 'yes' }, installer)
+            server.controls.block = true
 
-            await waitFor(() => ghCalls().some(call => call.startsWith('release download')))
+            const { child, result } = start('sh', [version], {}, installer)
+
+            await waitFor(() => server.requests.includes(`/storage/v${version}/ft-shim`))
             child.kill(signal)
 
             const finished = await result

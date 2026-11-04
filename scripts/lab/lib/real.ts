@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { resolveRole } from '../../../src/models/models'
 import { validateConfig } from '../../../src/project/config/config'
+import { RELEASE_URL } from '../../../src/project/config/constants'
 import { TARGETS } from '../../../src/system/host/constants'
 import { platformTarget } from '../../../src/system/host/host'
 import { labChecksums } from './build'
@@ -104,7 +104,7 @@ process.stdout.write(output);
 }
 
 /**
- * Explicit published-version cold install through actual gh; never offered remotely.
+ * Explicit published-version cold install through public GitHub release URLs; never offered remotely.
  * @param context - scratch HOME, installation and cache
  * @param options - published version supplied by the caller
  * @returns completion of live distribution checks
@@ -112,24 +112,15 @@ process.stdout.write(output);
 export async function realRelease(context: Context, options: Options): Promise<void> {
     if (!options.version || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(options.version)) {
         throw new PrerequisiteError(
-            'real-release requires --version <published-version>; uses authenticated real gh and GitHub',
+            'real-release requires --version <published-version>; contacts GitHub with curl and fetch',
         )
     }
 
-    const gh = Bun.which('gh')
+    const env = { ...context.env }
 
-    if (!gh) {
-        throw new PrerequisiteError('real-release requires gh on the caller PATH')
-    }
+    delete env.FT_RELEASE_URL
+    delete env.BUN_OPTIONS
 
-    const env = {
-        ...context.env,
-        PATH: process.env.PATH,
-        GH_CONFIG_DIR: process.env.GH_CONFIG_DIR ?? join(homedir(), '.config', 'gh'),
-        GH_TOKEN: process.env.GH_TOKEN,
-        GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-        BUN_OPTIONS: '',
-    }
     const install = await start(
         context,
         ['sh', resolve('install.sh'), options.version],
@@ -143,27 +134,18 @@ export async function realRelease(context: Context, options: Options): Promise<v
         return
     }
 
-    const sums = await start(
-        context,
-        [
-            gh,
-            'release',
-            'download',
-            `v${options.version}`,
-            '-R',
-            'superbuilders/ft',
-            '-p',
-            'SHA256SUMS',
-            '-O',
-            '-',
-        ],
-        context.project,
-        env,
-    ).result
+    const url = `${RELEASE_URL}/download/v${options.version}/SHA256SUMS`
+    const response = await fetch(url)
+
+    if (!response.ok) {
+        throw new PrerequisiteError(`Cannot download ${url} (HTTP ${response.status})`)
+    }
+
+    const sums = await response.text()
     const hashes = Object.fromEntries(
         TARGETS.map(target => [
             target,
-            new RegExp(`^([a-fA-F0-9]{64})  ft-${target}$`, 'm').exec(sums.stdout)?.[1] ?? '',
+            new RegExp(`^([a-fA-F0-9]{64})  ft-${target}$`, 'm').exec(sums)?.[1] ?? '',
         ]),
     )
 

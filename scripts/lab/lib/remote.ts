@@ -61,7 +61,7 @@ mv "$stage/out" ${directory}`
 
 /**
  * Sync the working tree and execute the same host-local command natively over SSH.
- * Only /tmp/ft-lab is writable; gh and keychain access are never used remotely.
+ * Only /tmp/ft-lab is writable; credentials and keychain access are never used remotely.
  * @param scenarios - selected non-real scenarios or exec
  * @param options - remote options
  * @param argv - literal exec arguments
@@ -90,7 +90,7 @@ export async function remote(
 
         if (scenarios.some(scenario => scenario.startsWith('real-'))) {
             throw new PrerequisiteError(
-                'Real scenarios are local-only; lab never forwards credentials or runs gh remotely',
+                'Real scenarios are local-only; lab never forwards credentials or checks live releases remotely',
             )
         }
 

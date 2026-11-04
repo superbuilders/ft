@@ -139,10 +139,10 @@ setup. The repository scope is the
 directory of its own `.ft.json`, else the git repository around the working
 directory; the personal scope is `${XDG_CONFIG_HOME:-~/.config}/ft/`, and for
 the skill, the home directory. `ft init` sets a repository up from one release:
-the lock, schema, launcher `.ft/ft` (the shim, so cloners need only gh), a
+the lock, schema, launcher `.ft/ft` (the shim, so cloners need only curl), a
 starter `.ft.json`, and an `ft` package script when there is a package.json.
 `ft init --user` writes the config, lock and schema only. The installer
-downloads the shim, runner, schema and `SHA256SUMS` in one gh call, installs
+downloads the shim, runner, schema and `SHA256SUMS` with curl, installs
 the shim and caches the runner. Then, with `FT_RELEASE_DIR` naming that
 download so nothing is fetched twice, it runs `ft init --user` when there is no
 personal config, or `ft pin --user <version>` when the personal lock pins
@@ -160,7 +160,13 @@ repository's own config replaces it whole, with no merging. With the personal co
 key commands run) is the config directory, and `workspace` (where runs and
 context live) is the git repository around the working directory. Release
 assets are the runners, `ft-shim`, `install.sh` and `schema.json`, all listed
-in `SHA256SUMS`.
+in `SHA256SUMS`, downloaded with curl or fetch from GitHub's release URLs
+(`FT_RELEASE_URL` names a mirror or fork with the same layout; tests point it
+at `shim/tests/fakes/release-server.ts`). Each release is also published to
+npm as `@superbuilders/ft`, whose `ft` (`bin/ft`) runs the shim with
+`FT_NPM_PACKAGE` set: a pin still wins, and where nothing is pinned the
+package's own source runs in place of the newest release; `ft upgrade` then
+moves only the personal pin.
 
 ft always prints its commands as `ft …`. How a repository runs ft (a package
 script, `.ft/ft`) is the repository's fact, stated by its skill; only

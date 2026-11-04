@@ -1,3 +1,4 @@
+import type { ReleaseServer } from '../../../shim/tests/fakes/release-server'
 import type { Target } from '../../../src/system/host/types'
 
 /**
@@ -148,6 +149,8 @@ export interface Context {
     build: Build
     /** Explicit real project used only by the paid scenario. */
     project: string
+    /** Run-local release URLs and mutable download controls. */
+    release: ReleaseServer
     /** Explicit scratch environment, not ambient credentials. */
     env: NodeJS.ProcessEnv
     /** Bounded completion or schema result receiving evidence. */

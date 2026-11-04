@@ -2,7 +2,7 @@ import { existsSync, lstatSync } from 'node:fs'
 import { readlink, rm } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
-import { SKILL_PATH } from '../../project/config/constants'
+import { NPM_PACKAGE, SKILL_PATH } from '../../project/config/constants'
 import { installedLauncher } from '../../project/config/launcher'
 import { cacheRoot, configRoot, homeDirectory, tildePath } from '../../system/host/host'
 import { styleFor } from '../../system/terminal/style'
@@ -58,7 +58,12 @@ export async function uninstall(options: { purge?: boolean }): Promise<void> {
             {
                 done: removed.length > 0 ? 'Uninstalled ft' : 'Nothing to remove',
                 rows: [...removed.map((path): [string, string] => ['Removed', path]), ...kept],
-                notes: ['Repositories set up with `ft init` keep their files'],
+                notes: [
+                    'Repositories set up with `ft init` keep their files',
+                    ...(process.env.FT_NPM_PACKAGE
+                        ? [`Remove the launcher with npm or bun, as the ${NPM_PACKAGE} package`]
+                        : []),
+                ],
             },
             styleFor(process.stdout),
         ),

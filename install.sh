@@ -1,6 +1,6 @@
 #!/bin/sh
-# Install the newest release through the GitHub CLI:
-# gh release download -R superbuilders/ft -p install.sh -O - | sh
+# Install the newest release:
+# curl -fsSL https://github.com/superbuilders/ft/releases/latest/download/install.sh | sh
 set -u
 umask 077
 
@@ -66,35 +66,35 @@ case $(uname -m) in
     *) fail 2 'unsupported platform architecture (expected arm64 or x64)' ;;
 esac
 runner_asset=ft-$os-$arch
-command -v gh >/dev/null 2>&1 || fail 2 'gh is required (install GitHub CLI, then run gh auth login)'
+command -v curl >/dev/null 2>&1 || fail 2 'curl is required to download ft releases'
 stage=$(mktemp -d "${TMPDIR:-/tmp}/ft-install.XXXXXXXXXX") || fail 1 'cannot create staging directory'
-gh auth status >"$stage/auth.stdout" 2>"$stage/auth.stderr" &
-active_pid=$!
-if ! wait "$active_pid"; then
-    fail 2 'gh is not authenticated (run gh auth login)'
-fi
-active_pid=
+# FT_RELEASE_URL points at a mirror or fork with GitHub's release URL layout.
+release_url=${FT_RELEASE_URL:-https://github.com/superbuilders/ft/releases}
+release_url=${release_url%/}
 
-gh_call() {
-    gh "$@" 2>"$stage/gh.stderr" &
+# Fetch a release URL with curl; the extra arguments say where its output goes.
+release_get() {
+    url=$release_url/$1
+    shift
+    # wait is interruptible by traps, unlike a foreground external command.
+    curl -fsSL "$@" "$url" 2>"$stage/curl.stderr" &
     active_pid=$!
     if wait "$active_pid"; then
         active_pid=
         return 0
-    else
-        gh_status=$?
-        active_pid=
     fi
-    if [ "$gh_status" -eq 4 ] || grep -Eiq 'not logged|not authenticated|authentication|gh auth login|HTTP 401|bad credentials|GH_TOKEN' "$stage/gh.stderr"; then
-        fail 2 'gh is not authenticated (run gh auth login)'
-    fi
-    fail 1 'GitHub release download or lookup failed'
+    active_pid=
+    reason=$(sed -n '$s/^curl: ([0-9]*) //p' "$stage/curl.stderr")
+    fail 1 "cannot download $url${reason:+ ($reason)}"
 }
 
 if [ "$#" -eq 1 ]; then
     version=${1#v}
 else
-    tag=$(gh_call release view -R superbuilders/ft --json tagName -q .tagName) || exit $?
+    # The latest URL redirects to the newest release's tag page; the tag is its last segment.
+    release_get latest -I -o /dev/null -w '%{url_effective}' >"$stage/tag"
+    tag=$(cat "$stage/tag")
+    tag=${tag##*/}
     case $tag in
         v*) version=${tag#v} ;;
         *) fail 2 'latest release has an invalid tag' ;;
@@ -128,7 +128,9 @@ printf '  %sft %s%s%s\n' "$bold" "$green" "$version" "$reset"
 rule
 
 step "$download_label"
-gh_call release download "v$version" -R superbuilders/ft -p ft-shim -p SHA256SUMS -p "$runner_asset" -p schema.json -D "$stage" >/dev/null
+for asset in ft-shim SHA256SUMS "$runner_asset" schema.json; do
+    release_get "download/v$version/$asset" -o "$stage/$asset"
+done
 step_end done "$green"
 
 if command -v sha256sum >/dev/null 2>&1; then

@@ -5,14 +5,14 @@ Open bug reports and feature requests in [GitHub issues](https://github.com/supe
 ## Prerequisites
 
 - [Bun](https://bun.sh) 1.3.13, the version in `package.json`'s `packageManager` field.
-- The [GitHub CLI](https://cli.github.com). Sign in with `gh auth login` to download ft releases.
+- `curl`, which ft uses to download its releases.
 
 ## Set up
 
 Fork [superbuilders/ft](https://github.com/superbuilders/ft) on GitHub. Clone your fork and create a branch for your change:
 
 ```sh
-gh repo clone YOUR_ACCOUNT/ft
+git clone https://github.com/YOUR_ACCOUNT/ft.git
 cd ft
 git switch -c your-change
 bun install
@@ -55,4 +55,4 @@ Keep the change focused and add tests for changed behavior. Run typecheck and th
 
 ## Maintainers only
 
-Run `bun run release <patch|minor|major|x.y.z>` to release a version. This bumps the version, creates a tag and pushes the commit and tag. GitHub Actions builds and publishes the release.
+Run `bun run release <patch|minor|major|x.y.z>` to release a version. This bumps the version, creates a tag and pushes the commit and tag. GitHub Actions builds the release, publishes it on GitHub, then publishes the same version to npm as `@superbuilders/ft`.

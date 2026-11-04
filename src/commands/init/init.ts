@@ -47,7 +47,7 @@ async function packageScript(root: string): Promise<{ command: string; added: bo
 
 /**
  * Set ft up, from one release. For a repository: its lock, schema and launcher, a config and a
- * package script. Cloners need gh signed in plus the configured keys and endpoint variables.
+ * package script. Cloners need curl plus the configured keys and endpoint variables.
  * With `user`: the lock, schema and config in the personal config directory, so ft works in any
  * repository that has not set it up. The agent skill is `ft skill`'s, at either scope.
  * @param version - release to pin
@@ -118,7 +118,7 @@ export async function init(
                     ...fill,
                     `Check it with \`${script.command} doctor\``,
                     `Optional: \`${script.command} skill\`, to teach agents here how to delegate with ft`,
-                    'Commit these files. Anyone who clones the repository needs gh signed in, plus the provider keys and any endpoint variables the config names.',
+                    'Commit these files. Anyone who clones the repository needs curl, plus the provider keys and any endpoint variables the config names.',
                 ],
             },
             style,
