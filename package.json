@@ -1,6 +1,6 @@
 {
     "name": "@superbuilders/ft",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "description": "Runs briefs on the models a repository's config names, so every coding agent on a team delegates the same way",
     "keywords": [
         "ai",
