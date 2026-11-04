@@ -106,3 +106,31 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   RELEASE_TAG: ${{ github.ref_name }}
               run: gh release create "$RELEASE_TAG" -R superbuilders/ft --verify-tag --generate-notes release-assets/*
+
+    # npm trusts this workflow by name (trusted publishing), so no npm token is stored anywhere.
+    npm:
+        needs: release
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version-file: package.json
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+
+            - name: Update npm for trusted publishing
+              run: npm install --global npm@11
+
+            - name: Publish
+              run: npm publish --access public

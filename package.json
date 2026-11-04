@@ -1,8 +1,35 @@
 {
-    "name": "ft",
+    "name": "@superbuilders/ft",
     "version": "0.5.0",
-    "private": true,
+    "description": "Runs briefs on the models a repository's config names, so every coding agent on a team delegates the same way",
+    "keywords": [
+        "ai",
+        "coding-agent",
+        "subagents",
+        "delegation",
+        "pi",
+        "claude-code",
+        "codex"
+    ],
+    "homepage": "https://github.com/superbuilders/ft#readme",
+    "bugs": {
+        "url": "https://github.com/superbuilders/ft/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/superbuilders/ft.git"
+    },
+    "license": "MIT",
     "type": "module",
+    "bin": {
+        "ft": "src/cli.ts"
+    },
+    "files": [
+        "src",
+        "!src/**/*.test.ts",
+        "!src/**/tests",
+        ".agents/skills/ft/SKILL.md"
+    ],
     "scripts": {
         "check": "bun scripts/check",
         "dogfood": "bun scripts/dogfood",
@@ -37,5 +64,8 @@
         "sort-package-json": "^4.0.0",
         "vitest": "4.1.11"
     },
-    "packageManager": "bun@1.3.13"
+    "packageManager": "bun@1.3.13",
+    "engines": {
+        "bun": ">=1.3"
+    }
 }

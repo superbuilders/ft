@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { Command } from 'commander'
 
 import { doctor } from './commands/doctor/doctor'
