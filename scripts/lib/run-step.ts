@@ -1,6 +1,6 @@
 /**
- * Async step runner with spinner UI, ported from the arcade's scripts/lib: named async functions
- * run with spinner feedback, one at a time (`runStep`) or together (`runSteps`).
+ * Async step runner with spinner UI: named async functions run with spinner feedback, one at a
+ * time (`runStep`) or together (`runSteps`).
  */
 
 import { bold } from 'colorette'

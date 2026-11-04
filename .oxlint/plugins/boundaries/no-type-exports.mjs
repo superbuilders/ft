@@ -2,7 +2,7 @@
  * Kind-files that never export types: `constants.ts` (values only),
  * `store.svelte.ts` (the factory; its public interface lives in `types.ts`),
  * and `queries.server.ts` (the query factory; its IO shapes live in
- * `types.ts` — FT-325).
+ * `types.ts`).
  */
 
 export const noTypeExports = {

@@ -1,5 +1,5 @@
 /**
- * Multi-task terminal spinner with braille animation, ported from the arcade's scripts/lib.
+ * Multi-task terminal spinner with braille animation.
  */
 
 import { stderr } from 'node:process'

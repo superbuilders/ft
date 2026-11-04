@@ -115,8 +115,8 @@ export function replay(completion: Completion): string {
 }
 
 /**
- * Sonar cannot call tools, and through TrueFoundry it answers a streamed request with one
- * JSON completion, which Pi reads as an empty stream. Drop the tools and replay the JSON.
+ * Sonar cannot call tools, and some gateways answer its streamed requests with one JSON
+ * completion, which Pi reads as an empty stream. Drop the tools and replay the JSON.
  */
 export const sonar: Adapter = {
     tools: false,

@@ -190,7 +190,7 @@ function facts(status: Status): string {
  * @param status - run status
  * @param state - stored outcome, or `lost`
  * @param style - output styles
- * @returns e.g. `review-k3x2 succeeded in 4m12s (truefoundry/gpt-6.1-sol, 38.2k tokens)`
+ * @returns e.g. `review-k3x2 succeeded in 4m12s (anthropic/claude-opus-5-5, 38.2k tokens)`
  */
 export function headline(status: Status, state: State, style = PLAIN): string {
     const id = style.bold(status.id)

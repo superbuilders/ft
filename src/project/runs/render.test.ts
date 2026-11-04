@@ -63,7 +63,7 @@ describe('the report', () => {
         const lines = renderReport(status, 'success', 'One real problem.\n').trimEnd().split('\n')
 
         expect(lines[0]).toBe(
-            'review-k3x2 succeeded in 4m12s (gateway/gpt-6.1-sol, thinking high, 38.2k tokens, $0.12)',
+            'review-k3x2 succeeded in 4m12s (anthropic/claude-opus-5-5, thinking high, 38.2k tokens, $0.12)',
         )
         expect(lines[1]).toBe('Tools: read 3, grep 1.')
         expect(lines).not.toContain('One real problem.')
@@ -118,7 +118,7 @@ describe('the report', () => {
         })
 
         expect(renderReport(status, 'model_error', null)).toContain(
-            'Next: The provider refused the request: the key in providers.gateway.key is wrong, or it may not use this model.',
+            'Next: The provider refused the request: the key in providers.anthropic.key is wrong, or it may not use this model.',
         )
         expect(
             renderReport(
@@ -133,7 +133,7 @@ describe('the report', () => {
         const status = statusWith({ outcome: 'configuration_error', error: 'no key', answer: null })
 
         expect(headline(status, 'configuration_error')).toBe(
-            'review-k3x2 could not start (gateway/gpt-6.1-sol, thinking high)',
+            'review-k3x2 could not start (anthropic/claude-opus-5-5, thinking high)',
         )
         expect(renderReport(status, 'configuration_error', null).trimEnd().split('\n').at(-1)).toBe(
             'review-k3x2 could not start',

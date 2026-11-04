@@ -1,6 +1,6 @@
 /**
  * Local oxlint plugin (loaded via `jsPlugins`) enforcing the comment
- * convention for properties (FT-81). Two contexts, two shapes:
+ * convention for properties. Two contexts, two shapes:
  *
  * - Field docs — interface members, class fields, and properties of object
  *   literals at module scope (zod schemas, pgTable columns, config) — are
